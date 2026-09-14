@@ -20,7 +20,7 @@ func TestOpenAPIContainsImplementedSurface(t *testing.T) {
 	if err := yaml.Unmarshal(data, &document); err != nil {
 		t.Fatalf("OpenAPI is not valid YAML: %v", err)
 	}
-	if document.OpenAPI != "3.1.0" {
+	if document.OpenAPI != "3.0.3" {
 		t.Fatalf("unexpected OpenAPI version: %s", document.OpenAPI)
 	}
 	required := map[string]string{

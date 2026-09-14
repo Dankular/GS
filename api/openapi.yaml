@@ -1,4 +1,4 @@
-openapi: 3.1.0
+openapi: 3.0.3
 info:
   title: GameService Control API
   version: 0.1.0
@@ -151,8 +151,8 @@ components:
       additionalProperties: false
       required: [apiVersion, kind, metadata, actor, spec]
       properties:
-        apiVersion: { const: game.platform/v1alpha1 }
-        kind: { const: Command }
+        apiVersion: { type: string, enum: [game.platform/v1alpha1] }
+        kind: { type: string, enum: [Command] }
         metadata: { $ref: '#/components/schemas/Metadata' }
         actor: { $ref: '#/components/schemas/Actor' }
         spec: { $ref: '#/components/schemas/Spec' }

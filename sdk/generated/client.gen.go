@@ -23,6 +23,16 @@ const (
 	ServerClaimScopes   = "ServerClaim.Scopes"
 )
 
+// Defines values for CommandApiVersion.
+const (
+	GamePlatformv1alpha1 CommandApiVersion = "game.platform/v1alpha1"
+)
+
+// Defines values for CommandKind.
+const (
+	CommandKindCommand CommandKind = "Command"
+)
+
 // Defines values for CommandResultStatus.
 const (
 	Rejected  CommandResultStatus = "rejected"
@@ -61,12 +71,18 @@ type Actor struct {
 
 // Command defines model for Command.
 type Command struct {
-	Actor      Actor       `json:"actor"`
-	ApiVersion interface{} `json:"apiVersion"`
-	Kind       interface{} `json:"kind"`
-	Metadata   Metadata    `json:"metadata"`
-	Spec       Spec        `json:"spec"`
+	Actor      Actor             `json:"actor"`
+	ApiVersion CommandApiVersion `json:"apiVersion"`
+	Kind       CommandKind       `json:"kind"`
+	Metadata   Metadata          `json:"metadata"`
+	Spec       Spec              `json:"spec"`
 }
+
+// CommandApiVersion defines model for Command.ApiVersion.
+type CommandApiVersion string
+
+// CommandKind defines model for Command.Kind.
+type CommandKind string
 
 // CommandResult defines model for CommandResult.
 type CommandResult struct {
