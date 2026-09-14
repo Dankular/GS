@@ -4,3 +4,5 @@ metadata: { name: gameservice-migrations, namespace: {{ .Values.namespace.app }}
 data:
   001_control.sql: |
 {{ .Files.Get "files/001_control.sql" | indent 4 }}
+  002_match_ticket_link.sql: |
+{{ .Files.Get "files/002_match_ticket_link.sql" | indent 4 }}

@@ -171,7 +171,6 @@ CREATE TABLE IF NOT EXISTS match.matches (
   created_at timestamptz NOT NULL DEFAULT now(),
   updated_at timestamptz NOT NULL DEFAULT now()
 );
-ALTER TABLE match.tickets ADD COLUMN IF NOT EXISTS match_id text REFERENCES match.matches(match_id);
 CREATE TABLE IF NOT EXISTS match.roster_members (
   match_id text NOT NULL REFERENCES match.matches(match_id) ON DELETE CASCADE,
   player_id text NOT NULL,
@@ -222,3 +221,11 @@ CREATE TABLE IF NOT EXISTS ops.audit_log (
   created_at timestamptz NOT NULL DEFAULT now()
 );
 
+CREATE TABLE IF NOT EXISTS platform.player_restrictions (
+  player_id text PRIMARY KEY,
+  kind text NOT NULL CHECK (kind IN ('ban', 'queue', 'admission')),
+  reason text NOT NULL,
+  expires_at timestamptz,
+  actor_id text NOT NULL,
+  created_at timestamptz NOT NULL DEFAULT now()
+);
