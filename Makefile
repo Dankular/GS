@@ -43,3 +43,6 @@ definition-validate:
 
 load-smoke:
 	go test ./tests/load/...
+
+simulator-build:
+	docker compose -f deploy/compose/compose.yaml --profile simulator build simulator-server

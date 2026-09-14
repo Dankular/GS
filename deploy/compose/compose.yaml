@@ -51,4 +51,18 @@ services:
       DATABASE_URL: postgres://gameservice:${POSTGRES_PASSWORD}@postgres:5432/gameservice?sslmode=disable
       OUTBOX_CONSUMER: ${OUTBOX_CONSUMER:-stdout}
     depends_on: { postgres: { condition: service_healthy } }
+  simulator-server:
+    profiles: [simulator]
+    build: { context: ../.., dockerfile: deploy/compose/simulator-server.Dockerfile }
+    environment:
+      SIMULATOR_ADDR: :7000
+      MATCH_ID: ${MATCH_ID:-}
+      ALLOCATION_ID: ${ALLOCATION_ID:-}
+      SERVER_BUILD: ${SERVER_BUILD:-}
+      MATCH_ROSTER: ${MATCH_ROSTER:-}
+      SERVER_CLAIM_PUBLIC_KEY: ${SERVER_CLAIM_PUBLIC_KEY:-}
+      CONTROL_API_URL: ${CONTROL_API_URL:-http://control-api:8080}
+      SERVER_RESULT_TOKEN: ${SERVER_RESULT_TOKEN:-}
+      AGONES_ENABLED: ${AGONES_ENABLED:-false}
+    ports: ["7000:7000"]
 volumes: { postgres-data: {} }
