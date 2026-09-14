@@ -8,6 +8,7 @@ import (
 	"os"
 	"strconv"
 	"strings"
+	"time"
 
 	agonessdk "agones.dev/agones/sdks/go"
 	"github.com/Dankular/GameService/internal/simulator"
@@ -30,15 +31,18 @@ func main() {
 		}
 	}
 	var lifecycle simulator.Lifecycle
+	var sdk *agonessdk.SDK
 	if os.Getenv("AGONES_ENABLED") == "true" {
-		sdk, sdkErr := agonessdk.NewSDK()
+		var sdkErr error
+		sdk, sdkErr = agonessdk.NewSDK()
 		if sdkErr != nil {
 			slog.Error("Agones SDK initialization failed", "error", sdkErr)
 			os.Exit(1)
 		}
 		lifecycle = agonesLifecycle{sdk: sdk}
 	}
-	server, err := simulator.New(simulator.Config{MatchID: os.Getenv("MATCH_ID"), AllocationID: os.Getenv("ALLOCATION_ID"), Build: os.Getenv("SERVER_BUILD"), Roster: roster, PublicKey: ed25519.PublicKey(key), Lifecycle: lifecycle, ResultSink: simulator.HTTPResultSink{ControlURL: os.Getenv("CONTROL_API_URL"), Token: os.Getenv("SERVER_RESULT_TOKEN")}})
+	dynamic := os.Getenv("AGONES_DYNAMIC_ASSIGNMENT") == "true"
+	server, err := simulator.New(simulator.Config{MatchID: os.Getenv("MATCH_ID"), AllocationID: os.Getenv("ALLOCATION_ID"), Build: os.Getenv("SERVER_BUILD"), Roster: roster, PublicKey: ed25519.PublicKey(key), Lifecycle: lifecycle, ResultSink: simulator.HTTPResultSink{ControlURL: os.Getenv("CONTROL_API_URL"), Token: os.Getenv("SERVER_RESULT_TOKEN")}, DynamicAssignment: dynamic})
 	if err != nil {
 		slog.Error("simulator configuration failed", "error", err)
 		os.Exit(1)
@@ -46,6 +50,9 @@ func main() {
 	if err := server.Bootstrap(); err != nil {
 		slog.Error("simulator bootstrap failed", "error", err)
 		os.Exit(1)
+	}
+	if dynamic {
+		go watchAssignment(sdk, server)
 	}
 	addr := os.Getenv("SIMULATOR_ADDR")
 	if addr == "" {
@@ -56,6 +63,40 @@ func main() {
 		slog.Error("simulator stopped", "error", err)
 		os.Exit(1)
 	}
+}
+
+func watchAssignment(sdk *agonessdk.SDK, server *simulator.Server) {
+	ticker := time.NewTicker(500 * time.Millisecond)
+	defer ticker.Stop()
+	for range ticker.C {
+		gameServer, err := sdk.GameServer()
+		if err != nil || gameServer == nil || gameServer.GetObjectMeta() == nil {
+			continue
+		}
+		annotations := gameServer.GetObjectMeta().GetAnnotations()
+		matchID := annotations["gameservice.io/match-id"]
+		allocationID := annotations["gameservice.io/allocation-id"]
+		build := annotations["gameservice.io/server-build"]
+		roster := parseRoster(annotations["gameservice.io/match-roster"])
+		if err := server.Assign(matchID, allocationID, build, roster); err == nil {
+			return
+		}
+	}
+}
+
+func parseRoster(value string) map[string]int {
+	roster := map[string]int{}
+	for _, item := range strings.Split(value, ",") {
+		fields := strings.SplitN(item, ":", 2)
+		if len(fields) != 2 || strings.TrimSpace(fields[0]) == "" {
+			continue
+		}
+		slot, err := strconv.Atoi(fields[1])
+		if err == nil && slot >= 0 {
+			roster[fields[0]] = slot
+		}
+	}
+	return roster
 }
 
 type agonesLifecycle struct {

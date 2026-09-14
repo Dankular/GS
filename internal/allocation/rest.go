@@ -22,6 +22,10 @@ type RESTAllocator struct {
 type allocationRequest struct {
 	Namespace           string     `json:"namespace"`
 	GameServerSelectors []selector `json:"gameServerSelectors"`
+	Metadata            *metaPatch `json:"metadata,omitempty"`
+}
+type metaPatch struct {
+	Annotations map[string]string `json:"annotations,omitempty"`
 }
 type selector struct {
 	MatchLabels map[string]string `json:"matchLabels"`
@@ -46,7 +50,7 @@ func (a RESTAllocator) Allocate(ctx context.Context, selectorValue Selector) (Al
 	if client == nil {
 		client = &http.Client{Timeout: 10 * time.Second}
 	}
-	body, err := json.Marshal(allocationRequest{Namespace: a.Namespace, GameServerSelectors: []selector{{MatchLabels: map[string]string{"platform.game/id": selectorValue.GameID, "platform.game/mode": selectorValue.ModeID, "platform.game/build": selectorValue.Build, "platform.game/region": selectorValue.Region, "platform.game/protocol": selectorValue.Protocol}}}})
+	body, err := json.Marshal(allocationRequest{Namespace: a.Namespace, GameServerSelectors: []selector{{MatchLabels: map[string]string{"platform.game/id": selectorValue.GameID, "platform.game/mode": selectorValue.ModeID, "platform.game/build": selectorValue.Build, "platform.game/region": selectorValue.Region, "platform.game/protocol": selectorValue.Protocol}}}, Metadata: metadata(selectorValue.Metadata)})
 	if err != nil {
 		return Allocation{}, err
 	}
@@ -77,7 +81,18 @@ func (a RESTAllocator) Allocate(ctx context.Context, selectorValue Selector) (Al
 			ports[port.Name] = port.Port
 		}
 	}
-	return Allocation{AllocationID: decoded.GameServerName + "-allocation", GameServer: decoded.GameServerName, Address: decoded.Address, Ports: ports, Labels: map[string]string{"platform.game/id": selectorValue.GameID, "platform.game/mode": selectorValue.ModeID, "platform.game/build": selectorValue.Build, "platform.game/region": selectorValue.Region, "platform.game/protocol": selectorValue.Protocol}}, nil
+	assignedID := selectorValue.AllocationID
+	if assignedID == "" {
+		assignedID = decoded.GameServerName + "-allocation"
+	}
+	return Allocation{AllocationID: assignedID, GameServer: decoded.GameServerName, Address: decoded.Address, Ports: ports, Labels: map[string]string{"platform.game/id": selectorValue.GameID, "platform.game/mode": selectorValue.ModeID, "platform.game/build": selectorValue.Build, "platform.game/region": selectorValue.Region, "platform.game/protocol": selectorValue.Protocol}}, nil
+}
+
+func metadata(values map[string]string) *metaPatch {
+	if len(values) == 0 {
+		return nil
+	}
+	return &metaPatch{Annotations: values}
 }
 
 func MTLSHTTPClient(certPEM, keyPEM, caPEM []byte) (*http.Client, error) {

@@ -2,7 +2,6 @@ package allocation
 
 import (
 	"context"
-	"strings"
 	"testing"
 
 	pb "agones.dev/agones/pkg/allocation/go"
@@ -26,7 +25,7 @@ func TestGRPCAllocatorBuildsRequiredSelectorAndMapsResponse(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	result, err := allocator.Allocate(context.Background(), Selector{GameID: "arena", ModeID: "dm", Build: "sha256:build", Region: "eu-west", Protocol: "3"})
+	result, err := allocator.Allocate(context.Background(), Selector{GameID: "arena", ModeID: "dm", Build: "sha256:build", Region: "eu-west", Protocol: "3", AllocationID: "allocation-1", Metadata: map[string]string{"gameservice.io/match-id": "match-1"}})
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -34,7 +33,10 @@ func TestGRPCAllocatorBuildsRequiredSelectorAndMapsResponse(t *testing.T) {
 	if fake.request.GetNamespace() != "platform-gameservers-eu-west" || labels["platform.game/build"] != "sha256:build" {
 		t.Fatalf("unexpected request: %#v", fake.request)
 	}
-	if result.GameServer != "gs-1" || result.Ports["game"] != 7000 || !strings.HasPrefix(result.AllocationID, "agones-allocation-") {
+	if fake.request.GetMetadata().GetAnnotations()["gameservice.io/match-id"] != "match-1" {
+		t.Fatalf("allocation metadata was not sent: %#v", fake.request.GetMetadata())
+	}
+	if result.GameServer != "gs-1" || result.Ports["game"] != 7000 || result.AllocationID != "allocation-1" {
 		t.Fatalf("unexpected result: %#v", result)
 	}
 }

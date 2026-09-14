@@ -44,6 +44,11 @@ available it is selected automatically because the Agones chart currently
 requires Helm 3 CRD patch semantics; otherwise the configured `helm` binary is
 used.
 
+Dedicated-server assignment is dynamic in the Kind smoke Fleet: the matchmaking
+worker sends match/allocation/build/roster metadata through Agones allocation,
+and the simulator consumes it through the Agones SDK. Join authorization still
+requires a Control API-signed claim.
+
 Nakama also loads the JavaScript bridge in `nakama/runtime/index.js`. Its
 `gameservice.health` RPC performs a bounded health check against the Control
 API, while `gameservice.profile` reads and patches only the authenticated

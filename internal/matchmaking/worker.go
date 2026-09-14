@@ -8,6 +8,7 @@ import (
 	"errors"
 	"fmt"
 	"sort"
+	"strings"
 
 	"github.com/Dankular/GameService/internal/allocation"
 	"github.com/Dankular/GameService/internal/matches"
@@ -51,16 +52,6 @@ func (w Worker) RunOnce(ctx context.Context) (bool, error) {
 		return false, err
 	}
 	seed := batch[0]
-	selector := allocation.Selector{GameID: seed.GameID, ModeID: seed.ModeID, Build: seed.Build, Region: seed.Region, Protocol: w.Protocol}
-	if err := selector.Validate(); err != nil {
-		_ = w.setTicketStatus(ctx, ids, "queued")
-		return false, err
-	}
-	allocated, err := w.Allocator.Allocate(ctx, selector)
-	if err != nil {
-		_ = w.setTicketStatus(ctx, ids, "queued")
-		return false, fmt.Errorf("allocate match server: %w", err)
-	}
 	matchID, err := newID("match")
 	if err != nil {
 		_ = w.setTicketStatus(ctx, ids, "queued")
@@ -73,6 +64,34 @@ func (w Worker) RunOnce(ctx context.Context) (bool, error) {
 		for slot, playerID := range players {
 			roster = append(roster, matches.RosterMember{PlayerID: playerID, Slot: team*w.Policy.TeamSize + slot, Team: fmt.Sprintf("team-%d", team)})
 		}
+	}
+	allocationID, err := newID("allocation")
+	if err != nil {
+		_ = w.setTicketStatus(ctx, ids, "queued")
+		return false, err
+	}
+	rosterParts := make([]string, len(roster))
+	for i, member := range roster {
+		rosterParts[i] = fmt.Sprintf("%s:%d", member.PlayerID, member.Slot)
+	}
+	selector := allocation.Selector{
+		GameID: seed.GameID, ModeID: seed.ModeID, Build: seed.Build, Region: seed.Region,
+		Protocol: w.Protocol, AllocationID: allocationID,
+		Metadata: map[string]string{
+			"gameservice.io/match-id":      matchID,
+			"gameservice.io/allocation-id": allocationID,
+			"gameservice.io/server-build":  seed.Build,
+			"gameservice.io/match-roster":  strings.Join(rosterParts, ","),
+		},
+	}
+	if err := selector.Validate(); err != nil {
+		_ = w.setTicketStatus(ctx, ids, "queued")
+		return false, err
+	}
+	allocated, err := w.Allocator.Allocate(ctx, selector)
+	if err != nil {
+		_ = w.setTicketStatus(ctx, ids, "queued")
+		return false, fmt.Errorf("allocate match server: %w", err)
 	}
 	if _, err := w.MatchStore.Create(ctx, matches.MatchSpec{MatchID: matchID, GameID: seed.GameID, Environment: seed.Environment, ModeID: seed.ModeID, DefinitionRevision: seed.DefinitionRevision, Build: seed.Build, AllocationID: allocated.AllocationID, ServerAddress: allocated.Address, ServerPorts: allocated.Ports}, roster); err != nil {
 		_ = w.setTicketStatus(ctx, ids, "queued")

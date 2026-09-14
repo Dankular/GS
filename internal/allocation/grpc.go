@@ -74,7 +74,11 @@ func (a *GRPCAllocator) Allocate(ctx context.Context, selector Selector) (Alloca
 	if selector.CapacityClass != "" {
 		labels["platform.game/capacity-class"] = selector.CapacityClass
 	}
-	response, err := a.client.Allocate(ctx, &pb.AllocationRequest{Namespace: a.namespace, GameServerSelectors: []*pb.GameServerSelector{{MatchLabels: labels}}})
+	request := &pb.AllocationRequest{Namespace: a.namespace, GameServerSelectors: []*pb.GameServerSelector{{MatchLabels: labels}}}
+	if len(selector.Metadata) > 0 {
+		request.Metadata = &pb.MetaPatch{Annotations: clone(selector.Metadata)}
+	}
+	response, err := a.client.Allocate(ctx, request)
 	if err != nil {
 		return Allocation{}, fmt.Errorf("Agones allocation: %w", err)
 	}
@@ -87,7 +91,11 @@ func (a *GRPCAllocator) Allocate(ctx context.Context, selector Selector) (Alloca
 			ports[port.GetName()] = int(port.GetPort())
 		}
 	}
-	return Allocation{AllocationID: allocationID(), GameServer: response.GetGameServerName(), Address: response.GetAddress(), Ports: ports, Labels: labels}, nil
+	assignedID := selector.AllocationID
+	if assignedID == "" {
+		assignedID = allocationID()
+	}
+	return Allocation{AllocationID: assignedID, GameServer: response.GetGameServerName(), Address: response.GetAddress(), Ports: ports, Labels: labels}, nil
 }
 
 func allocationID() string {

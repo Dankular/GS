@@ -51,14 +51,8 @@ spec:
               env:
                 - name: SIMULATOR_ADDR
                   value: ":7000"
-                - name: MATCH_ID
-                  value: "kind-smoke-match"
-                - name: ALLOCATION_ID
-                  value: "kind-smoke-allocation"
-                - name: SERVER_BUILD
-                  value: dev
-                - name: MATCH_ROSTER
-                  value: "kind-player:0"
+                - name: AGONES_DYNAMIC_ASSIGNMENT
+                  value: "true"
                 - name: SERVER_CLAIM_PUBLIC_KEY
                   value: AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA
                 - name: AGONES_ENABLED

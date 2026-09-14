@@ -26,13 +26,14 @@ type ResultSink interface {
 }
 
 type Config struct {
-	MatchID      string
-	AllocationID string
-	Build        string
-	Roster       map[string]int
-	PublicKey    ed25519.PublicKey
-	Lifecycle    Lifecycle
-	ResultSink   ResultSink
+	MatchID           string
+	AllocationID      string
+	Build             string
+	Roster            map[string]int
+	PublicKey         ed25519.PublicKey
+	Lifecycle         Lifecycle
+	ResultSink        ResultSink
+	DynamicAssignment bool
 }
 
 type ResultRequest struct {
@@ -49,13 +50,36 @@ type Server struct {
 }
 
 func New(config Config) (*Server, error) {
-	if strings.TrimSpace(config.MatchID) == "" || strings.TrimSpace(config.AllocationID) == "" || strings.TrimSpace(config.Build) == "" || len(config.Roster) == 0 {
+	if (!config.DynamicAssignment && (strings.TrimSpace(config.MatchID) == "" || strings.TrimSpace(config.AllocationID) == "" || strings.TrimSpace(config.Build) == "" || len(config.Roster) == 0)) || config.Lifecycle == nil && config.DynamicAssignment {
 		return nil, errors.New("simulator bootstrap configuration is incomplete")
 	}
 	if len(config.PublicKey) != ed25519.PublicKeySize {
 		return nil, errors.New("simulator claim public key is required")
 	}
 	return &Server{config: config}, nil
+}
+
+// Assign applies the match-specific bootstrap delivered through Agones
+// allocation metadata. It is safe to call after the server has reported Ready.
+func (s *Server) Assign(matchID, allocationID, build string, roster map[string]int) error {
+	if strings.TrimSpace(matchID) == "" || strings.TrimSpace(allocationID) == "" || strings.TrimSpace(build) == "" || len(roster) == 0 {
+		return errors.New("dynamic simulator assignment is incomplete")
+	}
+	s.mu.Lock()
+	defer s.mu.Unlock()
+	s.config.MatchID = matchID
+	s.config.AllocationID = allocationID
+	s.config.Build = build
+	s.config.Roster = cloneRoster(roster)
+	return nil
+}
+
+func cloneRoster(input map[string]int) map[string]int {
+	output := make(map[string]int, len(input))
+	for player, slot := range input {
+		output[player] = slot
+	}
+	return output
 }
 
 func (s *Server) Bootstrap() error {
@@ -72,6 +96,8 @@ func (s *Server) Bootstrap() error {
 func (s *Server) IsReady() bool { s.mu.RLock(); defer s.mu.RUnlock(); return s.ready }
 
 func (s *Server) AuthorizeJoin(token string, now time.Time) (string, int, error) {
+	s.mu.RLock()
+	defer s.mu.RUnlock()
 	claim, err := matches.VerifyClaim(token, s.config.PublicKey, now, "game-server", s.config.MatchID, s.config.Build)
 	if err != nil {
 		return "", 0, err

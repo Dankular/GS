@@ -19,6 +19,8 @@ type Selector struct {
 	Region        string
 	Protocol      string
 	CapacityClass string
+	AllocationID  string
+	Metadata      map[string]string
 }
 
 func (s Selector) Validate() error {
@@ -84,7 +86,11 @@ func (a *FakeAllocator) Allocate(ctx context.Context, selector Selector) (Alloca
 		for key, port := range server.Ports {
 			ports[key] = port
 		}
-		return Allocation{AllocationID: fmt.Sprintf("fake-allocation-%d", a.next), GameServer: server.Name, Address: server.Address, Ports: ports, Labels: clone(server.Labels)}, nil
+		assignedID := selector.AllocationID
+		if assignedID == "" {
+			assignedID = fmt.Sprintf("fake-allocation-%d", a.next)
+		}
+		return Allocation{AllocationID: assignedID, GameServer: server.Name, Address: server.Address, Ports: ports, Labels: clone(server.Labels)}, nil
 	}
 	return Allocation{}, ErrNoCompatibleServer
 }

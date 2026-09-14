@@ -65,3 +65,29 @@ func TestSimulatorSubmitsCanonicalResultAndShutsDown(t *testing.T) {
 		t.Fatalf("result was not finalized: %#v", sink.submission)
 	}
 }
+
+func TestDynamicAssignmentUpdatesJoinAuthorization(t *testing.T) {
+	public, private, err := ed25519.GenerateKey(rand.Reader)
+	if err != nil {
+		t.Fatal(err)
+	}
+	lifecycle := &fakeLifecycle{}
+	server, err := New(Config{PublicKey: public, Lifecycle: lifecycle, DynamicAssignment: true})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if err := server.Bootstrap(); err != nil {
+		t.Fatal(err)
+	}
+	if err := server.Assign("dynamic-match", "dynamic-allocation", "build-2", map[string]int{"player": 1}); err != nil {
+		t.Fatal(err)
+	}
+	claim := matches.JoinClaim{Issuer: "control-plane", Audience: "game-server", Subject: "player", MatchID: "dynamic-match", AllocationID: "dynamic-allocation", ServerBuild: "build-2", Slot: 1, IssuedAt: 10, NotBefore: 10, ExpiresAt: 20, JTI: "dynamic-jti"}
+	token, err := matches.SignClaim(claim, private)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if player, slot, err := server.AuthorizeJoin(token, time.Unix(10, 0)); err != nil || player != "player" || slot != 1 {
+		t.Fatalf("dynamic assignment did not authorize player: %q %d %v", player, slot, err)
+	}
+}
