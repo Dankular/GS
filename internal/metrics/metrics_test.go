@@ -28,7 +28,7 @@ func TestRegistryTracksRequestsWithoutDynamicLabels(t *testing.T) {
 		t.Fatal(err)
 	}
 	text := string(body)
-	for _, expected := range []string{"gameservice_http_requests_total 2", "gameservice_http_errors_total 1", "gameservice_http_request_duration_seconds_bucket", "gameservice_http_request_duration_seconds_count 2", "gameservice_process_uptime_seconds"} {
+	for _, expected := range []string{"gameservice_http_requests_total 2", "gameservice_http_errors_total 1", "gameservice_http_responses_total{status_class=\"2xx\"} 1", "gameservice_http_responses_total{status_class=\"5xx\"} 1", "gameservice_http_request_duration_seconds_bucket", "gameservice_http_request_duration_seconds_count 2", "gameservice_process_uptime_seconds"} {
 		if !strings.Contains(text, expected) {
 			t.Fatalf("metrics missing %q: %s", expected, text)
 		}

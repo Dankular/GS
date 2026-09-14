@@ -11,6 +11,7 @@ type Registry struct {
 	started         time.Time
 	requests        atomic.Uint64
 	errors          atomic.Uint64
+	responses       [5]atomic.Uint64
 	durationCount   atomic.Uint64
 	durationNanos   atomic.Uint64
 	durationBuckets [6]atomic.Uint64
@@ -27,6 +28,10 @@ func (r *Registry) Middleware(next http.Handler) http.Handler {
 		r.requests.Add(1)
 		next.ServeHTTP(capture, request)
 		r.observe(time.Since(started))
+		class := capture.status / 100
+		if class >= 1 && class <= 5 {
+			r.responses[class-1].Add(1)
+		}
 		if capture.status >= http.StatusInternalServerError {
 			r.errors.Add(1)
 		}
@@ -50,6 +55,11 @@ func (r *Registry) Write(w http.ResponseWriter) {
 	_, _ = fmt.Fprintf(w, "# HELP gameservice_control_api_up Control API process availability.\n# TYPE gameservice_control_api_up gauge\ngameservice_control_api_up 1\n")
 	_, _ = fmt.Fprintf(w, "# HELP gameservice_http_requests_total HTTP requests received.\n# TYPE gameservice_http_requests_total counter\ngameservice_http_requests_total %d\n", r.requests.Load())
 	_, _ = fmt.Fprintf(w, "# HELP gameservice_http_errors_total HTTP responses with status 5xx.\n# TYPE gameservice_http_errors_total counter\ngameservice_http_errors_total %d\n", r.errors.Load())
+	_, _ = fmt.Fprintln(w, "# HELP gameservice_http_responses_total HTTP responses grouped by status class.")
+	_, _ = fmt.Fprintln(w, "# TYPE gameservice_http_responses_total counter")
+	for class := 1; class <= 5; class++ {
+		_, _ = fmt.Fprintf(w, "gameservice_http_responses_total{status_class=\"%dxx\"} %d\n", class, r.responses[class-1].Load())
+	}
 	_, _ = fmt.Fprintln(w, "# HELP gameservice_http_request_duration_seconds HTTP request duration in seconds.")
 	_, _ = fmt.Fprintln(w, "# TYPE gameservice_http_request_duration_seconds histogram")
 	for index, bound := range durationBucketSeconds {
