@@ -203,6 +203,16 @@ CREATE TABLE IF NOT EXISTS match.results (
   accepted_at timestamptz NOT NULL DEFAULT now(),
   PRIMARY KEY (match_id, result_sequence)
 );
+CREATE TABLE IF NOT EXISTS match.result_conflicts (
+  conflict_id bigint GENERATED ALWAYS AS IDENTITY PRIMARY KEY,
+  match_id text NOT NULL REFERENCES match.matches(match_id) ON DELETE CASCADE,
+  result_sequence bigint NOT NULL CHECK (result_sequence > 0),
+  accepted_digest text NOT NULL,
+  conflicting_digest text NOT NULL,
+  correlation_id text NOT NULL,
+  detected_at timestamptz NOT NULL DEFAULT now()
+);
+CREATE INDEX IF NOT EXISTS result_conflicts_match_idx ON match.result_conflicts(match_id, result_sequence);
 
 CREATE TABLE IF NOT EXISTS ops.delivery_checkpoints (
   consumer_name text NOT NULL,

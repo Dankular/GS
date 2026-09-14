@@ -501,6 +501,17 @@ func main() {
 		defer tx.Rollback(r.Context())
 		duplicate, digest, err := resultFinalizer.Submit(r.Context(), tx, matches.ResultSubmission{MatchID: matchID, Sequence: request.Sequence, Payload: request.Payload, PayloadDigest: request.PayloadDigest, CorrelationID: r.Header.Get("X-Correlation-ID")})
 		if errors.Is(err, matches.ErrResultDigestMismatch) {
+			_, conflictingDigest, validationErr := (matches.ResultSubmission{MatchID: matchID, Sequence: request.Sequence, Payload: request.Payload}).Validate()
+			if validationErr != nil {
+				conflictingDigest = request.PayloadDigest
+			}
+			_ = tx.Rollback(r.Context())
+			if conflictingDigest != "" {
+				if conflictErr := matches.RecordResultConflict(r.Context(), repository.Pool(), matchID, request.Sequence, digest, conflictingDigest, r.Header.Get("X-Correlation-ID")); conflictErr != nil {
+					http.Error(w, "result conflict could not be recorded", http.StatusServiceUnavailable)
+					return
+				}
+			}
 			http.Error(w, "result digest conflict", http.StatusConflict)
 			return
 		}

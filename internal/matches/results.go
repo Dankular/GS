@@ -11,6 +11,7 @@ import (
 	"github.com/Dankular/GameService/internal/compiler"
 	"github.com/Dankular/GameService/internal/economy"
 	"github.com/jackc/pgx/v5"
+	"github.com/jackc/pgx/v5/pgxpool"
 )
 
 var (
@@ -25,6 +26,30 @@ type ResultSubmission struct {
 	Payload       json.RawMessage
 	PayloadDigest string
 	CorrelationID string
+}
+
+// RecordResultConflict persists evidence of a conflicting duplicate after the
+// transaction that attempted the result has been rolled back. Conflicts are
+// security telemetry and put the aggregate into a reviewable state.
+func RecordResultConflict(ctx context.Context, pool *pgxpool.Pool, matchID string, sequence int64, acceptedDigest, conflictingDigest, correlationID string) error {
+	if pool == nil || matchID == "" || sequence < 1 || acceptedDigest == "" || conflictingDigest == "" {
+		return fmt.Errorf("invalid result conflict")
+	}
+	if correlationID == "" {
+		correlationID = matchID
+	}
+	tx, err := pool.Begin(ctx)
+	if err != nil {
+		return err
+	}
+	defer tx.Rollback(ctx)
+	if _, err := tx.Exec(ctx, `INSERT INTO match.result_conflicts(match_id,result_sequence,accepted_digest,conflicting_digest,correlation_id) VALUES($1,$2,$3,$4,$5)`, matchID, sequence, acceptedDigest, conflictingDigest, correlationID); err != nil {
+		return err
+	}
+	if _, err := tx.Exec(ctx, `UPDATE match.matches SET state='Disputed',state_version=state_version+1,updated_at=now() WHERE match_id=$1 AND state IN ('Running','Finalizing','Completed')`, matchID); err != nil {
+		return err
+	}
+	return tx.Commit(ctx)
 }
 
 func (r ResultSubmission) Validate() ([]byte, string, error) {

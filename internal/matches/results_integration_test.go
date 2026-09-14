@@ -73,3 +73,38 @@ func TestSubmitResultPersistsAndDeduplicates(t *testing.T) {
 		t.Fatalf("expected one result outbox event, got %d", events)
 	}
 }
+
+func TestRecordResultConflictDisputesMatch(t *testing.T) {
+	url := os.Getenv("DATABASE_URL")
+	if url == "" {
+		t.Skip("DATABASE_URL is required for integration tests")
+	}
+	pool, err := pgxpool.New(context.Background(), url)
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer pool.Close()
+	ctx := context.Background()
+	matchID := "integration-conflict-" + time.Now().UTC().Format("20060102150405.000000000")
+	if _, err := pool.Exec(ctx, `INSERT INTO match.matches(match_id,game_id,environment,mode_id,definition_revision,state,server_build) VALUES($1,'integration','test','dm',1,'Finalizing','build')`, matchID); err != nil {
+		t.Fatal(err)
+	}
+	defer pool.Exec(ctx, `DELETE FROM match.matches WHERE match_id=$1`, matchID)
+	if err := RecordResultConflict(ctx, pool, matchID, 1, Digest([]byte(`{"score":10}`)), Digest([]byte(`{"score":9}`)), "conflict-correlation"); err != nil {
+		t.Fatal(err)
+	}
+	var state string
+	if err := pool.QueryRow(ctx, `SELECT state FROM match.matches WHERE match_id=$1`, matchID).Scan(&state); err != nil {
+		t.Fatal(err)
+	}
+	if state != "Disputed" {
+		t.Fatalf("expected Disputed state, got %s", state)
+	}
+	var conflicts int
+	if err := pool.QueryRow(ctx, `SELECT count(*) FROM match.result_conflicts WHERE match_id=$1 AND accepted_digest<>conflicting_digest`, matchID).Scan(&conflicts); err != nil {
+		t.Fatal(err)
+	}
+	if conflicts != 1 {
+		t.Fatalf("expected one persisted conflict, got %d", conflicts)
+	}
+}
