@@ -32,6 +32,8 @@ spec:
             - { name: OTEL_EXPORTER_OTLP_ENDPOINT, value: {{ .Values.otel.endpoint | quote }} }
             - name: SERVER_CLAIM_PUBLIC_KEYS
               valueFrom: { secretKeyRef: { name: {{ .Values.serverClaims.publicKeysSecretName }}, key: {{ .Values.serverClaims.publicKeysSecretKey }} } }
+            - name: JOIN_CLAIM_PRIVATE_KEY
+              valueFrom: { secretKeyRef: { name: {{ .Values.serverClaims.privateKeySecretName }}, key: {{ .Values.serverClaims.privateKeySecretKey }} } }
           readinessProbe: { httpGet: { path: /health/ready, port: http }, periodSeconds: 5 }
           livenessProbe: { httpGet: { path: /health/live, port: http }, periodSeconds: 10 }
           resources: {{- toYaml .Values.resources | nindent 12 }}
