@@ -337,6 +337,10 @@ production HA topology: Agones/Kubernetes, multiple API replicas, external
 managed PostgreSQL HA/PITR, ingress/WAF, NetworkPolicies, and the remaining
 workers are still required before production readiness.
 
+Initial RPO/RTO hypotheses and the required evacuation, credential-rotation,
+allocator-loss, migration-failure, and restore drills are documented in
+[`docs/runbooks/launch-readiness.md`](docs/runbooks/launch-readiness.md).
+
 The matchmaking worker signs a short-lived server claim for each allocation.
 The claim is delivered as Agones allocation metadata and is bound to the match,
 allocation, and server build. Mount the private key as a protected file and set
