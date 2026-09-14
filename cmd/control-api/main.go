@@ -25,6 +25,7 @@ import (
 	"github.com/Dankular/GameService/internal/matches"
 	"github.com/Dankular/GameService/internal/matchmaking"
 	telemetry "github.com/Dankular/GameService/internal/metrics"
+	"github.com/Dankular/GameService/internal/nakama"
 	tracing "github.com/Dankular/GameService/internal/telemetry"
 	"github.com/jackc/pgx/v5"
 	"go.opentelemetry.io/contrib/instrumentation/net/http/otelhttp"
@@ -90,6 +91,10 @@ func main() {
 		return economyService.Handle(ctx, tx, envelope)
 	}
 	adminCommandService.Handler = admincommands.Handler(commandHandler)
+	nakamaURL := os.Getenv("NAKAMA_URL")
+	if nakamaURL == "" {
+		nakamaURL = "http://nakama:7350"
+	}
 	metricRegistry := telemetry.New()
 	authenticate := func(r *http.Request) (auth.SessionClaims, error) {
 		return auth.VerifyNakamaSession(strings.TrimPrefix(r.Header.Get("Authorization"), "Bearer "), sessionSigningKey, issuer, audience, time.Now())
@@ -226,6 +231,47 @@ func main() {
 		}
 		if scope := commandScope(e.Spec.Operation); scope != "" && !claims.HasScope(scope) {
 			http.Error(w, "insufficient scope", http.StatusForbidden)
+			return
+		}
+		if e.Spec.Operation == "profile.get" || e.Spec.Operation == "profile.patch_public_fields" {
+			stored, lookupErr := repository.GetForActor(r.Context(), e.Metadata.RequestID, claims.UserID)
+			if lookupErr == nil {
+				w.Header().Set("Content-Type", "application/json")
+				w.Header().Set("X-Idempotency-Replay", "true")
+				writeJSON(w, stored)
+				return
+			}
+			if !errors.Is(lookupErr, pgx.ErrNoRows) {
+				http.Error(w, "command could not be loaded", http.StatusServiceUnavailable)
+				return
+			}
+			rpcOperation := "get"
+			rpcPayload := map[string]any{"operation": rpcOperation}
+			if e.Spec.Operation == "profile.patch_public_fields" {
+				rpcOperation = "patch_public_fields"
+				rpcPayload["operation"] = rpcOperation
+				rpcPayload["fields"] = e.Spec.Arguments["fields"]
+			}
+			profileData, rpcErr := nakama.CallRuntimeRPC(r.Context(), http.DefaultClient, nakamaURL, strings.TrimPrefix(r.Header.Get("Authorization"), "Bearer "), "gameservice.profile", rpcPayload)
+			if rpcErr != nil {
+				slog.Error("profile RPC failed", "requestId", e.Metadata.RequestID, "error", rpcErr)
+				http.Error(w, "profile operation unavailable", http.StatusServiceUnavailable)
+				return
+			}
+			profileResult := commands.Result{RequestID: e.Metadata.RequestID, CorrelationID: e.Metadata.CorrelationID, Status: "succeeded", Operation: e.Spec.Operation, Result: profileData, Events: []string{"profile.updated.v1"}}
+			if rpcOperation == "get" {
+				profileResult.Events = []string{"profile.read.v1"}
+			}
+			result, duplicate, submitErr := repository.SubmitWith(r.Context(), e, func(context.Context, pgx.Tx, commands.Envelope) (commands.Result, error) { return profileResult, nil })
+			if submitErr != nil {
+				http.Error(w, "command could not be stored", http.StatusServiceUnavailable)
+				return
+			}
+			w.Header().Set("Content-Type", "application/json")
+			if duplicate {
+				w.Header().Set("X-Idempotency-Replay", "true")
+			}
+			writeJSON(w, result)
 			return
 		}
 		result, duplicate, err := repository.SubmitWith(r.Context(), e, commandHandler)
