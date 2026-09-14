@@ -64,7 +64,7 @@ var registry = map[string]struct{}{
 	"reward.preview": {}, "reward.claim": {}, "matchmaking.enqueue": {}, "matchmaking.status": {}, "matchmaking.cancel": {},
 	"match.get": {}, "match.issue_join_claim": {}, "match.submit_result": {}, "match.abandon": {},
 	"definition.validate": {}, "definition.diff": {}, "definition.publish": {}, "definition.activate": {}, "definition.rollback": {},
-	"admin.player_snapshot": {}, "admin.execute_command": {}, "admin.audit_search": {},
+	"admin.player_snapshot": {}, "admin.execute_command": {}, "admin.audit_search": {}, "admin.player_restrict": {}, "admin.player_unrestrict": {},
 }
 
 func (e Envelope) Validate() error {

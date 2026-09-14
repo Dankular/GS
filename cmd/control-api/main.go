@@ -587,6 +587,8 @@ func commandScope(operation string) string {
 		return "admin:read"
 	case "admin.execute_command":
 		return "admin:write"
+	case "admin.player_restrict", "admin.player_unrestrict":
+		return "admin:write"
 	}
 	switch operation {
 	case "profile.get", "inventory.list", "wallet.get", "entitlement.list", "progression.get", "reward.preview", "match.get", "matchmaking.status":

@@ -33,6 +33,13 @@ func (s CommandService) Handle(ctx context.Context, tx pgx.Tx, e commands.Envelo
 		}
 		return succeeded(e, map[string]any{"match": record}), nil
 	case "match.issue_join_claim":
+		var restricted bool
+		if err := tx.QueryRow(ctx, `SELECT EXISTS(SELECT 1 FROM platform.player_restrictions WHERE player_id=$1 AND (expires_at IS NULL OR expires_at>now()) AND kind IN ('ban','admission'))`, e.Actor.ID).Scan(&restricted); err != nil {
+			return commands.Result{}, err
+		}
+		if restricted {
+			return rejected(e, "PLAYER_RESTRICTED", "player is not allowed to join matches"), nil
+		}
 		token, err := s.Store.IssueJoinClaimTx(ctx, tx, matchID, e.Actor.ID, time.Now())
 		if err != nil {
 			if errors.Is(err, pgx.ErrNoRows) {

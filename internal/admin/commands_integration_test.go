@@ -52,6 +52,18 @@ func TestAdminCommandsReadSnapshotAndAudit(t *testing.T) {
 	if err != nil || result.Status != "rejected" || result.Error == nil || result.Error.Code != "NESTED_OPERATION_FORBIDDEN" {
 		t.Fatalf("nested operation boundary failed: %#v %v", result, err)
 	}
+	result, err = service.Handle(ctx, tx, envelope("admin.player_restrict", map[string]any{"playerId": player, "kind": "queue", "reason": "test restriction"}))
+	if err != nil || result.Status != "succeeded" {
+		t.Fatalf("restriction failed: %#v %v", result, err)
+	}
+	var restricted bool
+	if err := tx.QueryRow(ctx, `SELECT EXISTS(SELECT 1 FROM platform.player_restrictions WHERE player_id=$1 AND kind='queue')`, player).Scan(&restricted); err != nil || !restricted {
+		t.Fatalf("restriction was not persisted: %v", err)
+	}
+	result, err = service.Handle(ctx, tx, envelope("admin.player_unrestrict", map[string]any{"playerId": player}))
+	if err != nil || result.Status != "succeeded" {
+		t.Fatalf("unrestriction failed: %#v %v", result, err)
+	}
 	if err := tx.Commit(ctx); err != nil {
 		t.Fatal(err)
 	}

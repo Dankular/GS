@@ -6,6 +6,7 @@ import (
 	"errors"
 	"fmt"
 	"strings"
+	"time"
 
 	"github.com/Dankular/GameService/internal/commands"
 	"github.com/jackc/pgx/v5"
@@ -95,6 +96,47 @@ func (s CommandService) Handle(ctx context.Context, tx pgx.Tx, e commands.Envelo
 			return commands.Result{}, err
 		}
 		return succeeded(e, map[string]any{"records": records}), nil
+	case "admin.player_restrict":
+		playerID := stringArg(e.Spec.Arguments, "playerId")
+		if playerID == "" {
+			return rejected(e, "INVALID_ARGUMENT", "playerId is required"), nil
+		}
+		kind := stringArg(e.Spec.Arguments, "kind")
+		if kind == "" {
+			kind = "ban"
+		}
+		if kind != "ban" && kind != "queue" && kind != "admission" {
+			return rejected(e, "INVALID_ARGUMENT", "kind must be ban, queue, or admission"), nil
+		}
+		reason := stringArg(e.Spec.Arguments, "reason")
+		if reason == "" || len(reason) > 512 {
+			return rejected(e, "INVALID_ARGUMENT", "reason is required and must be at most 512 characters"), nil
+		}
+		expiresAt, err := restrictionExpiry(e.Spec.Arguments["expiresAt"])
+		if err != nil {
+			return rejected(e, "INVALID_ARGUMENT", err.Error()), nil
+		}
+		_, err = tx.Exec(ctx, `INSERT INTO platform.player_restrictions(player_id,kind,reason,expires_at,actor_id) VALUES($1,$2,$3,$4,$5) ON CONFLICT(player_id) DO UPDATE SET kind=EXCLUDED.kind,reason=EXCLUDED.reason,expires_at=EXCLUDED.expires_at,actor_id=EXCLUDED.actor_id,created_at=now()`, playerID, kind, reason, expiresAt, e.Actor.ID)
+		if err != nil {
+			return commands.Result{}, err
+		}
+		if _, err := tx.Exec(ctx, `INSERT INTO ops.audit_log(actor_type,actor_id,action,resource_type,resource_id,correlation_id,details) VALUES('admin',$1,'admin.player_restrict','player',$2,$3,$4::jsonb)`, e.Actor.ID, playerID, e.Metadata.CorrelationID, mapJSON(map[string]string{"kind": kind, "reason": reason})); err != nil {
+			return commands.Result{}, err
+		}
+		return succeeded(e, map[string]any{"playerId": playerID, "kind": kind, "expiresAt": expiresAt}), nil
+	case "admin.player_unrestrict":
+		playerID := stringArg(e.Spec.Arguments, "playerId")
+		if playerID == "" {
+			return rejected(e, "INVALID_ARGUMENT", "playerId is required"), nil
+		}
+		result, err := tx.Exec(ctx, `DELETE FROM platform.player_restrictions WHERE player_id=$1`, playerID)
+		if err != nil {
+			return commands.Result{}, err
+		}
+		if _, err := tx.Exec(ctx, `INSERT INTO ops.audit_log(actor_type,actor_id,action,resource_type,resource_id,correlation_id,details) VALUES('admin',$1,'admin.player_unrestrict','player',$2,$3,$4::jsonb)`, e.Actor.ID, playerID, e.Metadata.CorrelationID, mapJSON(map[string]string{"removed": fmt.Sprint(result.RowsAffected() > 0)})); err != nil {
+			return commands.Result{}, err
+		}
+		return succeeded(e, map[string]any{"playerId": playerID, "removed": result.RowsAffected() > 0}), nil
 	default:
 		return commands.Result{}, fmt.Errorf("unsupported admin operation: %s", e.Spec.Operation)
 	}
@@ -163,6 +205,21 @@ func snapshot(ctx context.Context, tx pgx.Tx, playerID string) (map[string]any, 
 func stringArg(args map[string]any, key string) string {
 	value, _ := args[key].(string)
 	return strings.TrimSpace(value)
+}
+
+func restrictionExpiry(value any) (*time.Time, error) {
+	if value == nil {
+		return nil, nil
+	}
+	s, ok := value.(string)
+	if !ok || strings.TrimSpace(s) == "" {
+		return nil, errors.New("expiresAt must be RFC3339")
+	}
+	expires, err := time.Parse(time.RFC3339, s)
+	if err != nil || !expires.After(time.Now().UTC()) {
+		return nil, errors.New("expiresAt must be a future RFC3339 timestamp")
+	}
+	return &expires, nil
 }
 func succeeded(e commands.Envelope, result map[string]any) commands.Result {
 	return commands.Result{RequestID: e.Metadata.RequestID, CorrelationID: e.Metadata.CorrelationID, Status: "succeeded", Operation: e.Spec.Operation, Result: result, Events: []string{"admin.command.accepted.v1"}}

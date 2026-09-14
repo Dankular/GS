@@ -20,6 +20,13 @@ func (s CommandService) Handle(ctx context.Context, tx pgx.Tx, e commands.Envelo
 	args := e.Spec.Arguments
 	switch e.Spec.Operation {
 	case "matchmaking.enqueue":
+		var restricted bool
+		if err := tx.QueryRow(ctx, `SELECT EXISTS(SELECT 1 FROM platform.player_restrictions WHERE player_id=$1 AND (expires_at IS NULL OR expires_at>now()) AND kind IN ('ban','queue'))`, e.Actor.ID).Scan(&restricted); err != nil {
+			return commands.Result{}, err
+		}
+		if restricted {
+			return reject(e, "PLAYER_RESTRICTED", "player is not allowed to enter matchmaking"), nil
+		}
 		expires, err := time.Parse(time.RFC3339, stringArg(args, "expiresAt"))
 		if err != nil {
 			return reject(e, "INVALID_ARGUMENT", "expiresAt must be RFC3339"), nil

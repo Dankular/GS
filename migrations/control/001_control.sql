@@ -220,3 +220,12 @@ CREATE TABLE IF NOT EXISTS ops.audit_log (
   details jsonb NOT NULL,
   created_at timestamptz NOT NULL DEFAULT now()
 );
+
+CREATE TABLE IF NOT EXISTS platform.player_restrictions (
+  player_id text PRIMARY KEY,
+  kind text NOT NULL CHECK (kind IN ('ban', 'queue', 'admission')),
+  reason text NOT NULL,
+  expires_at timestamptz,
+  actor_id text NOT NULL,
+  created_at timestamptz NOT NULL DEFAULT now()
+);
