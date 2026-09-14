@@ -106,7 +106,7 @@ flowchart TB
     Fleet --> Server[Dedicated authoritative server]
     Server --> Nakama
     Server --> API
-    Relay["coturn relay - GNS.NET fallback"] -.-> Client
+    Relay["coturn relay"] -.-> Client
 ```
 
 The coturn relay is the GNS.NET fallback path for client connectivity.
