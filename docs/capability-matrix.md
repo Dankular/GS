@@ -16,6 +16,9 @@ the Control API never reads Nakama tables.
 | Economic reconciliation | GameService | Read-only projection-vs-ledger worker | VPS one-shot reconciliation: passed |
 | Backup and restore | Operations | Custom-format dump, checksum, isolated restore verifier | VPS restore: 21 application tables |
 
-Parties, tournaments, moderation policy enforcement, generated client SDKs,
-and production HA services remain integration work rather than being claimed as
-completed by this matrix.
+Parties remain native Nakama client features documented in `sdk/examples/party.md`;
+GameService does not duplicate party membership. Tournaments, moderation policy
+enforcement, and production HA services remain integration work rather than
+being claimed as completed by this matrix. The generated Go Control API client
+is implemented and drift-checked in CI; Nakama's native client SDKs remain the
+client integration surface for identity and social features.

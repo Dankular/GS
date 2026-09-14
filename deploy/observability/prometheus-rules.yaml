@@ -1,0 +1,35 @@
+groups:
+  - name: gameservice.slos
+    rules:
+      - alert: GameServiceControlAPIUnavailable
+        expr: sum(gameservice_control_api_up) < 1
+        for: 2m
+        labels:
+          severity: critical
+          service: gameservice-control-api
+        annotations:
+          summary: GameService Control API is unavailable
+          runbook: docs/runbooks/control-api.md
+      - alert: GameServiceControlAPIErrorRateHigh
+        expr: |
+          (
+            sum(rate(gameservice_http_errors_total[5m]))
+            /
+            clamp_min(sum(rate(gameservice_http_requests_total[5m])), 1)
+          ) > 0.05
+        for: 10m
+        labels:
+          severity: warning
+          service: gameservice-control-api
+        annotations:
+          summary: GameService Control API 5xx rate exceeds 5 percent
+          runbook: docs/runbooks/control-api.md
+      - alert: GameServiceControlAPIRequestTrafficAbsent
+        expr: sum(rate(gameservice_http_requests_total[15m])) == 0
+        for: 30m
+        labels:
+          severity: warning
+          service: gameservice-control-api
+        annotations:
+          summary: No Control API request traffic has been observed
+          runbook: docs/runbooks/control-api.md
