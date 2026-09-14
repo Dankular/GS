@@ -5,6 +5,7 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
+	"github.com/Dankular/GameService/internal/compiler"
 	"github.com/Dankular/GameService/internal/nakama"
 	"github.com/Dankular/GameService/internal/outbox"
 	"github.com/jackc/pgx/v5/pgxpool"
@@ -47,18 +48,35 @@ func (p Publisher) Publish(ctx context.Context, event outbox.Event) error {
 		return errors.New("invalid match result event")
 	}
 	var gameID, modeID string
-	var payload []byte
-	if err := p.Pool.QueryRow(ctx, `SELECT m.game_id,m.mode_id,r.payload FROM match.matches m JOIN match.results r ON r.match_id=m.match_id WHERE m.match_id=$1 AND r.result_sequence=$2`, event.AggregateID, envelope.Sequence).Scan(&gameID, &modeID, &payload); err != nil {
+	var payload, canonical []byte
+	if err := p.Pool.QueryRow(ctx, `SELECT m.game_id,m.mode_id,r.payload,d.canonical FROM match.matches m JOIN match.results r ON r.match_id=m.match_id JOIN platform.definition_revisions d ON d.game_id=m.game_id AND d.revision=m.definition_revision WHERE m.match_id=$1 AND r.result_sequence=$2`, event.AggregateID, envelope.Sequence).Scan(&gameID, &modeID, &payload, &canonical); err != nil {
 		return fmt.Errorf("load match result: %w", err)
+	}
+	var definition compiler.Definition
+	if err := json.Unmarshal(canonical, &definition); err != nil {
+		return fmt.Errorf("decode match definition: %w", err)
+	}
+	leaderboardID := configuredLeaderboard(definition, modeID)
+	if leaderboardID == "" {
+		return nil
 	}
 	result, err := DecodeResultPayload(payload)
 	if err != nil {
 		return err
 	}
 	for _, player := range result.Players {
-		if err := p.Nakama.WriteLeaderboardRecord(ctx, gameID+"."+modeID, nakama.LeaderboardRecord{UserID: player.PlayerID, Score: player.Score, Subscore: player.Subscore}); err != nil {
+		if err := p.Nakama.WriteLeaderboardRecord(ctx, leaderboardID, nakama.LeaderboardRecord{UserID: player.PlayerID, Score: player.Score, Subscore: player.Subscore}); err != nil {
 			return err
 		}
 	}
 	return nil
+}
+
+func configuredLeaderboard(definition compiler.Definition, modeID string) string {
+	for _, mode := range definition.Spec.MatchModes {
+		if mode.ID == modeID {
+			return mode.Rating.LeaderboardID
+		}
+	}
+	return ""
 }
