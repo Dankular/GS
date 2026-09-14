@@ -4,6 +4,8 @@ import (
 	"context"
 	"crypto/ed25519"
 	"crypto/rand"
+	"net/http"
+	"net/http/httptest"
 	"testing"
 	"time"
 
@@ -19,6 +21,13 @@ func (f *fakeLifecycle) Shutdown() error { f.shutdown = true; return nil }
 type fakeSink struct {
 	submission matches.ResultSubmission
 	token      string
+}
+
+type fakeStarter struct{ starts int }
+
+func (f *fakeStarter) Start() error {
+	f.starts++
+	return nil
 }
 
 func (f *fakeSink) Submit(_ context.Context, submission matches.ResultSubmission) error {
@@ -111,5 +120,29 @@ func TestDynamicAssignmentUpdatesServerToken(t *testing.T) {
 	}
 	if sink.token != "token" {
 		t.Fatalf("expected dynamic server token, got %q", sink.token)
+	}
+}
+
+func TestJoinStartsMatchAfterClaimAuthorization(t *testing.T) {
+	public, private, err := ed25519.GenerateKey(rand.Reader)
+	if err != nil {
+		t.Fatal(err)
+	}
+	starter := &fakeStarter{}
+	server, err := New(Config{MatchID: "m", AllocationID: "a", Build: "b", Roster: map[string]int{"player": 0}, PublicKey: public, Lifecycle: &fakeLifecycle{}, ResultSink: &fakeSink{}, Starter: starter})
+	if err != nil {
+		t.Fatal(err)
+	}
+	claim := matches.JoinClaim{Issuer: "control-plane", Audience: "game-server", Subject: "player", MatchID: "m", AllocationID: "a", ServerBuild: "b", Slot: 0, IssuedAt: time.Now().Unix(), NotBefore: time.Now().Add(-time.Second).Unix(), ExpiresAt: time.Now().Add(time.Minute).Unix(), JTI: "join-jti"}
+	token, err := matches.SignClaim(claim, private)
+	if err != nil {
+		t.Fatal(err)
+	}
+	request := httptest.NewRequest(http.MethodPost, "/join", nil)
+	request.Header.Set("Authorization", "Bearer "+token)
+	response := httptest.NewRecorder()
+	server.Handler().ServeHTTP(response, request)
+	if response.Code != http.StatusOK || starter.starts != 1 {
+		t.Fatalf("join did not start match: status=%d starts=%d", response.Code, starter.starts)
 	}
 }

@@ -21,6 +21,14 @@ type HTTPReadyLifecycle struct {
 }
 
 func (s HTTPReadyLifecycle) Ready() error {
+	return s.post("ready")
+}
+
+func (s HTTPReadyLifecycle) Start() error {
+	return s.post("start")
+}
+
+func (s HTTPReadyLifecycle) post(operation string) error {
 	token := s.Token
 	if s.TokenSource != nil {
 		token = s.TokenSource()
@@ -32,7 +40,7 @@ func (s HTTPReadyLifecycle) Ready() error {
 	if client == nil {
 		client = &http.Client{Timeout: 10 * time.Second}
 	}
-	request, err := http.NewRequestWithContext(context.Background(), http.MethodPost, strings.TrimRight(s.ControlURL, "/")+"/v1/server/matches/"+s.MatchID()+"/ready", nil)
+	request, err := http.NewRequestWithContext(context.Background(), http.MethodPost, strings.TrimRight(s.ControlURL, "/")+"/v1/server/matches/"+s.MatchID()+"/"+operation, nil)
 	if err != nil {
 		return err
 	}
@@ -43,7 +51,7 @@ func (s HTTPReadyLifecycle) Ready() error {
 	}
 	defer response.Body.Close()
 	if response.StatusCode < 200 || response.StatusCode >= 300 {
-		return fmt.Errorf("control API rejected ready lifecycle: %s", response.Status)
+		return fmt.Errorf("control API rejected %s lifecycle: %s", operation, response.Status)
 	}
 	return nil
 }

@@ -63,6 +63,8 @@ paths:
     post: { operationId: markMatchReady, security: [{ ServerClaim: [] }], responses: { '204': { description: Match ready } } }
   /v1/server/matches/{matchId}/heartbeat:
     post: { operationId: matchHeartbeat, security: [{ ServerClaim: [] }], responses: { '204': { description: Heartbeat accepted } } }
+  /v1/server/matches/{matchId}/start:
+    post: { operationId: startMatch, security: [{ ServerClaim: [] }], responses: { '204': { description: Match running } } }
   /v1/server/matches/{matchId}/results:
     post: { operationId: submitMatchResult, security: [{ ServerClaim: [] }], responses: { '202': { description: Result accepted } } }
   /v1/admin/definitions/validate:

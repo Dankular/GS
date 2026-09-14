@@ -420,6 +420,20 @@ func main() {
 		}
 		w.WriteHeader(http.StatusNoContent)
 	})
+	mux.HandleFunc("POST /v1/server/matches/{matchId}/start", func(w http.ResponseWriter, r *http.Request) {
+		if err := verifyServerRequest(r, repository, serverPublicKeys, r.PathValue("matchId")); err != nil {
+			writeServerError(w, err)
+			return
+		}
+		if err := matchStore.StartRunning(r.Context(), r.PathValue("matchId")); errors.Is(err, pgx.ErrNoRows) {
+			http.Error(w, "match is not ready", http.StatusConflict)
+			return
+		} else if err != nil {
+			http.Error(w, "match start update failed", http.StatusServiceUnavailable)
+			return
+		}
+		w.WriteHeader(http.StatusNoContent)
+	})
 	mux.HandleFunc("POST /v1/server/matches/{matchId}/heartbeat", func(w http.ResponseWriter, r *http.Request) {
 		if err := verifyServerRequest(r, repository, serverPublicKeys, r.PathValue("matchId")); err != nil {
 			writeServerError(w, err)

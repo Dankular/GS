@@ -24,6 +24,9 @@ type Lifecycle interface {
 type ResultSink interface {
 	Submit(context.Context, matches.ResultSubmission) error
 }
+type Starter interface {
+	Start() error
+}
 
 type Config struct {
 	MatchID           string
@@ -33,6 +36,7 @@ type Config struct {
 	PublicKey         ed25519.PublicKey
 	Lifecycle         Lifecycle
 	ResultSink        ResultSink
+	Starter           Starter
 	DynamicAssignment bool
 }
 
@@ -162,6 +166,12 @@ func (s *Server) Handler() http.Handler {
 		if err != nil {
 			http.Error(w, "join rejected", http.StatusForbidden)
 			return
+		}
+		if s.config.Starter != nil {
+			if err := s.config.Starter.Start(); err != nil {
+				http.Error(w, "match start unavailable", http.StatusServiceUnavailable)
+				return
+			}
 		}
 		write(w, map[string]any{"accepted": true, "playerId": player, "slot": slot})
 	})

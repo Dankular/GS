@@ -180,6 +180,19 @@ func (s Store) Start(ctx context.Context, matchID, playerID string) error {
 	}
 	return nil
 }
+
+// StartRunning is idempotent for server lifecycle callbacks. The first valid
+// join moves a match to Running; later joins observe the already-running state.
+func (s Store) StartRunning(ctx context.Context, matchID string) error {
+	result, err := s.Pool.Exec(ctx, `UPDATE match.matches SET state='Running',state_version=state_version+1,updated_at=now() WHERE match_id=$1 AND state IN ('Ready','Running')`, matchID)
+	if err != nil {
+		return err
+	}
+	if result.RowsAffected() == 0 {
+		return pgx.ErrNoRows
+	}
+	return nil
+}
 func (s Store) Heartbeat(ctx context.Context, matchID string) error {
 	result, err := s.Pool.Exec(ctx, `UPDATE match.matches SET updated_at=now() WHERE match_id=$1 AND state IN ('Ready','Running')`, matchID)
 	if err != nil {

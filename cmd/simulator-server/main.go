@@ -32,6 +32,7 @@ func main() {
 	}
 	var lifecycle simulator.Lifecycle
 	var readyReporter simulator.Lifecycle
+	var starter simulator.Starter
 	var sdk *agonessdk.SDK
 	if os.Getenv("AGONES_ENABLED") == "true" {
 		var sdkErr error
@@ -46,9 +47,11 @@ func main() {
 	assignedMatchID := os.Getenv("MATCH_ID")
 	assignedServerToken := os.Getenv("SERVER_RESULT_TOKEN")
 	if os.Getenv("CONTROL_API_URL") != "" {
-		readyReporter = simulator.HTTPReadyLifecycle{ControlURL: os.Getenv("CONTROL_API_URL"), TokenSource: func() string { return assignedServerToken }, MatchID: func() string { return assignedMatchID }}
+		reporter := simulator.HTTPReadyLifecycle{ControlURL: os.Getenv("CONTROL_API_URL"), TokenSource: func() string { return assignedServerToken }, MatchID: func() string { return assignedMatchID }}
+		readyReporter = reporter
+		starter = reporter
 	}
-	server, err := simulator.New(simulator.Config{MatchID: os.Getenv("MATCH_ID"), AllocationID: os.Getenv("ALLOCATION_ID"), Build: os.Getenv("SERVER_BUILD"), Roster: roster, PublicKey: ed25519.PublicKey(key), Lifecycle: lifecycle, ResultSink: &simulator.HTTPResultSink{ControlURL: os.Getenv("CONTROL_API_URL"), Token: os.Getenv("SERVER_RESULT_TOKEN")}, DynamicAssignment: dynamic})
+	server, err := simulator.New(simulator.Config{MatchID: os.Getenv("MATCH_ID"), AllocationID: os.Getenv("ALLOCATION_ID"), Build: os.Getenv("SERVER_BUILD"), Roster: roster, PublicKey: ed25519.PublicKey(key), Lifecycle: lifecycle, ResultSink: &simulator.HTTPResultSink{ControlURL: os.Getenv("CONTROL_API_URL"), Token: os.Getenv("SERVER_RESULT_TOKEN")}, Starter: starter, DynamicAssignment: dynamic})
 	if err != nil {
 		slog.Error("simulator configuration failed", "error", err)
 		os.Exit(1)
