@@ -134,6 +134,8 @@ committed. Deploy with:
 cd /opt/gameservice
 docker compose --env-file .env -f deploy/compose/compose.yaml run --rm migrations
 docker compose --env-file .env -f deploy/compose/compose.yaml up -d --build
+# On the VPS Kind/Agones host, attach the allocator worker to the Kind network:
+docker compose --env-file .env -f deploy/compose/compose.yaml -f deploy/compose/compose.kind.yaml --profile matchmaking up -d --build matchmaking-worker
 # Optional result-to-Nakama leaderboard delivery:
 docker compose --env-file .env -f deploy/compose/compose.yaml --profile leaderboards up -d --build leaderboard-worker
 docker compose --env-file .env -f deploy/compose/compose.yaml ps

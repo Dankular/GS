@@ -1,0 +1,11 @@
+services:
+  matchmaking-worker:
+    networks:
+      - default
+      - kind
+
+networks:
+  default: {}
+  kind:
+    external: true
+    name: kind

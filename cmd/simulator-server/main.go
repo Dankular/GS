@@ -42,17 +42,20 @@ func main() {
 		lifecycle = agonesLifecycle{sdk: sdk}
 	}
 	dynamic := os.Getenv("AGONES_DYNAMIC_ASSIGNMENT") == "true"
+	assignedMatchID := os.Getenv("MATCH_ID")
+	if os.Getenv("CONTROL_API_URL") != "" && os.Getenv("SERVER_RESULT_TOKEN") != "" {
+		lifecycle = combinedLifecycle{agones: lifecycle, ready: simulator.HTTPReadyLifecycle{ControlURL: os.Getenv("CONTROL_API_URL"), Token: os.Getenv("SERVER_RESULT_TOKEN"), MatchID: func() string { return assignedMatchID }}}
+	}
 	server, err := simulator.New(simulator.Config{MatchID: os.Getenv("MATCH_ID"), AllocationID: os.Getenv("ALLOCATION_ID"), Build: os.Getenv("SERVER_BUILD"), Roster: roster, PublicKey: ed25519.PublicKey(key), Lifecycle: lifecycle, ResultSink: simulator.HTTPResultSink{ControlURL: os.Getenv("CONTROL_API_URL"), Token: os.Getenv("SERVER_RESULT_TOKEN")}, DynamicAssignment: dynamic})
 	if err != nil {
 		slog.Error("simulator configuration failed", "error", err)
 		os.Exit(1)
 	}
-	if err := server.Bootstrap(); err != nil {
+	if dynamic {
+		go watchAssignment(sdk, server, &assignedMatchID)
+	} else if err := server.Bootstrap(); err != nil {
 		slog.Error("simulator bootstrap failed", "error", err)
 		os.Exit(1)
-	}
-	if dynamic {
-		go watchAssignment(sdk, server)
 	}
 	addr := os.Getenv("SIMULATOR_ADDR")
 	if addr == "" {
@@ -65,7 +68,7 @@ func main() {
 	}
 }
 
-func watchAssignment(sdk *agonessdk.SDK, server *simulator.Server) {
+func watchAssignment(sdk *agonessdk.SDK, server *simulator.Server, assignedMatchID *string) {
 	ticker := time.NewTicker(500 * time.Millisecond)
 	defer ticker.Stop()
 	for range ticker.C {
@@ -79,6 +82,11 @@ func watchAssignment(sdk *agonessdk.SDK, server *simulator.Server) {
 		build := annotations["gameservice.io/server-build"]
 		roster := parseRoster(annotations["gameservice.io/match-roster"])
 		if err := server.Assign(matchID, allocationID, build, roster); err == nil {
+			*assignedMatchID = matchID
+			if err := server.Bootstrap(); err != nil {
+				slog.Error("simulator bootstrap failed", "error", err)
+				continue
+			}
 			return
 		}
 	}
@@ -105,6 +113,32 @@ type agonesLifecycle struct {
 		Health() error
 		Shutdown() error
 	}
+}
+
+type combinedLifecycle struct {
+	agones simulator.Lifecycle
+	ready  simulator.Lifecycle
+}
+
+func (c combinedLifecycle) Ready() error {
+	if c.agones != nil {
+		if err := c.agones.Ready(); err != nil {
+			return err
+		}
+	}
+	return c.ready.Ready()
+}
+func (c combinedLifecycle) Health() error {
+	if c.agones != nil {
+		return c.agones.Health()
+	}
+	return nil
+}
+func (c combinedLifecycle) Shutdown() error {
+	if c.agones != nil {
+		return c.agones.Shutdown()
+	}
+	return nil
 }
 
 func (a agonesLifecycle) Ready() error    { return a.sdk.Ready() }
