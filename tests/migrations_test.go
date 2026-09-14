@@ -42,3 +42,14 @@ func TestDeploymentsApplyAllForwardMigrationsInOrder(t *testing.T) {
 		t.Fatal("Compose migrations do not wait for healthy PostgreSQL")
 	}
 }
+
+func TestComposeSeedUsesDefinitionMountedInSeedImage(t *testing.T) {
+	data, err := os.ReadFile(filepath.Join("..", "deploy", "compose", "compose.yaml"))
+	if err != nil {
+		t.Fatal(err)
+	}
+	text := string(data)
+	if !strings.Contains(text, "--file\", \"/definitions/examples/arena.yaml") {
+		t.Fatal("Compose seed job does not use the mounted definition path")
+	}
+}

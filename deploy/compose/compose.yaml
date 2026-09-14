@@ -61,6 +61,7 @@ services:
   seed:
     profiles: [seed]
     build: { context: ../.., dockerfile: deploy/compose/seed.Dockerfile }
+    command: ["--file", "/definitions/examples/arena.yaml"]
     environment:
       DATABASE_URL: postgres://gameservice:${POSTGRES_PASSWORD}@postgres:5432/gameservice?sslmode=disable
       SEED_ENVIRONMENT: ${SEED_ENVIRONMENT:-dev}
