@@ -103,6 +103,16 @@ function socialLimit(value) {
   return value;
 }
 
+function socialState(value) {
+  if (value === undefined || value === null) {
+    return undefined;
+  }
+  if (typeof value !== "number" || value < 0 || value > 4 || Math.floor(value) !== value) {
+    throw { message: "state must be an integer from 0 to 4", code: 3 };
+  }
+  return value;
+}
+
 function gameserviceSocial(ctx, logger, nk, payload) {
   if (!ctx.userId) {
     throw { message: "social RPC requires an authenticated user", code: unauthenticatedCode() };
@@ -122,7 +132,7 @@ function gameserviceSocial(ctx, logger, nk, payload) {
   }
   var result;
   if (operation === "friends.list") {
-    result = nk.friendsList(ctx.userId, socialLimit(request.limit), request.state, socialString(request.cursor, "cursor", false));
+    result = nk.friendsList(ctx.userId, socialLimit(request.limit), socialState(request.state), socialString(request.cursor, "cursor", false));
   } else if (operation === "friends.add") {
     target = socialString(request.userId, "userId", true);
     result = nk.friendsAdd(ctx.userId, username, [target], [socialString(request.username, "username", true)]);
@@ -133,7 +143,14 @@ function gameserviceSocial(ctx, logger, nk, payload) {
     result = { deleted: true, userId: target };
   } else if (operation === "group.create") {
     var name = socialString(request.name, "name", true);
-    result = nk.groupCreate(ctx.userId, name, ctx.userId, socialString(request.langTag, "langTag", false), socialString(request.description, "description", false), socialString(request.avatarUrl, "avatarUrl", false), request.open === true, request.metadata || {}, request.maxCount || 100);
+    var maxCount = request.maxCount === undefined ? 100 : request.maxCount;
+    if (typeof maxCount !== "number" || maxCount < 1 || maxCount > 1000 || Math.floor(maxCount) !== maxCount) {
+      throw { message: "maxCount must be an integer from 1 to 1000", code: 3 };
+    }
+    if (request.metadata !== undefined && (typeof request.metadata !== "object" || Array.isArray(request.metadata) || JSON.stringify(request.metadata).length > 2048)) {
+      throw { message: "metadata must be an object of at most 2048 characters", code: 3 };
+    }
+    result = nk.groupCreate(ctx.userId, name, ctx.userId, socialString(request.langTag, "langTag", false), socialString(request.description, "description", false), socialString(request.avatarUrl, "avatarUrl", false), request.open === true, request.metadata || {}, maxCount);
   } else if (operation === "group.join") {
     var groupId = socialString(request.groupId, "groupId", true);
     nk.groupUserJoin(groupId, ctx.userId, username);
@@ -143,13 +160,13 @@ function gameserviceSocial(ctx, logger, nk, payload) {
     nk.groupUserLeave(leaveGroupId, ctx.userId, username);
     result = { left: true, groupId: leaveGroupId };
   } else if (operation === "group.users") {
-    result = nk.groupUsersList(socialString(request.groupId, "groupId", true), socialLimit(request.limit), request.state, socialString(request.cursor, "cursor", false));
+    result = nk.groupUsersList(socialString(request.groupId, "groupId", true), socialLimit(request.limit), socialState(request.state), socialString(request.cursor, "cursor", false));
   } else if (operation === "notifications.list") {
     result = nk.notificationsList(ctx.userId, socialLimit(request.limit), socialString(request.cursor, "cursor", false));
   } else if (operation === "chat.send") {
     var channelId = socialString(request.channelId, "channelId", true);
     var content = request.content;
-    if (!content || typeof content !== "object" || Array.isArray(content)) {
+    if (!content || typeof content !== "object" || Array.isArray(content) || JSON.stringify(content).length > 4096) {
       throw { message: "content must be an object", code: 3 };
     }
     result = nk.channelMessageSend(channelId, content, ctx.userId, username, request.persist !== false);
