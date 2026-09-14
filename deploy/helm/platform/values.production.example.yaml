@@ -14,3 +14,10 @@ database:
   urlKey: database-url
 nakama:
   url: https://nakama.platform.example.com
+gameServer:
+  enabled: true
+  image:
+    repository: ghcr.io/dankular/gameservice-server
+    digest: sha256:REPLACE_WITH_APPROVED_SERVER_DIGEST
+  build: arena
+  buildId: REPLACE_WITH_APPROVED_BUILD_ID

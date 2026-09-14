@@ -1,0 +1,88 @@
+{{- if .Values.gameServer.enabled }}
+apiVersion: v1
+kind: ServiceAccount
+metadata:
+  name: agones-sdk
+  namespace: {{ .Values.namespace.gameservers }}
+automountServiceAccountToken: false
+---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: RoleBinding
+metadata:
+  name: agones-sdk
+  namespace: {{ .Values.namespace.gameservers }}
+roleRef:
+  apiGroup: rbac.authorization.k8s.io
+  kind: ClusterRole
+  name: agones-sdk
+subjects:
+  - kind: ServiceAccount
+    name: agones-sdk
+    namespace: {{ .Values.namespace.gameservers }}
+---
+apiVersion: agones.dev/v1
+kind: Fleet
+metadata:
+  name: {{ .Values.gameServer.name }}
+  namespace: {{ .Values.namespace.gameservers }}
+spec:
+  replicas: {{ .Values.gameServer.replicas }}
+  template:
+    metadata:
+      labels:
+        platform.game/id: arena
+        platform.game/mode: deathmatch
+        platform.game/build: {{ .Values.gameServer.build | quote }}
+        platform.game/build-id: {{ .Values.gameServer.buildId | quote }}
+        platform.game/region: {{ .Values.gameServer.region | quote }}
+        platform.game/protocol: {{ .Values.gameServer.protocol | quote }}
+    spec:
+      ports:
+        - name: game
+          containerPort: {{ .Values.gameServer.gamePort }}
+          protocol: UDP
+        - name: http
+          containerPort: {{ .Values.gameServer.httpPort }}
+          protocol: TCP
+      template:
+        metadata:
+          labels:
+            app.kubernetes.io/name: gameservice-server
+        spec:
+          serviceAccountName: agones-sdk
+          automountServiceAccountToken: false
+          containers:
+            - name: game-server
+              image: {{ required "gameServer.image.digest must be an immutable sha256 digest" .Values.gameServer.image.digest | printf "%s@%s" .Values.gameServer.image.repository | quote }}
+              imagePullPolicy: IfNotPresent
+              env:
+                - { name: AGONES_ENABLED, value: "true" }
+                - { name: CONTROL_API_URL, value: {{ .Values.gameServer.controlApiURL | quote }} }
+                - { name: SERVER_CLAIM_PUBLIC_KEY, valueFrom: { secretKeyRef: { name: {{ .Values.gameServer.serverClaimsSecretName }}, key: {{ .Values.gameServer.serverClaimsPublicKey }} } } }
+              securityContext:
+                runAsNonRoot: true
+                runAsUser: 65532
+                runAsGroup: 65532
+                readOnlyRootFilesystem: true
+                allowPrivilegeEscalation: false
+                capabilities: { drop: [ALL] }
+                seccompProfile: { type: RuntimeDefault }
+              resources: {{- toYaml .Values.resources | nindent 16 }}
+              readinessProbe:
+                httpGet: { path: /health/ready, port: http }
+                periodSeconds: 5
+---
+apiVersion: autoscaling.agones.dev/v1
+kind: FleetAutoscaler
+metadata:
+  name: {{ .Values.gameServer.name }}
+  namespace: {{ .Values.namespace.gameservers }}
+spec:
+  fleetName: {{ .Values.gameServer.name }}
+  policy:
+    type: Buffer
+    buffer:
+      bufferSize: {{ .Values.gameServer.autoscaler.bufferSize }}
+      minReplicas: {{ .Values.gameServer.autoscaler.minReplicas }}
+      maxReplicas: {{ .Values.gameServer.autoscaler.maxReplicas }}
+{{- end }}

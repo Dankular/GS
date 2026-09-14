@@ -86,6 +86,27 @@ func TestSupplyChainPolicyIsOptInAndKeyless(t *testing.T) {
 	}
 }
 
+func TestProductionHelmIncludesAgonesFleetWhenEnabled(t *testing.T) {
+	values, err := os.ReadFile(filepath.Join("..", "deploy", "helm", "platform", "values.yaml"))
+	if err != nil {
+		t.Fatal(err)
+	}
+	fleet, err := os.ReadFile(filepath.Join("..", "deploy", "helm", "platform", "templates", "gameserver-fleet.yaml"))
+	if err != nil {
+		t.Fatal(err)
+	}
+	for _, required := range []string{"gameServer:", "enabled: false", "image: { repository: ghcr.io/dankular/gameservice-server, digest: \"\" }"} {
+		if !strings.Contains(string(values), required) {
+			t.Errorf("Helm values missing %q", required)
+		}
+	}
+	for _, required := range []string{"agones.dev/v1", "FleetAutoscaler", "agones-sdk", "automountServiceAccountToken: false", "gameServer.image.digest must be an immutable sha256 digest", "SERVER_CLAIM_PUBLIC_KEY"} {
+		if !strings.Contains(string(fleet), required) {
+			t.Errorf("Agones Fleet template missing %q", required)
+		}
+	}
+}
+
 func TestComposeSeparatesNakamaDatabaseRole(t *testing.T) {
 	data, err := os.ReadFile(filepath.Join("..", "deploy", "compose", "compose.yaml"))
 	if err != nil {

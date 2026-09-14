@@ -70,9 +70,28 @@ pod:
 serverClaims:
   publicKeysSecretName: gameservice-secrets
   publicKeysSecretKey: server-claim-public-keys
+  publicKeySecretKey: server-claim-public-key
   privateKeySecretName: gameservice-secrets
   privateKeySecretKey: server-claim-private-key
   ttlSeconds: 600
+gameServer:
+  enabled: false
+  name: arena-deathmatch
+  image: { repository: ghcr.io/dankular/gameservice-server, digest: "" }
+  replicas: 2
+  build: ""
+  buildId: ""
+  region: eu-west
+  protocol: "3"
+  gamePort: 7000
+  httpPort: 7001
+  controlApiURL: http://gameservice-control-api:8080
+  serverClaimsSecretName: gameservice-secrets
+  serverClaimsPublicKey: server-claim-public-key
+  autoscaler:
+    bufferSize: 2
+    minReplicas: 2
+    maxReplicas: 8
 autoscaling:
   enabled: true
   minReplicas: 2
