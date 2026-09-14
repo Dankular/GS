@@ -6,12 +6,15 @@ import "sort"
 // the queue. Matching never reads mutable player state during a batch.
 type Ticket struct {
 	ID                 string
+	GameID             string
+	Environment        string
 	PlayerIDs          []string
 	ModeID             string
 	DefinitionRevision int64
 	Build              string
 	Region             string
 	Capacity           int
+	Properties         map[string]any
 	Rating             int64
 	QueuedAt           int64
 }

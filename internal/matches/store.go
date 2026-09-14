@@ -28,6 +28,8 @@ type MatchSpec struct {
 	DefinitionRevision int64
 	Build              string
 	AllocationID       string
+	ServerAddress      string
+	ServerPorts        map[string]int
 }
 type MatchRecord struct {
 	MatchID            string         `json:"matchId"`
@@ -66,7 +68,11 @@ func (s Store) Create(ctx context.Context, spec MatchSpec, roster []RosterMember
 		return MatchRecord{}, err
 	}
 	defer tx.Rollback(ctx)
-	if _, err := tx.Exec(ctx, `INSERT INTO match.matches(match_id,game_id,environment,mode_id,definition_revision,state,server_build,allocation_id) VALUES($1,$2,$3,$4,$5,'Matched',$6,$7)`, spec.MatchID, spec.GameID, spec.Environment, spec.ModeID, spec.DefinitionRevision, spec.Build, spec.AllocationID); err != nil {
+	ports, err := json.Marshal(spec.ServerPorts)
+	if err != nil {
+		return MatchRecord{}, err
+	}
+	if _, err := tx.Exec(ctx, `INSERT INTO match.matches(match_id,game_id,environment,mode_id,definition_revision,state,server_build,allocation_id,server_address,server_ports) VALUES($1,$2,$3,$4,$5,'Matched',$6,$7,$8,$9::jsonb)`, spec.MatchID, spec.GameID, spec.Environment, spec.ModeID, spec.DefinitionRevision, spec.Build, spec.AllocationID, spec.ServerAddress, ports); err != nil {
 		return MatchRecord{}, err
 	}
 	for _, member := range roster {
@@ -80,7 +86,18 @@ func (s Store) Create(ctx context.Context, spec MatchSpec, roster []RosterMember
 	if err := tx.Commit(ctx); err != nil {
 		return MatchRecord{}, err
 	}
-	return MatchRecord{MatchID: spec.MatchID, GameID: spec.GameID, Environment: spec.Environment, ModeID: spec.ModeID, DefinitionRevision: spec.DefinitionRevision, State: Matched, Build: spec.Build, AllocationID: spec.AllocationID, Roster: append([]RosterMember(nil), roster...)}, nil
+	return MatchRecord{MatchID: spec.MatchID, GameID: spec.GameID, Environment: spec.Environment, ModeID: spec.ModeID, DefinitionRevision: spec.DefinitionRevision, State: Matched, Build: spec.Build, AllocationID: spec.AllocationID, ServerAddress: spec.ServerAddress, ServerPorts: clonePorts(spec.ServerPorts), Roster: append([]RosterMember(nil), roster...)}, nil
+}
+
+func (s Store) MarkAllocating(ctx context.Context, matchID string) error {
+	result, err := s.Pool.Exec(ctx, `UPDATE match.matches SET state='Allocating',state_version=state_version+1,updated_at=now() WHERE match_id=$1 AND state='Matched'`, matchID)
+	if err != nil {
+		return err
+	}
+	if result.RowsAffected() == 0 {
+		return pgx.ErrNoRows
+	}
+	return nil
 }
 
 func (s Store) Get(ctx context.Context, matchID, playerID string) (MatchRecord, error) {
@@ -184,4 +201,15 @@ func (s Store) ConsumeClaim(ctx context.Context, jti, matchID, playerID string, 
 		return pgx.ErrNoRows
 	}
 	return nil
+}
+
+func clonePorts(input map[string]int) map[string]int {
+	if input == nil {
+		return nil
+	}
+	output := make(map[string]int, len(input))
+	for key, value := range input {
+		output[key] = value
+	}
+	return output
 }

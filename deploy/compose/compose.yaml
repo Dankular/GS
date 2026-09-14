@@ -53,6 +53,25 @@ services:
     depends_on:
       postgres: { condition: service_healthy }
       migrations: { condition: service_completed_successfully }
+  matchmaking-worker:
+    profiles: [matchmaking]
+    build: { context: ../.., dockerfile: deploy/compose/matchmaking-worker.Dockerfile }
+    environment:
+      DATABASE_URL: postgres://gameservice:${POSTGRES_PASSWORD}@postgres:5432/gameservice?sslmode=disable
+      AGONES_ALLOCATOR_ENDPOINT: ${AGONES_ALLOCATOR_ENDPOINT:-}
+      AGONES_ALLOCATOR_NAMESPACE: ${AGONES_ALLOCATOR_NAMESPACE:-default}
+      AGONES_ALLOCATOR_CA_FILE: /run/allocator/ca.pem
+      AGONES_ALLOCATOR_CERT_FILE: /run/allocator/client.crt
+      AGONES_ALLOCATOR_KEY_FILE: /run/allocator/client.key
+      MATCH_TEAM_SIZE: ${MATCH_TEAM_SIZE:-1}
+      MATCH_TEAMS: ${MATCH_TEAMS:-2}
+      MATCH_RATING_WINDOW: ${MATCH_RATING_WINDOW:-0}
+      MATCH_PROTOCOL: ${MATCH_PROTOCOL:-udp}
+    volumes:
+      - ${AGONES_ALLOCATOR_SECRET_DIR:-/var/empty/gameservice-allocator}:/run/allocator:ro
+    depends_on:
+      postgres: { condition: service_healthy }
+      migrations: { condition: service_completed_successfully }
   simulator-server:
     profiles: [simulator]
     build: { context: ../.., dockerfile: deploy/compose/simulator-server.Dockerfile }
