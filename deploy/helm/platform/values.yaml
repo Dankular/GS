@@ -46,8 +46,11 @@ postgresCluster:
     # Enable only after the object store and credential Secret are provisioned.
     # The template currently targets the compatibility barmanObjectStore API.
     enabled: false
+    method: legacy
     destinationPath: ""
     retentionPolicy: 30d
+    objectStoreName: gameservice-postgres-backups
+    pluginName: barman-cloud.cloudnative-pg.io
     s3CredentialsSecretName: gameservice-postgres-backup
     accessKeyIdKey: ACCESS_KEY_ID
     secretAccessKeyKey: ACCESS_SECRET_KEY

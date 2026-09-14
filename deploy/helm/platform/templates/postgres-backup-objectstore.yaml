@@ -1,0 +1,21 @@
+{{- if and .Values.postgresCluster.enabled .Values.postgresCluster.backup.enabled (eq .Values.postgresCluster.backup.method "plugin") }}
+apiVersion: barmancloud.cnpg.io/v1
+kind: ObjectStore
+metadata:
+  name: {{ .Values.postgresCluster.backup.objectStoreName }}
+  namespace: {{ .Values.namespace.app }}
+spec:
+  configuration:
+    destinationPath: {{ .Values.postgresCluster.backup.destinationPath | quote }}
+    s3Credentials:
+      accessKeyId:
+        name: {{ .Values.postgresCluster.backup.s3CredentialsSecretName }}
+        key: {{ .Values.postgresCluster.backup.accessKeyIdKey }}
+      secretAccessKey:
+        name: {{ .Values.postgresCluster.backup.s3CredentialsSecretName }}
+        key: {{ .Values.postgresCluster.backup.secretAccessKeyKey }}
+    wal:
+      compression: {{ .Values.postgresCluster.backup.walCompression | quote }}
+      encryption: {{ .Values.postgresCluster.backup.walEncryption | quote }}
+  retentionPolicy: {{ .Values.postgresCluster.backup.retentionPolicy | quote }}
+{{- end }}

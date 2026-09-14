@@ -24,6 +24,16 @@ spec:
 {{- if not .Values.postgresCluster.backup.destinationPath }}
 {{- fail "postgresCluster.backup.destinationPath is required when backups are enabled" }}
 {{- end }}
+{{- if and (ne .Values.postgresCluster.backup.method "legacy") (ne .Values.postgresCluster.backup.method "plugin") }}
+{{- fail "postgresCluster.backup.method must be legacy or plugin" }}
+{{- end }}
+{{- if eq .Values.postgresCluster.backup.method "plugin" }}
+  plugins:
+    - name: {{ .Values.postgresCluster.backup.pluginName | quote }}
+      isWALArchiver: true
+      parameters:
+        barmanObjectName: {{ .Values.postgresCluster.backup.objectStoreName | quote }}
+{{- else }}
   backup:
     barmanObjectStore:
       destinationPath: {{ .Values.postgresCluster.backup.destinationPath | quote }}
@@ -38,6 +48,7 @@ spec:
         compression: {{ .Values.postgresCluster.backup.walCompression | quote }}
         encryption: {{ .Values.postgresCluster.backup.walEncryption | quote }}
     retentionPolicy: {{ .Values.postgresCluster.backup.retentionPolicy | quote }}
+{{- end }}
 {{- end }}
   bootstrap:
     initdb:

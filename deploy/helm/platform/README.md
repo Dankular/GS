@@ -23,6 +23,11 @@ CloudNativePG's compatibility `barmanObjectStore` API; migrate to the
 operator's Barman Cloud Plugin before upgrading to an operator release that
 removes that API.
 
+Set `postgresCluster.backup.method=plugin` to render the plugin-based
+`barmancloud.cnpg.io/v1` `ObjectStore` and `Cluster.spec.plugins` resources.
+Install the Barman Cloud Plugin and its CRD separately before enabling that
+mode; the chart intentionally does not fetch arbitrary cluster-wide operators.
+
 Every application image digest is required at render time. Example:
 
 ```sh
