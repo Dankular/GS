@@ -156,7 +156,7 @@ func TestServiceRewardClaimIsAtomicAndOncePerPlayer(t *testing.T) {
 		}
 		if result.Status != "succeeded" {
 			_ = tx.Rollback(ctx)
-			t.Fatalf("%s failed: %#v", operation, result)
+			t.Fatalf("%s failed: code=%s message=%s result=%#v", operation, result.Error.Code, result.Error.Message, result)
 		}
 		if err := tx.Commit(ctx); err != nil {
 			t.Fatal(err)
