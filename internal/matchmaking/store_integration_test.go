@@ -40,7 +40,7 @@ func TestTicketStoreCreateGetCancel(t *testing.T) {
 	if err := store.Cancel(context.Background(), record.TicketID, playerID); err != nil {
 		t.Fatal(err)
 	}
-	got, err = store.Get(context.Background(), record.TicketID, "integration-player")
+	got, err = store.Get(context.Background(), record.TicketID, playerID)
 	if err != nil {
 		t.Fatal(err)
 	}

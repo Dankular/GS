@@ -54,7 +54,7 @@ func TestMatchStoreLifecycleAndOneTimeJoinClaim(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	claim, err := VerifyClaim(token, publicKey, time.Unix(1_700_000_001, 0), "game-server", matchID, "player-1")
+	claim, err := VerifyClaim(token, publicKey, time.Unix(1_700_000_001, 0), "game-server", matchID, "build-1")
 	if err != nil {
 		t.Fatal(err)
 	}
