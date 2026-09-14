@@ -44,6 +44,7 @@ postgresCluster:
     podAntiAffinityType: required
   backup:
     # Enable only after the object store and credential Secret are provisioned.
+    # The template currently targets the compatibility barmanObjectStore API.
     enabled: false
     destinationPath: ""
     retentionPolicy: 30d

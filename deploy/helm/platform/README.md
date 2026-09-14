@@ -18,7 +18,10 @@ When `postgresCluster.backup.enabled=true`, the chart configures CloudNativePG
 Barman object-store WAL archiving, AES-256 object-store encryption, a recovery
 window retention policy, and zone anti-affinity. Supply the destination and
 credential Secret through the release system; the default is disabled and
-fails closed if no destination is provided.
+fails closed if no destination is provided. The current template uses
+CloudNativePG's compatibility `barmanObjectStore` API; migrate to the
+operator's Barman Cloud Plugin before upgrading to an operator release that
+removes that API.
 
 Every application image digest is required at render time. Example:
 
