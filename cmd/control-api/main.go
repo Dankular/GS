@@ -23,6 +23,7 @@ import (
 	"github.com/Dankular/GameService/internal/economy"
 	"github.com/Dankular/GameService/internal/matches"
 	"github.com/Dankular/GameService/internal/matchmaking"
+	telemetry "github.com/Dankular/GameService/internal/metrics"
 	"github.com/jackc/pgx/v5"
 )
 
@@ -54,6 +55,7 @@ func main() {
 	issuer := os.Getenv("NAKAMA_SESSION_ISSUER")
 	audience := os.Getenv("NAKAMA_SESSION_AUDIENCE")
 	serverPublicKey, _ := base64.RawStdEncoding.DecodeString(os.Getenv("SERVER_CLAIM_PUBLIC_KEY"))
+	metricRegistry := telemetry.New()
 	authenticate := func(r *http.Request) (auth.SessionClaims, error) {
 		return auth.VerifyNakamaSession(strings.TrimPrefix(r.Header.Get("Authorization"), "Bearer "), sessionSigningKey, issuer, audience, time.Now())
 	}
@@ -67,8 +69,7 @@ func main() {
 		w.WriteHeader(http.StatusOK)
 	})
 	mux.HandleFunc("GET /metrics", func(w http.ResponseWriter, _ *http.Request) {
-		w.Header().Set("Content-Type", "text/plain; version=0.0.4; charset=utf-8")
-		_, _ = io.WriteString(w, "# HELP gameservice_control_api_up Control API process availability.\n# TYPE gameservice_control_api_up gauge\ngameservice_control_api_up 1\n")
+		metricRegistry.Write(w)
 	})
 	mux.HandleFunc("GET /v1/players/me/snapshot", func(w http.ResponseWriter, r *http.Request) {
 		claims, ok := requireScope(w, r, authenticate, "player:read")
@@ -444,7 +445,7 @@ func main() {
 		writeJSON(w, map[string]any{"records": records})
 	})
 	slog.Info("control API listening", "addr", addr)
-	if err := http.ListenAndServe(addr, mux); err != nil {
+	if err := http.ListenAndServe(addr, metricRegistry.Middleware(mux)); err != nil {
 		slog.Error("server stopped", "error", err)
 		os.Exit(1)
 	}
