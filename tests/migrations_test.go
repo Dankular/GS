@@ -47,7 +47,7 @@ func TestDeploymentsApplyAllForwardMigrationsInOrder(t *testing.T) {
 	}
 	for name, data := range map[string][]byte{"Compose": compose, "Helm": helm} {
 		text := string(data)
-		if !strings.Contains(text, "for migration in /migrations/*.sql") || !strings.Contains(text, "*.down.sql") || !strings.Contains(text, "ON_ERROR_STOP=1") {
+		if !strings.Contains(text, "set -eu; for migration in /migrations/*.sql") || !strings.Contains(text, "*.down.sql") || !strings.Contains(text, "ON_ERROR_STOP=1") {
 			t.Errorf("%s migration runner does not apply ordered, fail-fast migrations", name)
 		}
 	}
@@ -92,7 +92,7 @@ func TestComposeSeparatesNakamaDatabaseRole(t *testing.T) {
 		t.Fatal(err)
 	}
 	text := string(data)
-	for _, required := range []string{"POSTGRES_USER: gameservice_admin", "database-admin-bootstrap:", "CREATE ROLE gameservice LOGIN PASSWORD %L NOSUPERUSER", "nakama-role-bootstrap:", "CREATE ROLE nakama", "ALTER TABLE public.%I OWNER TO nakama", "ALTER SEQUENCE public.%I OWNER TO nakama", "ALTER ROLE gameservice NOSUPERUSER NOCREATEDB CREATEROLE", "\\gexec", "REVOKE ALL ON SCHEMA platform, economy, progression, match, ops FROM nakama", "database.address nakama:${NAKAMA_DATABASE_PASSWORD}@postgres:5432/gameservice", "POSTGRES_PASSWORD: ${GAMESERVICE_ADMIN_PASSWORD:?set GAMESERVICE_ADMIN_PASSWORD}", "NAKAMA_DATABASE_PASSWORD: ${NAKAMA_DATABASE_PASSWORD:?set NAKAMA_DATABASE_PASSWORD}"} {
+	for _, required := range []string{"POSTGRES_USER: gameservice_admin", "database-admin-bootstrap:", "CREATE ROLE gameservice LOGIN PASSWORD %L NOSUPERUSER", "GRANT CONNECT, CREATE, TEMPORARY ON DATABASE gameservice TO gameservice", "nakama-role-bootstrap:", "CREATE ROLE nakama", "ALTER TABLE public.%I OWNER TO nakama", "ALTER SEQUENCE public.%I OWNER TO nakama", "ALTER ROLE gameservice NOSUPERUSER NOCREATEDB CREATEROLE", "\\gexec", "REVOKE ALL ON SCHEMA platform, economy, progression, match, ops FROM nakama", "database.address nakama:${NAKAMA_DATABASE_PASSWORD}@postgres:5432/gameservice", "POSTGRES_PASSWORD: ${GAMESERVICE_ADMIN_PASSWORD:?set GAMESERVICE_ADMIN_PASSWORD}", "NAKAMA_DATABASE_PASSWORD: ${NAKAMA_DATABASE_PASSWORD:?set NAKAMA_DATABASE_PASSWORD}"} {
 		if !strings.Contains(text, required) {
 			t.Errorf("Compose database boundary missing %q", required)
 		}

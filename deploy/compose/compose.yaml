@@ -22,7 +22,7 @@ services:
         WHERE NOT EXISTS (SELECT 1 FROM pg_roles WHERE rolname = 'gameservice') \gexec
         SELECT format('ALTER ROLE gameservice LOGIN PASSWORD %L NOSUPERUSER NOCREATEDB NOCREATEROLE', :'app_password')
         WHERE EXISTS (SELECT 1 FROM pg_roles WHERE rolname = 'gameservice') \gexec
-        GRANT CONNECT, TEMPORARY ON DATABASE gameservice TO gameservice;
+        GRANT CONNECT, CREATE, TEMPORARY ON DATABASE gameservice TO gameservice;
         GRANT USAGE, CREATE ON SCHEMA public TO gameservice;
         SQL
     environment:
@@ -104,7 +104,7 @@ services:
   migrations:
     image: postgres@sha256:21f6013073bc6b92830a2129570e2f5ec42a6c734b5a985a41e83aa58f54c3c1
     entrypoint: ["sh", "-c"]
-    command: ["for migration in /migrations/*.sql; do case \"$$migration\" in *.down.sql) continue ;; esac; psql \"$$DATABASE_URL\" -v ON_ERROR_STOP=1 -f \"$$migration\"; done"]
+    command: ["set -eu; for migration in /migrations/*.sql; do case \"$$migration\" in *.down.sql) continue ;; esac; psql \"$$DATABASE_URL\" -v ON_ERROR_STOP=1 -f \"$$migration\"; done"]
     environment:
       DATABASE_URL: postgres://gameservice:${POSTGRES_PASSWORD}@postgres:5432/gameservice?sslmode=disable
     volumes: [../../migrations/control:/migrations:ro]
