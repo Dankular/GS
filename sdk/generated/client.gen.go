@@ -181,6 +181,22 @@ type TicketRequest struct {
 	Region             string                  `json:"region"`
 }
 
+// DryRunDefinitionParams defines parameters for DryRunDefinition.
+type DryRunDefinitionParams struct {
+	GameId   *string `form:"gameId,omitempty" json:"gameId,omitempty"`
+	Revision *int    `form:"revision,omitempty" json:"revision,omitempty"`
+}
+
+// DeletePlayerAccountParams defines parameters for DeletePlayerAccount.
+type DeletePlayerAccountParams struct {
+	IdempotencyKey string `json:"Idempotency-Key"`
+}
+
+// ExportPlayerAccountParams defines parameters for ExportPlayerAccount.
+type ExportPlayerAccountParams struct {
+	IdempotencyKey string `json:"Idempotency-Key"`
+}
+
 // SubmitCommandJSONRequestBody defines body for SubmitCommand for application/json ContentType.
 type SubmitCommandJSONRequestBody = Command
 
@@ -275,6 +291,9 @@ type ClientInterface interface {
 	// PublishDefinition request
 	PublishDefinition(ctx context.Context, reqEditors ...RequestEditorFn) (*http.Response, error)
 
+	// DryRunDefinition request
+	DryRunDefinition(ctx context.Context, params *DryRunDefinitionParams, reqEditors ...RequestEditorFn) (*http.Response, error)
+
 	// ValidateDefinition request
 	ValidateDefinition(ctx context.Context, reqEditors ...RequestEditorFn) (*http.Response, error)
 
@@ -311,6 +330,12 @@ type ClientInterface interface {
 
 	// GetPlayerInventory request
 	GetPlayerInventory(ctx context.Context, reqEditors ...RequestEditorFn) (*http.Response, error)
+
+	// DeletePlayerAccount request
+	DeletePlayerAccount(ctx context.Context, params *DeletePlayerAccountParams, reqEditors ...RequestEditorFn) (*http.Response, error)
+
+	// ExportPlayerAccount request
+	ExportPlayerAccount(ctx context.Context, params *ExportPlayerAccountParams, reqEditors ...RequestEditorFn) (*http.Response, error)
 
 	// GetPlayerSnapshot request
 	GetPlayerSnapshot(ctx context.Context, reqEditors ...RequestEditorFn) (*http.Response, error)
@@ -381,6 +406,18 @@ func (c *Client) SearchAudit(ctx context.Context, reqEditors ...RequestEditorFn)
 
 func (c *Client) PublishDefinition(ctx context.Context, reqEditors ...RequestEditorFn) (*http.Response, error) {
 	req, err := NewPublishDefinitionRequest(c.Server)
+	if err != nil {
+		return nil, err
+	}
+	req = req.WithContext(ctx)
+	if err := c.applyEditors(ctx, req, reqEditors); err != nil {
+		return nil, err
+	}
+	return c.Client.Do(req)
+}
+
+func (c *Client) DryRunDefinition(ctx context.Context, params *DryRunDefinitionParams, reqEditors ...RequestEditorFn) (*http.Response, error) {
+	req, err := NewDryRunDefinitionRequest(c.Server, params)
 	if err != nil {
 		return nil, err
 	}
@@ -537,6 +574,30 @@ func (c *Client) GetMatchmakingTicket(ctx context.Context, ticketId string, reqE
 
 func (c *Client) GetPlayerInventory(ctx context.Context, reqEditors ...RequestEditorFn) (*http.Response, error) {
 	req, err := NewGetPlayerInventoryRequest(c.Server)
+	if err != nil {
+		return nil, err
+	}
+	req = req.WithContext(ctx)
+	if err := c.applyEditors(ctx, req, reqEditors); err != nil {
+		return nil, err
+	}
+	return c.Client.Do(req)
+}
+
+func (c *Client) DeletePlayerAccount(ctx context.Context, params *DeletePlayerAccountParams, reqEditors ...RequestEditorFn) (*http.Response, error) {
+	req, err := NewDeletePlayerAccountRequest(c.Server, params)
+	if err != nil {
+		return nil, err
+	}
+	req = req.WithContext(ctx)
+	if err := c.applyEditors(ctx, req, reqEditors); err != nil {
+		return nil, err
+	}
+	return c.Client.Do(req)
+}
+
+func (c *Client) ExportPlayerAccount(ctx context.Context, params *ExportPlayerAccountParams, reqEditors ...RequestEditorFn) (*http.Response, error) {
+	req, err := NewExportPlayerAccountRequest(c.Server, params)
 	if err != nil {
 		return nil, err
 	}
@@ -744,6 +805,71 @@ func NewPublishDefinitionRequest(server string) (*http.Request, error) {
 	queryURL, err := serverURL.Parse(operationPath)
 	if err != nil {
 		return nil, err
+	}
+
+	req, err := http.NewRequest("POST", queryURL.String(), nil)
+	if err != nil {
+		return nil, err
+	}
+
+	return req, nil
+}
+
+// NewDryRunDefinitionRequest generates requests for DryRunDefinition
+func NewDryRunDefinitionRequest(server string, params *DryRunDefinitionParams) (*http.Request, error) {
+	var err error
+
+	serverURL, err := url.Parse(server)
+	if err != nil {
+		return nil, err
+	}
+
+	operationPath := fmt.Sprintf("/v1/admin/definitions/dry-run")
+	if operationPath[0] == '/' {
+		operationPath = "." + operationPath
+	}
+
+	queryURL, err := serverURL.Parse(operationPath)
+	if err != nil {
+		return nil, err
+	}
+
+	if params != nil {
+		queryValues := queryURL.Query()
+
+		if params.GameId != nil {
+
+			if queryFrag, err := runtime.StyleParamWithLocation("form", true, "gameId", runtime.ParamLocationQuery, *params.GameId); err != nil {
+				return nil, err
+			} else if parsed, err := url.ParseQuery(queryFrag); err != nil {
+				return nil, err
+			} else {
+				for k, v := range parsed {
+					for _, v2 := range v {
+						queryValues.Add(k, v2)
+					}
+				}
+			}
+
+		}
+
+		if params.Revision != nil {
+
+			if queryFrag, err := runtime.StyleParamWithLocation("form", true, "revision", runtime.ParamLocationQuery, *params.Revision); err != nil {
+				return nil, err
+			} else if parsed, err := url.ParseQuery(queryFrag); err != nil {
+				return nil, err
+			} else {
+				for k, v := range parsed {
+					for _, v2 := range v {
+						queryValues.Add(k, v2)
+					}
+				}
+			}
+
+		}
+
+		queryURL.RawQuery = queryValues.Encode()
 	}
 
 	req, err := http.NewRequest("POST", queryURL.String(), nil)
@@ -1126,6 +1252,86 @@ func NewGetPlayerInventoryRequest(server string) (*http.Request, error) {
 	return req, nil
 }
 
+// NewDeletePlayerAccountRequest generates requests for DeletePlayerAccount
+func NewDeletePlayerAccountRequest(server string, params *DeletePlayerAccountParams) (*http.Request, error) {
+	var err error
+
+	serverURL, err := url.Parse(server)
+	if err != nil {
+		return nil, err
+	}
+
+	operationPath := fmt.Sprintf("/v1/players/me/privacy/delete")
+	if operationPath[0] == '/' {
+		operationPath = "." + operationPath
+	}
+
+	queryURL, err := serverURL.Parse(operationPath)
+	if err != nil {
+		return nil, err
+	}
+
+	req, err := http.NewRequest("POST", queryURL.String(), nil)
+	if err != nil {
+		return nil, err
+	}
+
+	if params != nil {
+
+		var headerParam0 string
+
+		headerParam0, err = runtime.StyleParamWithLocation("simple", false, "Idempotency-Key", runtime.ParamLocationHeader, params.IdempotencyKey)
+		if err != nil {
+			return nil, err
+		}
+
+		req.Header.Set("Idempotency-Key", headerParam0)
+
+	}
+
+	return req, nil
+}
+
+// NewExportPlayerAccountRequest generates requests for ExportPlayerAccount
+func NewExportPlayerAccountRequest(server string, params *ExportPlayerAccountParams) (*http.Request, error) {
+	var err error
+
+	serverURL, err := url.Parse(server)
+	if err != nil {
+		return nil, err
+	}
+
+	operationPath := fmt.Sprintf("/v1/players/me/privacy/export")
+	if operationPath[0] == '/' {
+		operationPath = "." + operationPath
+	}
+
+	queryURL, err := serverURL.Parse(operationPath)
+	if err != nil {
+		return nil, err
+	}
+
+	req, err := http.NewRequest("POST", queryURL.String(), nil)
+	if err != nil {
+		return nil, err
+	}
+
+	if params != nil {
+
+		var headerParam0 string
+
+		headerParam0, err = runtime.StyleParamWithLocation("simple", false, "Idempotency-Key", runtime.ParamLocationHeader, params.IdempotencyKey)
+		if err != nil {
+			return nil, err
+		}
+
+		req.Header.Set("Idempotency-Key", headerParam0)
+
+	}
+
+	return req, nil
+}
+
 // NewGetPlayerSnapshotRequest generates requests for GetPlayerSnapshot
 func NewGetPlayerSnapshotRequest(server string) (*http.Request, error) {
 	var err error
@@ -1374,6 +1580,9 @@ type ClientWithResponsesInterface interface {
 	// PublishDefinitionWithResponse request
 	PublishDefinitionWithResponse(ctx context.Context, reqEditors ...RequestEditorFn) (*PublishDefinitionResponse, error)
 
+	// DryRunDefinitionWithResponse request
+	DryRunDefinitionWithResponse(ctx context.Context, params *DryRunDefinitionParams, reqEditors ...RequestEditorFn) (*DryRunDefinitionResponse, error)
+
 	// ValidateDefinitionWithResponse request
 	ValidateDefinitionWithResponse(ctx context.Context, reqEditors ...RequestEditorFn) (*ValidateDefinitionResponse, error)
 
@@ -1410,6 +1619,12 @@ type ClientWithResponsesInterface interface {
 
 	// GetPlayerInventoryWithResponse request
 	GetPlayerInventoryWithResponse(ctx context.Context, reqEditors ...RequestEditorFn) (*GetPlayerInventoryResponse, error)
+
+	// DeletePlayerAccountWithResponse request
+	DeletePlayerAccountWithResponse(ctx context.Context, params *DeletePlayerAccountParams, reqEditors ...RequestEditorFn) (*DeletePlayerAccountResponse, error)
+
+	// ExportPlayerAccountWithResponse request
+	ExportPlayerAccountWithResponse(ctx context.Context, params *ExportPlayerAccountParams, reqEditors ...RequestEditorFn) (*ExportPlayerAccountResponse, error)
 
 	// GetPlayerSnapshotWithResponse request
 	GetPlayerSnapshotWithResponse(ctx context.Context, reqEditors ...RequestEditorFn) (*GetPlayerSnapshotResponse, error)
@@ -1529,6 +1744,27 @@ func (r PublishDefinitionResponse) Status() string {
 
 // StatusCode returns HTTPResponse.StatusCode
 func (r PublishDefinitionResponse) StatusCode() int {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.StatusCode
+	}
+	return 0
+}
+
+type DryRunDefinitionResponse struct {
+	Body         []byte
+	HTTPResponse *http.Response
+}
+
+// Status returns HTTPResponse.Status
+func (r DryRunDefinitionResponse) Status() string {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.Status
+	}
+	return http.StatusText(0)
+}
+
+// StatusCode returns HTTPResponse.StatusCode
+func (r DryRunDefinitionResponse) StatusCode() int {
 	if r.HTTPResponse != nil {
 		return r.HTTPResponse.StatusCode
 	}
@@ -1771,6 +2007,48 @@ func (r GetPlayerInventoryResponse) StatusCode() int {
 	return 0
 }
 
+type DeletePlayerAccountResponse struct {
+	Body         []byte
+	HTTPResponse *http.Response
+}
+
+// Status returns HTTPResponse.Status
+func (r DeletePlayerAccountResponse) Status() string {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.Status
+	}
+	return http.StatusText(0)
+}
+
+// StatusCode returns HTTPResponse.StatusCode
+func (r DeletePlayerAccountResponse) StatusCode() int {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.StatusCode
+	}
+	return 0
+}
+
+type ExportPlayerAccountResponse struct {
+	Body         []byte
+	HTTPResponse *http.Response
+}
+
+// Status returns HTTPResponse.Status
+func (r ExportPlayerAccountResponse) Status() string {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.Status
+	}
+	return http.StatusText(0)
+}
+
+// StatusCode returns HTTPResponse.StatusCode
+func (r ExportPlayerAccountResponse) StatusCode() int {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.StatusCode
+	}
+	return 0
+}
+
 type GetPlayerSnapshotResponse struct {
 	Body         []byte
 	HTTPResponse *http.Response
@@ -1942,6 +2220,15 @@ func (c *ClientWithResponses) PublishDefinitionWithResponse(ctx context.Context,
 	return ParsePublishDefinitionResponse(rsp)
 }
 
+// DryRunDefinitionWithResponse request returning *DryRunDefinitionResponse
+func (c *ClientWithResponses) DryRunDefinitionWithResponse(ctx context.Context, params *DryRunDefinitionParams, reqEditors ...RequestEditorFn) (*DryRunDefinitionResponse, error) {
+	rsp, err := c.DryRunDefinition(ctx, params, reqEditors...)
+	if err != nil {
+		return nil, err
+	}
+	return ParseDryRunDefinitionResponse(rsp)
+}
+
 // ValidateDefinitionWithResponse request returning *ValidateDefinitionResponse
 func (c *ClientWithResponses) ValidateDefinitionWithResponse(ctx context.Context, reqEditors ...RequestEditorFn) (*ValidateDefinitionResponse, error) {
 	rsp, err := c.ValidateDefinition(ctx, reqEditors...)
@@ -2055,6 +2342,24 @@ func (c *ClientWithResponses) GetPlayerInventoryWithResponse(ctx context.Context
 		return nil, err
 	}
 	return ParseGetPlayerInventoryResponse(rsp)
+}
+
+// DeletePlayerAccountWithResponse request returning *DeletePlayerAccountResponse
+func (c *ClientWithResponses) DeletePlayerAccountWithResponse(ctx context.Context, params *DeletePlayerAccountParams, reqEditors ...RequestEditorFn) (*DeletePlayerAccountResponse, error) {
+	rsp, err := c.DeletePlayerAccount(ctx, params, reqEditors...)
+	if err != nil {
+		return nil, err
+	}
+	return ParseDeletePlayerAccountResponse(rsp)
+}
+
+// ExportPlayerAccountWithResponse request returning *ExportPlayerAccountResponse
+func (c *ClientWithResponses) ExportPlayerAccountWithResponse(ctx context.Context, params *ExportPlayerAccountParams, reqEditors ...RequestEditorFn) (*ExportPlayerAccountResponse, error) {
+	rsp, err := c.ExportPlayerAccount(ctx, params, reqEditors...)
+	if err != nil {
+		return nil, err
+	}
+	return ParseExportPlayerAccountResponse(rsp)
 }
 
 // GetPlayerSnapshotWithResponse request returning *GetPlayerSnapshotResponse
@@ -2184,6 +2489,22 @@ func ParsePublishDefinitionResponse(rsp *http.Response) (*PublishDefinitionRespo
 	}
 
 	response := &PublishDefinitionResponse{
+		Body:         bodyBytes,
+		HTTPResponse: rsp,
+	}
+
+	return response, nil
+}
+
+// ParseDryRunDefinitionResponse parses an HTTP response from a DryRunDefinitionWithResponse call
+func ParseDryRunDefinitionResponse(rsp *http.Response) (*DryRunDefinitionResponse, error) {
+	bodyBytes, err := io.ReadAll(rsp.Body)
+	defer func() { _ = rsp.Body.Close() }()
+	if err != nil {
+		return nil, err
+	}
+
+	response := &DryRunDefinitionResponse{
 		Body:         bodyBytes,
 		HTTPResponse: rsp,
 	}
@@ -2410,6 +2731,38 @@ func ParseGetPlayerInventoryResponse(rsp *http.Response) (*GetPlayerInventoryRes
 	}
 
 	response := &GetPlayerInventoryResponse{
+		Body:         bodyBytes,
+		HTTPResponse: rsp,
+	}
+
+	return response, nil
+}
+
+// ParseDeletePlayerAccountResponse parses an HTTP response from a DeletePlayerAccountWithResponse call
+func ParseDeletePlayerAccountResponse(rsp *http.Response) (*DeletePlayerAccountResponse, error) {
+	bodyBytes, err := io.ReadAll(rsp.Body)
+	defer func() { _ = rsp.Body.Close() }()
+	if err != nil {
+		return nil, err
+	}
+
+	response := &DeletePlayerAccountResponse{
+		Body:         bodyBytes,
+		HTTPResponse: rsp,
+	}
+
+	return response, nil
+}
+
+// ParseExportPlayerAccountResponse parses an HTTP response from a ExportPlayerAccountWithResponse call
+func ParseExportPlayerAccountResponse(rsp *http.Response) (*ExportPlayerAccountResponse, error) {
+	bodyBytes, err := io.ReadAll(rsp.Body)
+	defer func() { _ = rsp.Body.Close() }()
+	if err != nil {
+		return nil, err
+	}
+
+	response := &ExportPlayerAccountResponse{
 		Body:         bodyBytes,
 		HTTPResponse: rsp,
 	}

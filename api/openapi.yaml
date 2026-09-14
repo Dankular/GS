@@ -108,6 +108,8 @@ paths:
     post: { operationId: submitMatchResult, security: [{ ServerClaim: [] }], responses: { '202': { description: Result accepted } } }
   /v1/admin/definitions/validate:
     post: { operationId: validateDefinition, security: [{ AdminSession: [] }], responses: { '200': { description: Validation report } } }
+  /v1/admin/definitions/dry-run:
+    post: { operationId: dryRunDefinition, security: [{ AdminSession: [] }], parameters: [{ name: gameId, in: query, required: false, schema: { type: string } }, { name: revision, in: query, required: false, schema: { type: integer, minimum: 1 } }], responses: { '200': { description: Validation and non-mutating impact plan } } }
   /v1/admin/definitions:
     post: { operationId: publishDefinition, security: [{ AdminSession: [] }], responses: { '201': { description: Published immutable revision } } }
   /v1/admin/definitions/{revision}/activate:

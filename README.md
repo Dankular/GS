@@ -51,6 +51,13 @@ through the immutable definition store, and activates it for `dev`. It is
 intended for development or a disposable smoke environment; production
 definitions must use the reviewed admin publish/activate workflow.
 
+Agents and admin tooling should use `POST /v1/admin/definitions/dry-run` with
+the `definition:validate` scope before requesting publication. The endpoint
+compiles the submitted definition and returns its digest, optional revision
+diff, active environments, running-match count, and queued-ticket count. It is
+strictly non-mutating; publication and production activation remain separate
+scoped operations.
+
 `make dev-full` creates a Kind cluster using Kubernetes `v1.36.1`, installs
 the pinned Agones `1.60.0` chart, builds/loads the local simulator image, and
 deploys the smoke Fleet and FleetAutoscaler. The Kubernetes version is pinned

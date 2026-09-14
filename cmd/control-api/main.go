@@ -29,6 +29,7 @@ import (
 	"github.com/Dankular/GameService/internal/nakama"
 	tracing "github.com/Dankular/GameService/internal/telemetry"
 	"github.com/jackc/pgx/v5"
+	"github.com/jackc/pgx/v5/pgxpool"
 	"go.opentelemetry.io/contrib/instrumentation/net/http/otelhttp"
 )
 
@@ -572,6 +573,39 @@ func main() {
 		}
 		writeJSON(w, report)
 	})
+	mux.HandleFunc("POST /v1/admin/definitions/dry-run", func(w http.ResponseWriter, r *http.Request) {
+		if _, ok := requireScope(w, r, authenticate, "definition:validate"); !ok {
+			return
+		}
+		source, err := readDefinitionSource(r)
+		if err != nil {
+			http.Error(w, err.Error(), http.StatusBadRequest)
+			return
+		}
+		report, err := compiler.Compile(strings.NewReader(string(source)))
+		if err != nil {
+			http.Error(w, err.Error(), http.StatusUnprocessableEntity)
+			return
+		}
+		gameID := strings.TrimSpace(r.URL.Query().Get("gameId"))
+		if gameID == "" {
+			gameID = report.Definition.Metadata.GameID
+		}
+		revision := int64(0)
+		if value := strings.TrimSpace(r.URL.Query().Get("revision")); value != "" {
+			revision, err = strconv.ParseInt(value, 10, 64)
+			if err != nil || revision < 1 {
+				http.Error(w, "revision must be a positive integer", http.StatusBadRequest)
+				return
+			}
+		}
+		impact, err := dryRunImpact(r.Context(), repository.Pool(), report, gameID, revision)
+		if err != nil {
+			http.Error(w, "definition impact unavailable", http.StatusServiceUnavailable)
+			return
+		}
+		writeJSON(w, impact)
+	})
 	mux.HandleFunc("POST /v1/admin/definitions", func(w http.ResponseWriter, r *http.Request) {
 		claims, ok := requireScope(w, r, authenticate, "definition:publish")
 		if !ok {
@@ -667,6 +701,52 @@ func main() {
 func writeJSON(w http.ResponseWriter, value any) {
 	w.Header().Set("Content-Type", "application/json")
 	_ = json.NewEncoder(w).Encode(value)
+}
+
+func dryRunImpact(ctx context.Context, pool *pgxpool.Pool, report compiler.Report, gameID string, revision int64) (map[string]any, error) {
+	result := map[string]any{"report": report, "gameId": gameID, "toDigest": report.Digest}
+	if revision > 0 {
+		var canonical []byte
+		if err := pool.QueryRow(ctx, `SELECT canonical FROM platform.definition_revisions WHERE game_id=$1 AND revision=$2`, gameID, revision).Scan(&canonical); err != nil {
+			return nil, err
+		}
+		var target compiler.Definition
+		if err := json.Unmarshal(canonical, &target); err != nil {
+			return nil, err
+		}
+		digest := sha256.Sum256(canonical)
+		targetReport := compiler.Report{Definition: target, Canonical: canonical, Digest: fmt.Sprintf("sha256:%x", digest)}
+		result["fromDigest"] = targetReport.Digest
+		result["diff"] = compiler.Diff(targetReport, report)
+	}
+	environments := []map[string]any{}
+	rows, err := pool.Query(ctx, `SELECT environment,revision FROM platform.definition_activations WHERE game_id=$1 ORDER BY environment`, gameID)
+	if err != nil {
+		return nil, err
+	}
+	for rows.Next() {
+		var environment string
+		var activeRevision int64
+		if err := rows.Scan(&environment, &activeRevision); err != nil {
+			rows.Close()
+			return nil, err
+		}
+		environments = append(environments, map[string]any{"environment": environment, "revision": activeRevision})
+	}
+	if err := rows.Err(); err != nil {
+		rows.Close()
+		return nil, err
+	}
+	rows.Close()
+	var runningMatches, queuedTickets int64
+	if err := pool.QueryRow(ctx, `SELECT count(*) FROM match.matches WHERE game_id=$1 AND state NOT IN ('Completed','Abandoned','Failed','Cancelled')`, gameID).Scan(&runningMatches); err != nil {
+		return nil, err
+	}
+	if err := pool.QueryRow(ctx, `SELECT count(*) FROM match.tickets WHERE game_id=$1 AND status IN ('queued','matching')`, gameID).Scan(&queuedTickets); err != nil {
+		return nil, err
+	}
+	result["impact"] = map[string]any{"activeEnvironments": environments, "runningMatches": runningMatches, "queuedTickets": queuedTickets}
+	return result, nil
 }
 
 func privacyRequestID(w http.ResponseWriter, r *http.Request) (string, bool) {

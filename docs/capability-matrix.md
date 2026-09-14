@@ -10,7 +10,7 @@ the Control API never reads Nakama tables.
 | Profile | Nakama | `gameservice.profile`; `profile.get`, `profile.patch_public_fields` | Runtime smoke and RPC unit test |
 | Friends, groups, notifications, chat/moderation | Nakama | `gameservice.social` bounded RPC plus `ChannelMessageSend` before-hook; optional `GAMESERVICE_MODERATION_BLOCKLIST` | Runtime registration test; deterministic moderation policy path |
 | Economy and progression | GameService | Wallet, ledger, inventory, entitlement, progression, reward commands | Go unit/integration suites |
-| Definitions | GameService | Validate, diff, publish, activate, rollback | VPS definition integration suite |
+| Definitions | GameService | Validate, non-mutating dry-run/impact, diff, publish, activate, rollback | VPS definition integration suite; dry-run PostgreSQL integration test |
 | Matchmaking and admission | GameService + Agones | Queue/status/cancel, allocator worker, join claims, restrictions | Go integration suite; Kind/Agones smoke |
 | Results, leaderboards, and tournaments | GameService + Nakama | Authoritative result finalization; outbox leaderboard delivery; declarative authoritative tournament delivery through Nakama runtime | VPS result/leaderboard coverage; tournament runtime smoke |
 | Economic reconciliation | GameService | Read-only projection-vs-ledger worker | VPS one-shot reconciliation: passed |
