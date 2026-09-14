@@ -3,6 +3,12 @@ kind: Namespace
 metadata:
   name: platform-gameservers-eu-west
 ---
+apiVersion: v1
+kind: ServiceAccount
+metadata:
+  name: agones-sdk
+  namespace: platform-gameservers-eu-west
+---
 apiVersion: agones.dev/v1
 kind: Fleet
 metadata:
