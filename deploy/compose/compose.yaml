@@ -16,7 +16,7 @@ services:
     image: heroiclabs/nakama@sha256:92fb184e3271be12fd4d239766afb285322a50aaf769a59433445d59624c78cd
     depends_on: { postgres: { condition: service_healthy } }
     entrypoint: ["/bin/sh", "-ec"]
-    command: ["/nakama/nakama migrate up --database.address gameservice:${POSTGRES_PASSWORD}@postgres:5432/gameservice && exec /nakama/nakama --database.address gameservice:${POSTGRES_PASSWORD}@postgres:5432/gameservice --logger.level INFO --console.username ${NAKAMA_CONSOLE_USERNAME} --console.password ${NAKAMA_CONSOLE_PASSWORD} --console.signing_key ${NAKAMA_CONSOLE_SIGNING_KEY} --socket.server_key ${NAKAMA_SOCKET_SERVER_KEY} --session.encryption_key ${NAKAMA_SESSION_ENCRYPTION_KEY} --session.refresh_encryption_key ${NAKAMA_SESSION_REFRESH_ENCRYPTION_KEY} --runtime.http_key ${NAKAMA_RUNTIME_HTTP_KEY}"]
+    command: ["/nakama/nakama migrate up --database.address gameservice:${POSTGRES_PASSWORD}@postgres:5432/gameservice && exec /nakama/nakama --database.address gameservice:${POSTGRES_PASSWORD}@postgres:5432/gameservice --logger.level INFO --console.username ${NAKAMA_CONSOLE_USERNAME} --console.password ${NAKAMA_CONSOLE_PASSWORD} --console.signing_key ${NAKAMA_CONSOLE_SIGNING_KEY} --socket.server_key ${NAKAMA_SOCKET_SERVER_KEY} --session.encryption_key ${NAKAMA_SESSION_ENCRYPTION_KEY} --session.refresh_encryption_key ${NAKAMA_SESSION_REFRESH_ENCRYPTION_KEY} --runtime.http_key ${NAKAMA_RUNTIME_HTTP_KEY} --runtime.env GAMESERVICE_MODERATION_BLOCKLIST=${GAMESERVICE_MODERATION_BLOCKLIST:-}"]
     ports: ["7350:7350", "7351:7351"]
     volumes: [../../nakama/runtime:/nakama/data/modules:ro]
   control-api:

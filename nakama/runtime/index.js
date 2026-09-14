@@ -171,11 +171,34 @@ function gameserviceSocial(ctx, logger, nk, payload) {
     if (!content || typeof content !== "object" || Array.isArray(content) || JSON.stringify(content).length > 4096) {
       throw { message: "content must be an object", code: 3 };
     }
+    if (moderationBlocked(ctx, JSON.stringify(content))) {
+      throw { message: "chat message rejected by moderation policy", code: 7 };
+    }
     result = nk.channelMessageSend(channelId, content, ctx.userId, username, request.persist !== false);
   } else {
     throw { message: "unsupported social operation", code: 3 };
   }
   return JSON.stringify({ operation: operation, result: result || {} });
+}
+
+function moderationBlocked(ctx, value) {
+  var configured = ctx && ctx.env && ctx.env.GAMESERVICE_MODERATION_BLOCKLIST;
+  if (typeof configured !== "string" || configured.trim() === "") return false;
+  var text = String(value || "").toLowerCase();
+  var tokens = configured.split(",");
+  for (var index = 0; index < tokens.length; index++) {
+    var token = tokens[index].trim().toLowerCase();
+    if (token.length > 0 && text.indexOf(token) !== -1) return true;
+  }
+  return false;
+}
+
+function beforeChannelMessageSend(ctx, logger, nk, envelope) {
+  if (!envelope || !envelope.channelMessageSend) return envelope;
+  if (moderationBlocked(ctx, envelope.channelMessageSend.content)) {
+    throw { message: "chat message rejected by moderation policy", code: 7 };
+  }
+  return envelope;
 }
 
 function tournamentRequiredString(value, field, maxLength) {
@@ -282,6 +305,7 @@ function InitModule(ctx, logger, nk, initializer) {
   initializer.registerRpc("gameservice.health", gameserviceHealth);
   initializer.registerRpc("gameservice.profile", gameserviceProfile);
   initializer.registerRpc("gameservice.social", gameserviceSocial);
+  initializer.registerRtBefore("ChannelMessageSend", beforeChannelMessageSend);
   initializer.registerRpc("gameservice.tournament_record", gameserviceTournamentRecord);
   initializer.registerRpc("gameservice.privacy", gameservicePrivacy);
   logger.info("GameService Nakama bridge loaded.");
