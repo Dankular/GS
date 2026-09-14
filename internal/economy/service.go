@@ -17,7 +17,18 @@ var ErrInvalidArgument = errors.New("invalid economy argument")
 
 type Service struct{}
 
-func (Service) Handle(ctx context.Context, tx pgx.Tx, e commands.Envelope) (commands.Result, error) {
+func (Service) Handle(ctx context.Context, tx pgx.Tx, e commands.Envelope) (result commands.Result, err error) {
+	defer func() {
+		if err == nil {
+			return
+		}
+		code, ok := businessErrorCode(err)
+		if !ok {
+			return
+		}
+		result = commands.Result{RequestID: e.Metadata.RequestID, CorrelationID: e.Metadata.CorrelationID, Operation: e.Spec.Operation, Status: "rejected", Error: &commands.CommandError{Code: code, Message: err.Error(), Retryable: false}}
+		err = nil
+	}()
 	args := e.Spec.Arguments
 	player, err := stringArg(args, "playerId", e.Actor.ID)
 	if err != nil {
@@ -54,6 +65,25 @@ func (Service) Handle(ctx context.Context, tx pgx.Tx, e commands.Envelope) (comm
 		return rewardClaim(ctx, tx, player, args, e)
 	default:
 		return commands.Result{RequestID: e.Metadata.RequestID, CorrelationID: e.Metadata.CorrelationID, Operation: e.Spec.Operation, Status: "rejected", Error: &commands.CommandError{Code: "UNSUPPORTED_OPERATION", Message: "operation is registered but not implemented", Retryable: false}}, nil
+	}
+}
+
+func businessErrorCode(err error) (string, bool) {
+	if errors.Is(err, ErrInvalidArgument) {
+		return "INVALID_ARGUMENT", true
+	}
+	message := err.Error()
+	switch {
+	case strings.Contains(message, "INSUFFICIENT_FUNDS"):
+		return "INSUFFICIENT_FUNDS", true
+	case strings.Contains(message, "INSUFFICIENT_ITEMS"):
+		return "INSUFFICIENT_ITEMS", true
+	case strings.HasPrefix(message, "reward not found"):
+		return "REWARD_NOT_FOUND", true
+	case strings.HasPrefix(message, "invalid reward"):
+		return "INVALID_REWARD", true
+	default:
+		return "", false
 	}
 }
 

@@ -26,3 +26,13 @@ func TestUnimplementedOperationIsRejected(t *testing.T) {
 		t.Fatalf("unexpected result: %#v", result)
 	}
 }
+
+func TestBusinessValidationErrorsBecomeDurableRejections(t *testing.T) {
+	result, err := (Service{}).Handle(context.Background(), nil, commands.Envelope{Metadata: commands.Metadata{RequestID: "r", CorrelationID: "c"}, Actor: commands.Actor{ID: "p"}, Spec: commands.Spec{Operation: "wallet.credit", Arguments: map[string]any{}}})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if result.Status != "rejected" || result.Error == nil || result.Error.Code != "INVALID_ARGUMENT" {
+		t.Fatalf("unexpected rejection: %#v", result)
+	}
+}
