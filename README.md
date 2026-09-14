@@ -327,10 +327,12 @@ workers are still required before production readiness.
 
 The matchmaking worker signs a short-lived server claim for each allocation.
 The claim is delivered as Agones allocation metadata and is bound to the match,
-allocation, and server build. Configure the matching private/public key pair as
-`SERVER_CLAIM_PRIVATE_KEY` for the worker and `SERVER_CLAIM_PUBLIC_KEYS` for
-the Control API. The Control API also requires `JOIN_CLAIM_PRIVATE_KEY` to
-issue player join claims; never put either private key in the Fleet manifest.
+allocation, and server build. Mount the private key as a protected file and set
+`SERVER_CLAIM_PRIVATE_KEY_FILE` for the worker; the legacy
+`SERVER_CLAIM_PRIVATE_KEY` environment value is accepted only for compatibility.
+Set `SERVER_CLAIM_PUBLIC_KEYS` for the Control API. The Control API also
+requires `JOIN_CLAIM_PRIVATE_KEY` to issue player join claims; never put either
+private key in the Fleet manifest.
 
 ### Authentication boundary
 

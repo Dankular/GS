@@ -202,11 +202,11 @@ services:
       MATCH_TEAMS: ${MATCH_TEAMS:-2}
       MATCH_RATING_WINDOW: ${MATCH_RATING_WINDOW:-0}
       MATCH_PROTOCOL: ${MATCH_PROTOCOL:-udp}
-      SERVER_CLAIM_PRIVATE_KEY: ${SERVER_CLAIM_PRIVATE_KEY:-}
       SERVER_CLAIM_PRIVATE_KEY_FILE: ${SERVER_CLAIM_PRIVATE_KEY_FILE:-}
       SERVER_CLAIM_TTL_SECONDS: ${SERVER_CLAIM_TTL_SECONDS:-600}
     volumes:
       - ${AGONES_ALLOCATOR_SECRET_DIR:-/var/empty/gameservice-allocator}:/run/allocator:ro
+      - ${SERVER_CLAIM_PRIVATE_KEY_FILE_HOST:-/dev/null}:/run/server-claims/private-key:ro
     depends_on:
       postgres: { condition: service_healthy }
       migrations: { condition: service_completed_successfully }
