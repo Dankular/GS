@@ -49,6 +49,10 @@ production baseline is declared.
 
 The compose stack includes PostgreSQL migrations and the continuously running
 transactional outbox worker, plus coturn for GNS.NET relay fallback. The
+Nakama leaderboard consumer is available through the `leaderboards` Compose
+profile and consumes `match.result.accepted.v1` with a per-consumer checkpoint;
+it expects authoritative result payloads in the form
+`{"players":[{"playerId":"...","score":123,"subscore":0}]}`. The
 Agones-backed matchmaking worker is available through the `matchmaking` Compose
 profile and requires mounted allocator mTLS material. Set `TURN_REALM`
 and a long random `TURN_SECRET` only in the deployment environment; never commit
@@ -105,6 +109,8 @@ committed. Deploy with:
 cd /opt/gameservice
 docker compose --env-file .env -f deploy/compose/compose.yaml run --rm migrations
 docker compose --env-file .env -f deploy/compose/compose.yaml up -d --build
+# Optional result-to-Nakama leaderboard delivery:
+docker compose --env-file .env -f deploy/compose/compose.yaml --profile leaderboards up -d --build leaderboard-worker
 docker compose --env-file .env -f deploy/compose/compose.yaml ps
 ```
 

@@ -54,6 +54,17 @@ services:
     depends_on:
       postgres: { condition: service_healthy }
       migrations: { condition: service_completed_successfully }
+  leaderboard-worker:
+    profiles: [leaderboards]
+    build: { context: ../.., dockerfile: deploy/compose/leaderboard-worker.Dockerfile }
+    environment:
+      DATABASE_URL: postgres://gameservice:${POSTGRES_PASSWORD}@postgres:5432/gameservice?sslmode=disable
+      NAKAMA_URL: ${NAKAMA_URL:-http://nakama:7350}
+      NAKAMA_SOCKET_SERVER_KEY: ${NAKAMA_SOCKET_SERVER_KEY:?set NAKAMA_SOCKET_SERVER_KEY}
+    depends_on:
+      postgres: { condition: service_healthy }
+      nakama: { condition: service_started }
+      migrations: { condition: service_completed_successfully }
   matchmaking-worker:
     profiles: [matchmaking]
     build: { context: ../.., dockerfile: deploy/compose/matchmaking-worker.Dockerfile }

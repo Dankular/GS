@@ -31,6 +31,7 @@ type Worker struct {
 	BatchSize   int
 	Lease       time.Duration
 	MaxAttempts int
+	EventType   string
 	Now         func() time.Time
 }
 
@@ -62,14 +63,16 @@ func (w Worker) RunOnce(ctx context.Context) (int, error) {
 	rows, err := tx.Query(ctx, `
 WITH claimed AS (
   SELECT event_id FROM ops.outbox_events
-  WHERE published_at IS NULL AND dead_lettered_at IS NULL
+  WHERE dead_lettered_at IS NULL
+    AND ($4 <> '' OR published_at IS NULL)
+    AND ($4 = '' OR (event_type = $4 AND NOT EXISTS (SELECT 1 FROM ops.delivery_checkpoints d WHERE d.consumer_name = $5 AND d.event_id = ops.outbox_events.event_id)))
     AND (leased_until IS NULL OR leased_until < $1)
   ORDER BY event_id FOR UPDATE SKIP LOCKED LIMIT $2
 )
 UPDATE ops.outbox_events e
 SET leased_until=$1 + $3::interval, attempts=e.attempts+1
 FROM claimed c WHERE e.event_id=c.event_id
-RETURNING e.event_id::text,e.aggregate_type,e.aggregate_id,e.event_type,e.correlation_id,e.payload,e.attempts`, now(), batchSize, lease.String())
+	RETURNING e.event_id::text,e.aggregate_type,e.aggregate_id,e.event_type,e.correlation_id,e.payload,e.attempts`, now(), batchSize, lease.String(), w.EventType, w.Consumer)
 	if err != nil {
 		return 0, fmt.Errorf("claim outbox events: %w", err)
 	}
@@ -100,7 +103,11 @@ func (w Worker) deliver(ctx context.Context, event Event, maxAttempts int, now t
 	err := w.Publisher.Publish(ctx, event)
 	if err == nil {
 		_, _ = w.Pool.Exec(ctx, `INSERT INTO ops.delivery_checkpoints(consumer_name,event_id) VALUES($1,$2) ON CONFLICT DO NOTHING`, w.Consumer, event.ID)
-		_, _ = w.Pool.Exec(ctx, `UPDATE ops.outbox_events SET published_at=$2,leased_until=NULL,last_error=NULL WHERE event_id=$1`, event.ID, now)
+		if w.EventType == "" {
+			_, _ = w.Pool.Exec(ctx, `UPDATE ops.outbox_events SET published_at=$2,leased_until=NULL,last_error=NULL WHERE event_id=$1`, event.ID, now)
+		} else {
+			_, _ = w.Pool.Exec(ctx, `UPDATE ops.outbox_events SET leased_until=NULL,last_error=NULL WHERE event_id=$1`, event.ID)
+		}
 		return
 	}
 	message := err.Error()
