@@ -4,6 +4,9 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
+	"io"
+	"math"
+	"strconv"
 	"strings"
 )
 
@@ -67,6 +70,12 @@ var registry = map[string]struct{}{
 	"admin.player_snapshot": {}, "admin.execute_command": {}, "admin.audit_search": {}, "admin.player_restrict": {}, "admin.player_unrestrict": {},
 }
 
+const (
+	maxArgumentDepth      = 8
+	maxArgumentStringSize = 4096
+	maxArgumentCollection = 128
+)
+
 func (e Envelope) Validate() error {
 	if e.APIVersion != "game.platform/v1alpha1" || e.Kind != "Command" {
 		return fmt.Errorf("%w: apiVersion and kind are invalid", ErrInvalidEnvelope)
@@ -89,6 +98,61 @@ func (e Envelope) Validate() error {
 	if len(e.Spec.Arguments) > 64 {
 		return fmt.Errorf("%w: too many arguments", ErrInvalidEnvelope)
 	}
+	if err := validateArgumentValue(e.Spec.Arguments, 0, "arguments"); err != nil {
+		return fmt.Errorf("%w: %v", ErrInvalidEnvelope, err)
+	}
+	return nil
+}
+
+func validateArgumentValue(value any, depth int, path string) error {
+	if depth > maxArgumentDepth {
+		return fmt.Errorf("%s exceeds maximum nesting depth", path)
+	}
+	switch typed := value.(type) {
+	case nil, bool:
+		return nil
+	case string:
+		if len(typed) > maxArgumentStringSize {
+			return fmt.Errorf("%s exceeds maximum string length", path)
+		}
+	case json.Number:
+		if len(typed.String()) > maxArgumentStringSize {
+			return fmt.Errorf("%s exceeds maximum numeric length", path)
+		}
+		parsed, err := strconv.ParseFloat(typed.String(), 64)
+		if err != nil || math.IsNaN(parsed) || math.IsInf(parsed, 0) {
+			return fmt.Errorf("%s is not a finite number", path)
+		}
+	case float64:
+		// Envelopes decoded from JSON use json.Number, but reject non-finite
+		// values when callers construct an envelope directly.
+		if math.IsNaN(typed) || math.IsInf(typed, 0) {
+			return fmt.Errorf("%s is not a finite number", path)
+		}
+	case []any:
+		if len(typed) > maxArgumentCollection {
+			return fmt.Errorf("%s exceeds maximum collection size", path)
+		}
+		for index, item := range typed {
+			if err := validateArgumentValue(item, depth+1, fmt.Sprintf("%s[%d]", path, index)); err != nil {
+				return err
+			}
+		}
+	case map[string]any:
+		if len(typed) > maxArgumentCollection {
+			return fmt.Errorf("%s exceeds maximum collection size", path)
+		}
+		for key, item := range typed {
+			if len(key) > maxArgumentStringSize {
+				return fmt.Errorf("%s contains an oversized key", path)
+			}
+			if err := validateArgumentValue(item, depth+1, path+"."+key); err != nil {
+				return err
+			}
+		}
+	default:
+		return fmt.Errorf("%s contains unsupported value type %T", path, value)
+	}
 	return nil
 }
 
@@ -99,6 +163,13 @@ func DecodeStrict(data []byte) (Envelope, error) {
 	d.UseNumber()
 	if err := d.Decode(&e); err != nil {
 		return e, fmt.Errorf("%w: %v", ErrInvalidEnvelope, err)
+	}
+	var trailing any
+	if err := d.Decode(&trailing); err != io.EOF {
+		if err == nil {
+			return e, fmt.Errorf("%w: trailing JSON data", ErrInvalidEnvelope)
+		}
+		return e, fmt.Errorf("%w: trailing JSON data: %v", ErrInvalidEnvelope, err)
 	}
 	return e, e.Validate()
 }

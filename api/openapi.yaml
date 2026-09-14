@@ -2,7 +2,11 @@ openapi: 3.0.3
 info:
   title: GameService Control API
   version: 0.1.0
-  description: Declarative, idempotent game backend control plane.
+  description: >-
+    Declarative, idempotent game backend control plane. Mutation command
+    arguments reject unknown envelope fields, non-finite numbers, strings or
+    keys over 4096 bytes, collections over 128 entries, and nesting beyond
+    eight levels. Economy quantities and amounts are bounded by the server.
 servers:
   - url: http://localhost:8080
 security:

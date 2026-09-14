@@ -15,6 +15,8 @@ import (
 
 var ErrInvalidArgument = errors.New("invalid economy argument")
 
+const maxCommandAmount int64 = 1_000_000_000
+
 type Service struct{}
 
 func (Service) Handle(ctx context.Context, tx pgx.Tx, e commands.Envelope) (result commands.Result, err error) {
@@ -135,6 +137,9 @@ func intArg(args map[string]any, key string) (int64, error) {
 	}
 	if n <= 0 {
 		return 0, fmt.Errorf("%w: %s must be positive", ErrInvalidArgument, key)
+	}
+	if n > maxCommandAmount {
+		return 0, fmt.Errorf("%w: %s exceeds maximum allowed amount", ErrInvalidArgument, key)
 	}
 	return n, nil
 }

@@ -17,6 +17,9 @@ func TestIntArgRejectsFractionsAndZero(t *testing.T) {
 	if _, err := intArg(map[string]any{"amount": json.Number("0")}, "amount"); err == nil {
 		t.Fatal("expected zero rejection")
 	}
+	if _, err := intArg(map[string]any{"amount": json.Number("1000000001")}, "amount"); err == nil {
+		t.Fatal("expected maximum amount rejection")
+	}
 }
 
 func TestBalancedLedgerEntriesOffsetPlayerDelta(t *testing.T) {
