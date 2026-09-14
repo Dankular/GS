@@ -183,6 +183,11 @@ The opt-in moderation integration test additionally accepts
 `GAMESERVICE_INTEGRATION_MODERATION_TOKEN`; the Nakama runtime must be started
 with that token in `GAMESERVICE_MODERATION_BLOCKLIST`.
 
+The privacy integration test creates and deletes a disposable Nakama device
+account. It additionally requires
+`GAMESERVICE_INTEGRATION_NAKAMA_SERVER_KEY` and verifies export, delete, and a
+retry of delete through the server-only runtime RPC.
+
 ## Topology
 
 The target runtime boundary is the configured VPS. Docker Compose runs the
