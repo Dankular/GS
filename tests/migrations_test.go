@@ -107,9 +107,18 @@ func TestProductionHelmIncludesAgonesFleetWhenEnabled(t *testing.T) {
 			t.Errorf("Helm values missing %q", required)
 		}
 	}
-	for _, required := range []string{"agones.dev/v1", "FleetAutoscaler", "agones-sdk", "automountServiceAccountToken: false", "gameServer.image.digest must be an immutable sha256 digest", "SERVER_CLAIM_PUBLIC_KEY"} {
+	for _, required := range []string{"agones.dev/v1", "FleetAutoscaler", "agones-sdk", "automountServiceAccountToken: false", "SERVER_CLAIM_PUBLIC_KEY"} {
 		if !strings.Contains(string(fleet), required) {
 			t.Errorf("Agones Fleet template missing %q", required)
+		}
+	}
+	helpers, err := os.ReadFile(filepath.Join("..", "deploy", "helm", "platform", "templates", "_helpers.tpl"))
+	if err != nil {
+		t.Fatal(err)
+	}
+	for _, required := range []string{"regexMatch \"^sha256:[0-9a-f]{64}$\"", "fail (printf \"images.%s.digest must be an immutable sha256 digest\"", "gameservice.explicitImage"} {
+		if !strings.Contains(string(helpers), required) {
+			t.Errorf("Helm image helper missing immutable digest enforcement %q", required)
 		}
 	}
 	policies, err := os.ReadFile(filepath.Join("..", "deploy", "helm", "platform", "templates", "gameserver-policies.yaml"))

@@ -53,7 +53,7 @@ spec:
           automountServiceAccountToken: false
           containers:
             - name: game-server
-              image: {{ required "gameServer.image.digest must be an immutable sha256 digest" .Values.gameServer.image.digest | printf "%s@%s" .Values.gameServer.image.repository | quote }}
+              image: {{ include "gameservice.explicitImage" (dict "name" "gameServer" "image" .Values.gameServer.image) | quote }}
               imagePullPolicy: IfNotPresent
               env:
                 - { name: AGONES_ENABLED, value: "true" }
