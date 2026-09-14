@@ -27,7 +27,7 @@ fi
   --wait
 docker build -f deploy/compose/simulator-server.Dockerfile -t gameservice-simulator:dev .
 kind load docker-image gameservice-simulator:dev --name gameservice
-NODE_IP="$(docker inspect -f '{{(index .NetworkSettings.Networks \"kind\").IPAddress}}' gameservice-control-plane)"
+NODE_IP="$(docker inspect -f '{{(index .NetworkSettings.Networks "kind").IPAddress}}' gameservice-control-plane)"
 if [ -z "${SERVER_CLAIM_PUBLIC_KEY:-}" ] && [ -f .env ]; then
   SERVER_CLAIM_PUBLIC_KEY="$(awk -F= '$1 == "SERVER_CLAIM_PUBLIC_KEY" { print $2; exit }' .env)"
 fi
