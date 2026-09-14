@@ -42,17 +42,28 @@ func (w Worker) RunOnce(ctx context.Context) (bool, error) {
 	if len(batch) == 0 {
 		return false, nil
 	}
+	ids := make([]string, len(batch))
+	for i := range batch {
+		ids[i] = batch[i].ID
+	}
+	claimed, err := w.claim(ctx, ids)
+	if err != nil || !claimed {
+		return false, err
+	}
 	seed := batch[0]
 	selector := allocation.Selector{GameID: seed.GameID, ModeID: seed.ModeID, Build: seed.Build, Region: seed.Region, Protocol: w.Protocol}
 	if err := selector.Validate(); err != nil {
+		_ = w.setTicketStatus(ctx, ids, "queued")
 		return false, err
 	}
 	allocated, err := w.Allocator.Allocate(ctx, selector)
 	if err != nil {
+		_ = w.setTicketStatus(ctx, ids, "queued")
 		return false, fmt.Errorf("allocate match server: %w", err)
 	}
 	matchID, err := newID("match")
 	if err != nil {
+		_ = w.setTicketStatus(ctx, ids, "queued")
 		return false, err
 	}
 	roster := make([]matches.RosterMember, 0, len(batch)*w.Policy.TeamSize)
@@ -64,23 +75,45 @@ func (w Worker) RunOnce(ctx context.Context) (bool, error) {
 		}
 	}
 	if _, err := w.MatchStore.Create(ctx, matches.MatchSpec{MatchID: matchID, GameID: seed.GameID, Environment: seed.Environment, ModeID: seed.ModeID, DefinitionRevision: seed.DefinitionRevision, Build: seed.Build, AllocationID: allocated.AllocationID, ServerAddress: allocated.Address, ServerPorts: allocated.Ports}, roster); err != nil {
+		_ = w.setTicketStatus(ctx, ids, "queued")
 		return false, fmt.Errorf("persist match: %w", err)
 	}
 	if err := w.MatchStore.MarkAllocating(ctx, matchID); err != nil {
+		_ = w.setTicketStatus(ctx, ids, "queued")
 		return false, fmt.Errorf("transition match to allocating: %w", err)
 	}
-	ids := make([]string, len(batch))
-	for i := range batch {
-		ids[i] = batch[i].ID
-	}
-	result, err := w.Pool.Exec(ctx, `UPDATE match.tickets SET status='matched' WHERE ticket_id=ANY($1) AND status='queued' AND expires_at>now()`, ids)
+	result, err := w.Pool.Exec(ctx, `UPDATE match.tickets SET status='matched' WHERE ticket_id=ANY($1) AND status='matching'`, ids)
 	if err != nil {
 		return false, err
 	}
 	if int(result.RowsAffected()) != len(ids) {
-		return false, fmt.Errorf("match ticket claim changed: expected %d, updated %d", len(ids), result.RowsAffected())
+		return false, fmt.Errorf("match ticket finalization changed: expected %d, updated %d", len(ids), result.RowsAffected())
 	}
 	return true, nil
+}
+
+func (w Worker) claim(ctx context.Context, ids []string) (bool, error) {
+	tx, err := w.Pool.Begin(ctx)
+	if err != nil {
+		return false, err
+	}
+	defer tx.Rollback(ctx)
+	result, err := tx.Exec(ctx, `UPDATE match.tickets SET status='matching' WHERE ticket_id=ANY($1) AND status='queued' AND expires_at>now()`, ids)
+	if err != nil {
+		return false, err
+	}
+	if int(result.RowsAffected()) != len(ids) {
+		return false, nil
+	}
+	if err := tx.Commit(ctx); err != nil {
+		return false, err
+	}
+	return true, nil
+}
+
+func (w Worker) setTicketStatus(ctx context.Context, ids []string, status string) error {
+	_, err := w.Pool.Exec(ctx, `UPDATE match.tickets SET status=$2 WHERE ticket_id=ANY($1) AND status='matching'`, ids, status)
+	return err
 }
 
 func (w Worker) queued(ctx context.Context) ([]Ticket, error) {

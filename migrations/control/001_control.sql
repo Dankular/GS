@@ -108,6 +108,11 @@ CREATE TABLE IF NOT EXISTS match.tickets (
 ALTER TABLE match.tickets ADD COLUMN IF NOT EXISTS build text NOT NULL DEFAULT 'unknown';
 ALTER TABLE match.tickets ADD COLUMN IF NOT EXISTS region text NOT NULL DEFAULT 'unknown';
 ALTER TABLE match.tickets ADD COLUMN IF NOT EXISTS capacity integer NOT NULL DEFAULT 1;
+DO $$
+BEGIN
+  ALTER TABLE match.tickets DROP CONSTRAINT IF EXISTS tickets_status_check;
+  ALTER TABLE match.tickets ADD CONSTRAINT tickets_status_check CHECK (status IN ('queued','matching','matched','cancelled','expired'));
+END $$;
 CREATE TABLE IF NOT EXISTS match.ticket_members (
   ticket_id text NOT NULL REFERENCES match.tickets(ticket_id) ON DELETE CASCADE,
   player_id text NOT NULL,
