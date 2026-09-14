@@ -34,7 +34,10 @@ stored results can be read at `/v1/commands/{requestId}`.
 the pinned Agones `1.60.0` chart, builds/loads the local simulator image, and
 deploys the smoke Fleet and FleetAutoscaler. The Kubernetes version is pinned
 to Agones' supported range. The Kind manifest uses development-only
-credentials and is not a production deployment manifest.
+credentials and is not a production deployment manifest. If `helm3` is
+available it is selected automatically because the Agones chart currently
+requires Helm 3 CRD patch semantics; otherwise the configured `helm` binary is
+used.
 
 Nakama also loads the JavaScript bridge in `nakama/runtime/index.js`. Its
 `gameservice.health` RPC performs a bounded health check against the Control
