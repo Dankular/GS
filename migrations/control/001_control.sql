@@ -13,6 +13,38 @@ CREATE TABLE IF NOT EXISTS platform.command_requests (
   result jsonb NOT NULL,
   created_at timestamptz NOT NULL DEFAULT now()
 );
+CREATE TABLE IF NOT EXISTS platform.games (
+  game_id text PRIMARY KEY,
+  created_at timestamptz NOT NULL DEFAULT now()
+);
+CREATE TABLE IF NOT EXISTS platform.environments (
+  game_id text NOT NULL REFERENCES platform.games(game_id) ON DELETE CASCADE,
+  environment text NOT NULL,
+  PRIMARY KEY (game_id, environment)
+);
+CREATE TABLE IF NOT EXISTS platform.definition_revisions (
+  game_id text NOT NULL REFERENCES platform.games(game_id) ON DELETE CASCADE,
+  revision bigint NOT NULL CHECK (revision > 0),
+  digest text NOT NULL,
+  source_yaml text NOT NULL,
+  canonical jsonb NOT NULL,
+  compiled jsonb NOT NULL,
+  validation_report jsonb NOT NULL,
+  actor_id text NOT NULL,
+  status text NOT NULL CHECK (status IN ('validated','published','activated','superseded')),
+  created_at timestamptz NOT NULL DEFAULT now(),
+  PRIMARY KEY (game_id, revision),
+  UNIQUE (game_id, digest)
+);
+CREATE TABLE IF NOT EXISTS platform.definition_activations (
+  game_id text NOT NULL,
+  environment text NOT NULL,
+  revision bigint NOT NULL,
+  activated_by text NOT NULL,
+  activated_at timestamptz NOT NULL DEFAULT now(),
+  PRIMARY KEY (game_id, environment),
+  FOREIGN KEY (game_id, revision) REFERENCES platform.definition_revisions(game_id, revision)
+);
 CREATE TABLE IF NOT EXISTS ops.outbox_events (
   event_id uuid PRIMARY KEY DEFAULT gen_random_uuid(),
   aggregate_type text NOT NULL,
