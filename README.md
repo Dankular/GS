@@ -117,11 +117,13 @@ are not accessed by the bridge.
 The Compose TURN relay publishes a bounded 100-port UDP allocation range;
 increase it only after measuring concurrent relay demand and host capacity.
 
-Compose bootstraps a dedicated `nakama` PostgreSQL login for Nakama migrations
-and runtime storage. GameService continues to use the `gameservice` role, and
-the bootstrap job revokes the control-plane schemas from the Nakama role. Set
-`NAKAMA_DATABASE_PASSWORD` to a distinct secret in the deployment `.env`; do
-not reuse `POSTGRES_PASSWORD`.
+Compose initializes a deployment-only `gameservice_admin` PostgreSQL role, then
+bootstraps a non-superuser `gameservice` role for GameService and a dedicated
+`nakama` role for Nakama migrations and runtime storage. The bootstrap job
+revokes the control-plane schemas from the Nakama role. Set
+`GAMESERVICE_ADMIN_PASSWORD`, `POSTGRES_PASSWORD`, and
+`NAKAMA_DATABASE_PASSWORD` to distinct secrets in the deployment `.env`; do
+not reuse them.
 
 Pinned candidate images are recorded in `deploy/compose/compose.yaml` and must
 be resolved to immutable digests by the compatibility smoke test before a

@@ -8,22 +8,26 @@ services:
     image: postgres@sha256:21f6013073bc6b92830a2129570e2f5ec42a6c734b5a985a41e83aa58f54c3c1
     environment:
       POSTGRES_DB: gameservice
-      POSTGRES_USER: gameservice
-      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:?set POSTGRES_PASSWORD}
+      POSTGRES_USER: gameservice_admin
+      POSTGRES_PASSWORD: ${GAMESERVICE_ADMIN_PASSWORD:?set GAMESERVICE_ADMIN_PASSWORD}
     volumes: [postgres-data:/var/lib/postgresql/data]
-    healthcheck: { test: [CMD-SHELL, 'pg_isready -U gameservice -d gameservice'], interval: 5s, timeout: 5s, retries: 10 }
+    healthcheck: { test: [CMD-SHELL, 'pg_isready -U gameservice_admin -d gameservice'], interval: 5s, timeout: 5s, retries: 10 }
   database-admin-bootstrap:
     image: postgres@sha256:21f6013073bc6b92830a2129570e2f5ec42a6c734b5a985a41e83aa58f54c3c1
     entrypoint: ["/bin/sh", "-ec"]
     command:
       - |
-        psql "$$DATABASE_URL" -v ON_ERROR_STOP=1 --set=admin_password="$$GAMESERVICE_ADMIN_PASSWORD" <<'SQL'
-        SELECT format('CREATE ROLE gameservice_admin SUPERUSER LOGIN PASSWORD %L', :'admin_password')
-        WHERE NOT EXISTS (SELECT 1 FROM pg_roles WHERE rolname = 'gameservice_admin') \gexec
+        psql "$$DATABASE_URL" -v ON_ERROR_STOP=1 --set=app_password="$$POSTGRES_PASSWORD" <<'SQL'
+        SELECT format('CREATE ROLE gameservice LOGIN PASSWORD %L NOSUPERUSER NOCREATEDB NOCREATEROLE', :'app_password')
+        WHERE NOT EXISTS (SELECT 1 FROM pg_roles WHERE rolname = 'gameservice') \gexec
+        SELECT format('ALTER ROLE gameservice LOGIN PASSWORD %L NOSUPERUSER NOCREATEDB NOCREATEROLE', :'app_password')
+        WHERE EXISTS (SELECT 1 FROM pg_roles WHERE rolname = 'gameservice') \gexec
+        GRANT CONNECT, TEMPORARY ON DATABASE gameservice TO gameservice;
+        GRANT USAGE, CREATE ON SCHEMA public TO gameservice;
         SQL
     environment:
-      DATABASE_URL: postgres://gameservice:${POSTGRES_PASSWORD}@postgres:5432/gameservice?sslmode=disable
-      GAMESERVICE_ADMIN_PASSWORD: ${GAMESERVICE_ADMIN_PASSWORD:?set GAMESERVICE_ADMIN_PASSWORD}
+      DATABASE_URL: postgres://gameservice_admin:${GAMESERVICE_ADMIN_PASSWORD}@postgres:5432/gameservice?sslmode=disable
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:?set POSTGRES_PASSWORD}
     depends_on:
       postgres: { condition: service_healthy }
   nakama-role-bootstrap:
@@ -106,6 +110,7 @@ services:
     volumes: [../../migrations/control:/migrations:ro]
     depends_on:
       postgres: { condition: service_healthy }
+      database-admin-bootstrap: { condition: service_completed_successfully }
   seed:
     profiles: [seed]
     build: { context: ../.., dockerfile: deploy/compose/seed.Dockerfile }
