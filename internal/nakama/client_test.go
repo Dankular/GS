@@ -50,7 +50,7 @@ func TestWriteTournamentRecordUsesServerRuntimeHTTPKey(t *testing.T) {
 			t.Fatalf("runtime query did not request unwrap: %s", r.URL.RawQuery)
 		}
 		body, _ := io.ReadAll(r.Body)
-		for _, expected := range []string{`"tournamentId":"weekly-arena"`, `"ownerId":"player-1"`, `"score":42`, `"durationSeconds":3600`} {
+		for _, expected := range []string{`"tournamentId":"weekly-arena"`, `"eventKey":"match-1:1:sha256:test"`, `"ownerId":"player-1"`, `"score":42`, `"durationSeconds":3600`} {
 			if !strings.Contains(string(body), expected) {
 				t.Fatalf("body missing %q: %s", expected, body)
 			}
@@ -58,13 +58,13 @@ func TestWriteTournamentRecordUsesServerRuntimeHTTPKey(t *testing.T) {
 		w.WriteHeader(http.StatusOK)
 	}))
 	defer s.Close()
-	if err := (Client{BaseURL: s.URL, RuntimeHTTPKey: "runtime-secret"}).WriteTournamentRecord(context.Background(), TournamentConfig{ID: "weekly-arena", DurationSeconds: 3600}, LeaderboardRecord{UserID: "player-1", Score: 42}); err != nil {
+	if err := (Client{BaseURL: s.URL, RuntimeHTTPKey: "runtime-secret"}).WriteTournamentRecord(context.Background(), TournamentConfig{ID: "weekly-arena", EventKey: "match-1:1:sha256:test", DurationSeconds: 3600}, LeaderboardRecord{UserID: "player-1", Score: 42}); err != nil {
 		t.Fatal(err)
 	}
 }
 
 func TestWriteTournamentRecordRequiresRuntimeKey(t *testing.T) {
-	if err := (Client{BaseURL: "http://nakama"}).WriteTournamentRecord(context.Background(), TournamentConfig{ID: "t", DurationSeconds: 1}, LeaderboardRecord{UserID: "p"}); err == nil {
+	if err := (Client{BaseURL: "http://nakama"}).WriteTournamentRecord(context.Background(), TournamentConfig{ID: "t", EventKey: "event", DurationSeconds: 1}, LeaderboardRecord{UserID: "p"}); err == nil {
 		t.Fatal("expected missing runtime key error")
 	}
 }

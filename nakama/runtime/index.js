@@ -199,6 +199,7 @@ function gameserviceTournamentRecord(ctx, logger, nk, payload) {
     throw { message: "tournament payload must be valid JSON", code: 3 };
   }
   var tournamentId = tournamentRequiredString(request.tournamentId, "tournamentId", 128);
+  var eventKey = tournamentRequiredString(request.eventKey, "eventKey", 256);
   var ownerId = tournamentRequiredString(request.ownerId, "ownerId", 128);
   var username = request.username || "";
   if (typeof username !== "string" || username.length > 128) {
@@ -234,8 +235,20 @@ function gameserviceTournamentRecord(ctx, logger, nk, payload) {
   if (request.joinRequired === true) {
     nk.tournamentJoin(tournamentId, ownerId, username);
   }
+  var records = nk.tournamentRecordsList(tournamentId, [ownerId], 1, "", 0);
+  var ownerRecords = records && records.ownerRecords ? records.ownerRecords : [];
+  for (var recordIndex = 0; recordIndex < ownerRecords.length; recordIndex++) {
+    var existingMetadata = ownerRecords[recordIndex].metadata || {};
+    if (typeof existingMetadata === "string") {
+      try { existingMetadata = JSON.parse(existingMetadata); } catch (error) { existingMetadata = {}; }
+    }
+    if (existingMetadata.gameserviceEventKey === eventKey) {
+      return JSON.stringify({ tournamentId: tournamentId, ownerId: ownerId, duplicate: true, record: ownerRecords[recordIndex] });
+    }
+  }
+  metadata.gameserviceEventKey = eventKey;
   var record = nk.tournamentRecordWrite(tournamentId, ownerId, username, request.score, subscore, metadata);
-  return JSON.stringify({ tournamentId: tournamentId, ownerId: ownerId, record: record || {} });
+  return JSON.stringify({ tournamentId: tournamentId, ownerId: ownerId, duplicate: false, record: record || {} });
 }
 
 function InitModule(ctx, logger, nk, initializer) {

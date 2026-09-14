@@ -24,6 +24,7 @@ type LeaderboardRecord struct {
 
 type TournamentConfig struct {
 	ID               string
+	EventKey         string
 	DurationSeconds  int64
 	ResetSchedule    string
 	JoinRequired     bool
@@ -69,11 +70,11 @@ func (c Client) WriteLeaderboardRecord(ctx context.Context, leaderboardID string
 // tournament creation and authoritative writes through the runtime API; the
 // worker never accesses Nakama-owned tables.
 func (c Client) WriteTournamentRecord(ctx context.Context, config TournamentConfig, record LeaderboardRecord) error {
-	if strings.TrimSpace(c.BaseURL) == "" || strings.TrimSpace(c.RuntimeHTTPKey) == "" || config.ID == "" || config.DurationSeconds <= 0 || record.UserID == "" {
+	if strings.TrimSpace(c.BaseURL) == "" || strings.TrimSpace(c.RuntimeHTTPKey) == "" || config.ID == "" || config.EventKey == "" || config.DurationSeconds <= 0 || record.UserID == "" {
 		return errors.New("nakama tournament client is not configured")
 	}
 	payload := map[string]any{
-		"tournamentId": config.ID, "ownerId": record.UserID, "username": "",
+		"tournamentId": config.ID, "eventKey": config.EventKey, "ownerId": record.UserID, "username": "",
 		"score": record.Score, "subscore": record.Subscore, "metadata": record.Metadata,
 		"durationSeconds": config.DurationSeconds, "resetSchedule": config.ResetSchedule,
 		"joinRequired": config.JoinRequired, "maxScoreAttempts": config.MaxScoreAttempts,

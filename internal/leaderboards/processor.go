@@ -2,6 +2,7 @@ package leaderboards
 
 import (
 	"context"
+	"crypto/sha256"
 	"encoding/json"
 	"errors"
 	"fmt"
@@ -65,8 +66,13 @@ func (p Publisher) Publish(ctx context.Context, event outbox.Event) error {
 	if err != nil {
 		return err
 	}
+	resultDigest := fmt.Sprintf("sha256:%x", sha256.Sum256(payload))
+	metadataBytes, err := json.Marshal(map[string]any{"matchId": event.AggregateID, "resultSequence": envelope.Sequence, "resultDigest": resultDigest})
+	if err != nil {
+		return fmt.Errorf("encode leaderboard delivery metadata: %w", err)
+	}
 	for _, player := range result.Players {
-		record := nakama.LeaderboardRecord{UserID: player.PlayerID, Score: player.Score, Subscore: player.Subscore}
+		record := nakama.LeaderboardRecord{UserID: player.PlayerID, Score: player.Score, Subscore: player.Subscore, Metadata: string(metadataBytes)}
 		if rating.LeaderboardID != "" {
 			if err := p.Nakama.WriteLeaderboardRecord(ctx, rating.LeaderboardID, record); err != nil {
 				return err
@@ -78,7 +84,7 @@ func (p Publisher) Publish(ctx context.Context, event outbox.Event) error {
 				return fmt.Errorf("parse tournament duration: %w", err)
 			}
 			if err := p.Nakama.WriteTournamentRecord(ctx, nakama.TournamentConfig{
-				ID: rating.Tournament.ID, DurationSeconds: int64(duration / time.Second),
+				ID: rating.Tournament.ID, EventKey: fmt.Sprintf("%s:%d:%s", event.AggregateID, envelope.Sequence, resultDigest), DurationSeconds: int64(duration / time.Second),
 				ResetSchedule: rating.Tournament.ResetSchedule, JoinRequired: rating.Tournament.JoinRequired,
 				MaxScoreAttempts: rating.Tournament.MaxScoreAttempts,
 			}, record); err != nil {
