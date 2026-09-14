@@ -27,5 +27,8 @@ GAMESERVICE_BACKUP_AGE_IDENTITY=/run/secrets/gameservice-backup-agekey \
 The verifier creates and removes a uniquely named temporary database. It does
 not overwrite the live `gameservice` database. Schedule this procedure after a
 retention/RPO/RTO decision and record the output, elapsed time, and checksum in
-the operations log. The current Compose PostgreSQL service is a development/
-single-host deployment and does not provide PITR or HA by itself.
+the operations log. The scripts default to `GAMESERVICE_BACKUP_DATABASE_USER=gameservice_admin`
+so the dump includes Nakama-owned public tables; this deployment-only credential
+must not be given to application containers. The current Compose PostgreSQL
+service is a development/single-host deployment and does not provide PITR or HA
+by itself.

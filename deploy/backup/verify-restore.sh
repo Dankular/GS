@@ -3,6 +3,7 @@ set -euo pipefail
 
 repo_dir="${GAMESERVICE_DIR:-/opt/gameservice}"
 dump="${1:?usage: verify-restore.sh /var/backups/gameservice/file.dump}"
+database_user="${GAMESERVICE_BACKUP_DATABASE_USER:-gameservice_admin}"
 test -f "$dump"
 if [[ "$dump" == *.age ]]; then
   identity="${GAMESERVICE_BACKUP_AGE_IDENTITY:-}"
@@ -20,10 +21,10 @@ docker compose --env-file .env -f deploy/compose/compose.yaml exec -T postgres \
   createdb -U gameservice "$db"
 if [[ "$dump" == *.age ]]; then
   age -d -i "$identity" "$dump" | docker compose --env-file .env -f deploy/compose/compose.yaml exec -T postgres \
-    pg_restore -U gameservice -d "$db" --no-owner
+    pg_restore -U "$database_user" -d "$db" --no-owner
 else
   docker compose --env-file .env -f deploy/compose/compose.yaml exec -T postgres \
-    pg_restore -U gameservice -d "$db" --no-owner < "$dump"
+    pg_restore -U "$database_user" -d "$db" --no-owner < "$dump"
 fi
 tables="$(docker compose --env-file .env -f deploy/compose/compose.yaml exec -T postgres \
   psql -U gameservice -d "$db" -Atc "SELECT count(*) FROM information_schema.tables WHERE table_schema IN ('platform','economy','match','ops');")"

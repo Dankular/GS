@@ -16,7 +16,7 @@ func TestBackupScriptsSupportMandatoryAgeEncryptionAndRestore(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	for _, required := range []string{"GAMESERVICE_BACKUP_REQUIRE_ENCRYPTION", "GAMESERVICE_BACKUP_AGE_RECIPIENT", "age -r", "GAMESERVICE_BACKUP_S3_URI", "sha256sum"} {
+	for _, required := range []string{"GAMESERVICE_BACKUP_REQUIRE_ENCRYPTION", "GAMESERVICE_BACKUP_AGE_RECIPIENT", "GAMESERVICE_BACKUP_DATABASE_USER", "age -r", "GAMESERVICE_BACKUP_S3_URI", "sha256sum"} {
 		if !strings.Contains(string(backup), required) {
 			t.Errorf("backup script missing %q", required)
 		}

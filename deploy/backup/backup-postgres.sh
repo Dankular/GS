@@ -7,6 +7,7 @@ stamp="$(date -u +%Y%m%dT%H%M%SZ)"
 target="${1:-${backup_dir}/gameservice-${stamp}.dump}"
 age_recipient="${GAMESERVICE_BACKUP_AGE_RECIPIENT:-}"
 require_encryption="${GAMESERVICE_BACKUP_REQUIRE_ENCRYPTION:-0}"
+database_user="${GAMESERVICE_BACKUP_DATABASE_USER:-gameservice_admin}"
 
 if [ -n "$age_recipient" ]; then
   case "$target" in
@@ -31,12 +32,12 @@ if [ -n "$age_recipient" ]; then
   plaintext="${target}.plaintext"
   trap 'rm -f "$plaintext"' EXIT
   docker compose --env-file .env -f deploy/compose/compose.yaml exec -T postgres \
-    pg_dump -U gameservice -d gameservice --format=custom --no-owner > "$plaintext"
+    pg_dump -U "$database_user" -d gameservice --format=custom --no-owner > "$plaintext"
   age -r "$age_recipient" -o "$target" "$plaintext"
   rm -f "$plaintext"
 else
   docker compose --env-file .env -f deploy/compose/compose.yaml exec -T postgres \
-    pg_dump -U gameservice -d gameservice --format=custom --no-owner > "$target"
+    pg_dump -U "$database_user" -d gameservice --format=custom --no-owner > "$target"
 fi
 test -s "$target"
 sha256sum "$target" > "${target}.sha256"
