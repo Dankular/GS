@@ -16,7 +16,15 @@ fi
 # Kind is a single-node validation cluster; keep Agones control-plane replicas
 # at one so the test does not fail solely from local capacity. Production
 # deployments retain the chart's HA defaults in the production values.
-"$HELM_BIN" upgrade --install agones agones/agones --namespace agones-system --create-namespace --version "$AGONES_VERSION" --set agones.controller.replicas=1 --set agones.extensions.replicas=1 --set agones.allocator.replicas=1 --set agones.ping.replicas=1 --wait
+"$HELM_BIN" upgrade --install agones agones/agones --namespace agones-system --create-namespace --version "$AGONES_VERSION" \
+  --set agones.controller.replicas=1 \
+  --set agones.extensions.replicas=1 \
+  --set agones.allocator.replicas=1 \
+  --set agones.ping.replicas=1 \
+  --set agones.allocator.service.serviceType=NodePort \
+  --set agones.ping.http.serviceType=NodePort \
+  --set agones.ping.udp.serviceType=NodePort \
+  --wait
 docker build -f deploy/compose/simulator-server.Dockerfile -t gameservice-simulator:dev .
 kind load docker-image gameservice-simulator:dev --name gameservice
 kubectl apply -f deploy/kind/simulator-fleet.yaml
