@@ -296,7 +296,7 @@ func main() {
 			return
 		}
 		defer tx.Rollback(r.Context())
-		duplicate, digest, err := matches.SubmitResult(r.Context(), tx, matches.ResultSubmission{MatchID: matchID, Sequence: request.Sequence, Payload: request.Payload, PayloadDigest: request.PayloadDigest})
+		duplicate, digest, err := matches.SubmitResult(r.Context(), tx, matches.ResultSubmission{MatchID: matchID, Sequence: request.Sequence, Payload: request.Payload, PayloadDigest: request.PayloadDigest, CorrelationID: r.Header.Get("X-Correlation-ID")})
 		if errors.Is(err, matches.ErrResultDigestMismatch) {
 			http.Error(w, "result digest conflict", http.StatusConflict)
 			return

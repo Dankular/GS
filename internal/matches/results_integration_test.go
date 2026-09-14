@@ -65,4 +65,11 @@ func TestSubmitResultPersistsAndDeduplicates(t *testing.T) {
 	if state != "Finalizing" {
 		t.Fatalf("expected Finalizing, got %s", state)
 	}
+	var events int
+	if err := pool.QueryRow(ctx, `SELECT count(*) FROM ops.outbox_events WHERE aggregate_type='match' AND aggregate_id=$1 AND event_type='match.result.accepted.v1'`, matchID).Scan(&events); err != nil {
+		t.Fatal(err)
+	}
+	if events != 1 {
+		t.Fatalf("expected one result outbox event, got %d", events)
+	}
 }

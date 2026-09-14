@@ -21,6 +21,7 @@ type ResultSubmission struct {
 	Sequence      int64
 	Payload       json.RawMessage
 	PayloadDigest string
+	CorrelationID string
 }
 
 func (r ResultSubmission) Validate() ([]byte, string, error) {
@@ -65,6 +66,17 @@ func SubmitResult(ctx context.Context, tx pgx.Tx, submission ResultSubmission) (
 		if errors.Is(err, pgx.ErrNoRows) {
 			return false, digest, ErrMatchNotRunning
 		}
+		return false, digest, err
+	}
+	correlationID := submission.CorrelationID
+	if correlationID == "" {
+		correlationID = submission.MatchID
+	}
+	eventPayload, err := json.Marshal(map[string]any{"matchId": submission.MatchID, "sequence": submission.Sequence, "payloadDigest": digest})
+	if err != nil {
+		return false, digest, err
+	}
+	if _, err := tx.Exec(ctx, `INSERT INTO ops.outbox_events(aggregate_type,aggregate_id,event_type,correlation_id,payload) VALUES('match',$1,'match.result.accepted.v1',$2,$3::jsonb)`, submission.MatchID, correlationID, eventPayload); err != nil {
 		return false, digest, err
 	}
 	return false, digest, nil
