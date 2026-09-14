@@ -5,6 +5,7 @@ package e2e
 import (
 	"bytes"
 	"context"
+	"crypto/ed25519"
 	"crypto/hmac"
 	"crypto/sha256"
 	"encoding/base64"
@@ -18,21 +19,24 @@ import (
 	"strings"
 	"testing"
 	"time"
+
+	"github.com/Dankular/GameService/internal/matches"
 )
 
 type testConfig struct {
-	APIURL          string
-	SigningKey      string
-	PlayerA         string
-	PlayerB         string
-	GameID          string
-	Environment     string
-	ModeID          string
-	Build           string
-	Region          string
-	ServerURL       string
-	ServerToken     string
-	ServerTokenFile string
+	APIURL                string
+	SigningKey            string
+	PlayerA               string
+	PlayerB               string
+	GameID                string
+	Environment           string
+	ModeID                string
+	Build                 string
+	Region                string
+	ServerURL             string
+	ServerToken           string
+	ServerTokenFile       string
+	ServerClaimPrivateKey string
 }
 
 type ticket struct {
@@ -42,11 +46,13 @@ type ticket struct {
 }
 
 type match struct {
-	MatchID     string         `json:"matchId"`
-	State       string         `json:"state"`
-	ServerAddr  string         `json:"serverAddress"`
-	ServerPorts map[string]int `json:"serverPorts"`
-	Roster      []struct {
+	MatchID      string         `json:"matchId"`
+	State        string         `json:"state"`
+	AllocationID string         `json:"allocationId"`
+	ServerAddr   string         `json:"serverAddress"`
+	ServerPorts  map[string]int `json:"serverPorts"`
+	Build        string         `json:"build"`
+	Roster       []struct {
 		PlayerID string `json:"playerId"`
 	} `json:"roster"`
 }
@@ -117,6 +123,22 @@ func TestSyntheticMatchLifecycle(t *testing.T) {
 			t.Fatal("server token file was empty")
 		}
 	}
+	if serverToken == "" && cfg.ServerClaimPrivateKey != "" {
+		key, err := base64.RawStdEncoding.DecodeString(cfg.ServerClaimPrivateKey)
+		if err != nil || len(key) != ed25519.PrivateKeySize {
+			t.Fatal("GAMESERVICE_E2E_SERVER_CLAIM_PRIVATE_KEY is not a valid Ed25519 private key")
+		}
+		now := time.Now().UTC()
+		serverToken, err = matches.SignClaim(matches.JoinClaim{
+			Issuer: "control-plane", Audience: "control-plane", Subject: "game-server",
+			MatchID: current.MatchID, AllocationID: current.AllocationID, ServerBuild: current.Build,
+			IssuedAt: now.Unix(), NotBefore: now.Unix(), ExpiresAt: now.Add(10 * time.Minute).Unix(),
+			JTI: current.MatchID + ":" + current.AllocationID,
+		}, ed25519.PrivateKey(key))
+		if err != nil {
+			t.Fatalf("server claim could not be signed: %v", err)
+		}
+	}
 	if serverToken != "" {
 		// The optional token allows the harness to verify duplicate result
 		// acceptance through the authoritative server endpoint as well.
@@ -134,7 +156,7 @@ func loadConfig() (testConfig, bool) {
 		PlayerA: os.Getenv("GAMESERVICE_E2E_PLAYER_A"), PlayerB: os.Getenv("GAMESERVICE_E2E_PLAYER_B"),
 		GameID: envOr("GAMESERVICE_E2E_GAME_ID", "arena"), Environment: envOr("GAMESERVICE_E2E_ENVIRONMENT", "dev"),
 		ModeID: envOr("GAMESERVICE_E2E_MODE_ID", "deathmatch"), Build: envOr("GAMESERVICE_E2E_BUILD", "sha256:0000000000000000000000000000000000000000000000000000000000000000"),
-		Region: envOr("GAMESERVICE_E2E_REGION", "eu-west"), ServerURL: os.Getenv("GAMESERVICE_E2E_SERVER_URL"), ServerToken: os.Getenv("GAMESERVICE_E2E_SERVER_TOKEN"), ServerTokenFile: os.Getenv("GAMESERVICE_E2E_SERVER_TOKEN_FILE"),
+		Region: envOr("GAMESERVICE_E2E_REGION", "eu-west"), ServerURL: os.Getenv("GAMESERVICE_E2E_SERVER_URL"), ServerToken: os.Getenv("GAMESERVICE_E2E_SERVER_TOKEN"), ServerTokenFile: os.Getenv("GAMESERVICE_E2E_SERVER_TOKEN_FILE"), ServerClaimPrivateKey: os.Getenv("GAMESERVICE_E2E_SERVER_CLAIM_PRIVATE_KEY"),
 	}
 	return c, c.APIURL != "" && c.SigningKey != "" && c.PlayerA != "" && c.PlayerB != "" && c.PlayerA != c.PlayerB
 }
