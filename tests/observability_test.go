@@ -29,7 +29,7 @@ func TestPrometheusRulesHaveRunbooks(t *testing.T) {
 	if err := yaml.Unmarshal(data, &document); err != nil {
 		t.Fatalf("parse Prometheus rules: %v", err)
 	}
-	if len(document.Groups) != 1 || len(document.Groups[0].Rules) < 6 {
+	if len(document.Groups) != 1 || len(document.Groups[0].Rules) < 7 {
 		t.Fatalf("expected API and outbox SLO alerts: %#v", document)
 	}
 	for _, rule := range document.Groups[0].Rules {
@@ -41,7 +41,7 @@ func TestPrometheusRulesHaveRunbooks(t *testing.T) {
 	if !strings.Contains(rulesText, "histogram_quantile") || !strings.Contains(rulesText, "gameservice_http_request_duration_seconds_bucket") {
 		t.Fatal("latency SLO alert is missing the bounded request histogram")
 	}
-	for _, required := range []string{"gameservice_outbox_oldest_age_seconds", "gameservice_outbox_dead_letters", "docs/runbooks/outbox.md"} {
+	for _, required := range []string{"gameservice_outbox_oldest_age_seconds", "gameservice_outbox_dead_letters", "gameservice_outbox_metrics_available", "docs/runbooks/outbox.md"} {
 		if !strings.Contains(rulesText, required) {
 			t.Errorf("outbox alert configuration missing %q", required)
 		}

@@ -60,3 +60,12 @@ groups:
         annotations:
           summary: GameService outbox contains dead-lettered events
           runbook: docs/runbooks/outbox.md
+      - alert: GameServiceOutboxMetricsUnavailable
+        expr: gameservice_outbox_metrics_available < 1
+        for: 5m
+        labels:
+          severity: critical
+          service: gameservice-outbox
+        annotations:
+          summary: GameService cannot query outbox observability data
+          runbook: docs/runbooks/outbox.md

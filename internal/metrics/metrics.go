@@ -99,6 +99,11 @@ func (r *Registry) write(w http.ResponseWriter, outbox OutboxSnapshot) {
 	_, _ = fmt.Fprintf(w, "gameservice_http_request_duration_seconds_sum %.9f\n", float64(r.durationNanos.Load())/float64(time.Second))
 	_, _ = fmt.Fprintf(w, "gameservice_http_request_duration_seconds_count %d\n", r.durationCount.Load())
 	_, _ = fmt.Fprintf(w, "# HELP gameservice_process_uptime_seconds Process uptime.\n# TYPE gameservice_process_uptime_seconds gauge\ngameservice_process_uptime_seconds %.3f\n", uptime)
+	available := 0
+	if outbox.Available {
+		available = 1
+	}
+	_, _ = fmt.Fprintf(w, "# HELP gameservice_outbox_metrics_available Whether the outbox database metrics query succeeded.\n# TYPE gameservice_outbox_metrics_available gauge\ngameservice_outbox_metrics_available %d\n", available)
 	if outbox.Available {
 		_, _ = fmt.Fprintf(w, "# HELP gameservice_outbox_backlog_depth Number of pending outbox events.\n# TYPE gameservice_outbox_backlog_depth gauge\ngameservice_outbox_backlog_depth %d\n", outbox.BacklogDepth)
 		_, _ = fmt.Fprintf(w, "# HELP gameservice_outbox_oldest_age_seconds Age of the oldest pending outbox event.\n# TYPE gameservice_outbox_oldest_age_seconds gauge\ngameservice_outbox_oldest_age_seconds %.3f\n", outbox.OldestAgeSeconds)

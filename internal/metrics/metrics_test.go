@@ -44,6 +44,7 @@ func TestOutboxMetricsUseBoundedNamesAndLabels(t *testing.T) {
 	registry.write(recorder, OutboxSnapshot{BacklogDepth: 4, OldestAgeSeconds: 12.5, DeadLetters: 2, Attempts: 9, Available: true})
 	text := recorder.Body.String()
 	for _, expected := range []string{
+		"gameservice_outbox_metrics_available 1",
 		"gameservice_outbox_backlog_depth 4",
 		"gameservice_outbox_oldest_age_seconds 12.500",
 		"gameservice_outbox_dead_letters 2",
