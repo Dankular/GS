@@ -66,3 +66,22 @@ func TestComposeSeedUsesDefinitionMountedInSeedImage(t *testing.T) {
 		t.Fatal("Compose seed job does not use the mounted definition path")
 	}
 }
+
+func TestSupplyChainPolicyIsOptInAndKeyless(t *testing.T) {
+	values, err := os.ReadFile(filepath.Join("..", "deploy", "helm", "platform", "values.yaml"))
+	if err != nil {
+		t.Fatal(err)
+	}
+	policy, err := os.ReadFile(filepath.Join("..", "deploy", "helm", "platform", "templates", "image-signature-policy.yaml"))
+	if err != nil {
+		t.Fatal(err)
+	}
+	if !strings.Contains(string(values), "admissionPolicy:\n    enabled: false") {
+		t.Fatal("image admission policy is not opt-in by default")
+	}
+	for _, required := range []string{"verifyImages:", "mutateDigest: false", "verifyDigest: true", "keyless:", "issuerRegExp:", "subjectRegExp:", "rekor:"} {
+		if !strings.Contains(string(policy), required) {
+			t.Errorf("image admission policy missing %q", required)
+		}
+	}
+}

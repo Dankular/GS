@@ -78,3 +78,11 @@ autoscaling:
   minReplicas: 2
   maxReplicas: 8
   targetCPUUtilizationPercentage: 70
+supplyChain:
+  admissionPolicy:
+    enabled: false
+    name: gameservice-verify-images
+    imagePattern: ghcr.io/dankular/gameservice-*
+    issuerRegExp: https://token.actions.githubusercontent.com
+    subjectRegExp: https://github.com/Dankular/GS/.github/workflows/release.yml@refs/tags/v.*
+    rekorURL: https://rekor.sigstore.dev

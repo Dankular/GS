@@ -1,0 +1,37 @@
+{{- if .Values.supplyChain.admissionPolicy.enabled }}
+apiVersion: kyverno.io/v1
+kind: ClusterPolicy
+metadata:
+  name: {{ .Values.supplyChain.admissionPolicy.name }}
+  annotations:
+    policies.kyverno.io/title: Verify GameService images
+    policies.kyverno.io/category: Software Supply Chain Security
+    policies.kyverno.io/description: Require digest-pinned GameService images signed by the release workflow.
+spec:
+  background: false
+  validationFailureAction: Enforce
+  webhookConfiguration:
+    failurePolicy: Fail
+    timeoutSeconds: 30
+  rules:
+    - name: verify-gameservice-images
+      match:
+        any:
+          - resources:
+              kinds: [Pod]
+              namespaces: [{{ .Values.namespace.app | quote }}, {{ .Values.namespace.gameservers | quote }}]
+      verifyImages:
+        - imageReferences:
+            - {{ .Values.supplyChain.admissionPolicy.imagePattern | quote }}
+          required: true
+          mutateDigest: false
+          verifyDigest: true
+          failureAction: Enforce
+          attestors:
+            - entries:
+                - keyless:
+                    issuerRegExp: {{ .Values.supplyChain.admissionPolicy.issuerRegExp | quote }}
+                    subjectRegExp: {{ .Values.supplyChain.admissionPolicy.subjectRegExp | quote }}
+                    rekor:
+                      url: {{ .Values.supplyChain.admissionPolicy.rekorURL | quote }}
+{{- end }}

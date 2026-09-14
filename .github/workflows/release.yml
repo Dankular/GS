@@ -1,0 +1,77 @@
+name: Release images
+
+on:
+  push:
+    tags: ['v*.*.*']
+
+permissions:
+  contents: read
+  packages: write
+  id-token: write
+  attestations: write
+
+env:
+  REGISTRY: ghcr.io
+  IMAGE_OWNER: dankular
+
+jobs:
+  images:
+    name: Build and sign ${{ matrix.name }}
+    runs-on: ubuntu-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - name: control-api
+            dockerfile: deploy/compose/control-api.Dockerfile
+          - name: outbox-worker
+            dockerfile: deploy/compose/outbox-worker.Dockerfile
+          - name: leaderboard-worker
+            dockerfile: deploy/compose/leaderboard-worker.Dockerfile
+          - name: matchmaking-worker
+            dockerfile: deploy/compose/matchmaking-worker.Dockerfile
+          - name: reconciliation-worker
+            dockerfile: deploy/compose/reconciliation-worker.Dockerfile
+
+    steps:
+      - uses: actions/checkout@v4
+      - name: Log in to GHCR
+        uses: docker/login-action@v3
+        with:
+          registry: ${{ env.REGISTRY }}
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+      - name: Set up Buildx
+        uses: docker/setup-buildx-action@v3
+      - name: Build and push immutable image
+        id: build
+        uses: docker/build-push-action@v6
+        with:
+          context: .
+          file: ${{ matrix.dockerfile }}
+          push: true
+          tags: ${{ env.REGISTRY }}/${{ env.IMAGE_OWNER }}/gameservice-${{ matrix.name }}:${{ github.ref_name }}
+          platforms: linux/amd64
+          sbom: true
+          provenance: mode=max
+          labels: |
+            org.opencontainers.image.revision=${{ github.sha }}
+            org.opencontainers.image.source=${{ github.server_url }}/${{ github.repository }}
+      - name: Install Cosign
+        uses: sigstore/cosign-installer@v3
+      - name: Sign image digest with GitHub OIDC
+        env:
+          IMAGE: ${{ env.REGISTRY }}/${{ env.IMAGE_OWNER }}/gameservice-${{ matrix.name }}
+          DIGEST: ${{ steps.build.outputs.digest }}
+        run: cosign sign --yes "${IMAGE}@${DIGEST}"
+      - name: Create and sign CycloneDX SBOM attestation
+        uses: anchore/sbom-action@v0
+        with:
+          image: ${{ env.REGISTRY }}/${{ env.IMAGE_OWNER }}/gameservice-${{ matrix.name }}@${{ steps.build.outputs.digest }}
+          format: cyclonedx-json
+          output-file: gameservice-${{ matrix.name }}.cdx.json
+      - name: Attest SBOM
+        env:
+          IMAGE: ${{ env.REGISTRY }}/${{ env.IMAGE_OWNER }}/gameservice-${{ matrix.name }}
+          DIGEST: ${{ steps.build.outputs.digest }}
+        run: cosign attest --yes --type https://cyclonedx.org/bom --predicate "gameservice-${{ matrix.name }}.cdx.json" "${IMAGE}@${DIGEST}"
