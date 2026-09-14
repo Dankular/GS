@@ -112,6 +112,13 @@ paths:
     post: { operationId: dryRunDefinition, security: [{ AdminSession: [] }], parameters: [{ name: gameId, in: query, required: false, schema: { type: string } }, { name: revision, in: query, required: false, schema: { type: integer, minimum: 1 } }], responses: { '200': { description: Validation and non-mutating impact plan } } }
   /v1/admin/definitions:
     post: { operationId: publishDefinition, security: [{ AdminSession: [] }], responses: { '201': { description: Published immutable revision } } }
+  /v1/admin/definitions/{revision}/approval:
+    parameters:
+      - name: revision
+        in: path
+        required: true
+        schema: { type: integer, minimum: 1 }
+    post: { operationId: requestOrApproveDefinition, security: [{ AdminSession: [] }], parameters: [{ name: gameId, in: query, required: true, schema: { type: string, minLength: 1 } }, { name: environment, in: query, required: true, schema: { type: string, minLength: 1 } }], responses: { '200': { description: Pending or approved two-actor activation approval } } }
   /v1/admin/definitions/{revision}/activate:
     parameters:
       - name: revision

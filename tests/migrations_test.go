@@ -8,7 +8,7 @@ import (
 )
 
 func TestComposeAndHelmMigrationsStayInSync(t *testing.T) {
-	for _, name := range []string{"001_control.sql", "002_match_ticket_link.sql", "003_privacy.sql", "004_audit_chain.sql"} {
+	for _, name := range []string{"001_control.sql", "002_match_ticket_link.sql", "003_privacy.sql", "004_audit_chain.sql", "005_definition_approvals.sql"} {
 		compose, err := os.ReadFile(filepath.Join("..", "migrations", "control", name))
 		if err != nil {
 			t.Fatal(err)

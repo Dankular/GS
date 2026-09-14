@@ -633,6 +633,30 @@ func main() {
 		w.WriteHeader(http.StatusCreated)
 		writeJSON(w, map[string]any{"gameId": report.Definition.Metadata.GameID, "revision": report.Definition.Metadata.Revision, "digest": report.Digest, "status": "published"})
 	})
+	mux.HandleFunc("POST /v1/admin/definitions/{revision}/approval", func(w http.ResponseWriter, r *http.Request) {
+		claims, ok := requireScope(w, r, authenticate, "definition:approve")
+		if !ok {
+			return
+		}
+		revision, err := strconv.ParseInt(r.PathValue("revision"), 10, 64)
+		if err != nil || revision < 1 {
+			http.Error(w, "revision must be a positive integer", http.StatusBadRequest)
+			return
+		}
+		gameID := strings.TrimSpace(r.URL.Query().Get("gameId"))
+		environment := strings.TrimSpace(r.URL.Query().Get("environment"))
+		reason := strings.TrimSpace(r.Header.Get("X-Reason"))
+		if gameID == "" || environment == "" || reason == "" {
+			http.Error(w, "gameId, environment, and X-Reason are required", http.StatusBadRequest)
+			return
+		}
+		approval, err := definitionStore.RequestOrApprove(r.Context(), gameID, environment, revision, claims.UserID, reason)
+		if err != nil {
+			http.Error(w, err.Error(), http.StatusConflict)
+			return
+		}
+		writeJSON(w, approval)
+	})
 	mux.HandleFunc("POST /v1/admin/definitions/{revision}/activate", func(w http.ResponseWriter, r *http.Request) {
 		claims, ok := requireScope(w, r, authenticate, "definition:activate")
 		if !ok {
@@ -649,6 +673,22 @@ func main() {
 		if gameID == "" || environment == "" || reason == "" {
 			http.Error(w, "gameId, environment, and X-Reason are required", http.StatusBadRequest)
 			return
+		}
+		if requiresFourEyes(environment) {
+			approvalID := strings.TrimSpace(r.Header.Get("X-Approval-Id"))
+			if approvalID == "" {
+				http.Error(w, "X-Approval-Id is required for production activation", http.StatusBadRequest)
+				return
+			}
+			valid, approvalErr := definitionStore.HasApprovedActivation(r.Context(), gameID, environment, revision, approvalID, claims.UserID)
+			if approvalErr != nil {
+				http.Error(w, "approval unavailable", http.StatusServiceUnavailable)
+				return
+			}
+			if !valid {
+				http.Error(w, "approved second-actor approval is required", http.StatusConflict)
+				return
+			}
 		}
 		if err := definitionStore.Activate(r.Context(), gameID, environment, revision, claims.UserID, reason, true); err != nil {
 			http.Error(w, err.Error(), http.StatusConflict)
@@ -672,6 +712,22 @@ func main() {
 		if gameID == "" || environment == "" || reason == "" {
 			http.Error(w, "gameId, environment, and X-Reason are required", http.StatusBadRequest)
 			return
+		}
+		if requiresFourEyes(environment) {
+			approvalID := strings.TrimSpace(r.Header.Get("X-Approval-Id"))
+			if approvalID == "" {
+				http.Error(w, "X-Approval-Id is required for production rollback", http.StatusBadRequest)
+				return
+			}
+			valid, approvalErr := definitionStore.HasApprovedActivation(r.Context(), gameID, environment, revision, approvalID, claims.UserID)
+			if approvalErr != nil {
+				http.Error(w, "approval unavailable", http.StatusServiceUnavailable)
+				return
+			}
+			if !valid {
+				http.Error(w, "approved second-actor approval is required", http.StatusConflict)
+				return
+			}
 		}
 		if err := definitionStore.Rollback(r.Context(), gameID, environment, revision, claims.UserID, reason, true); err != nil {
 			http.Error(w, err.Error(), http.StatusConflict)
@@ -791,6 +847,11 @@ func sessionAllowsScope(claims auth.SessionClaims, scope string) bool {
 	// Nakama's ordinary player session token has no scope claim. It is still
 	// allowed to use self-service player APIs; privileged scopes remain explicit.
 	return (scope == "player:read" || scope == "player:write") && claims.Scope == "" && len(claims.Vars) == 0
+}
+
+func requiresFourEyes(environment string) bool {
+	environment = strings.ToLower(strings.TrimSpace(environment))
+	return environment == "prod" || environment == "production"
 }
 
 func commandScope(operation string) string {

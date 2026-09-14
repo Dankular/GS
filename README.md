@@ -58,6 +58,12 @@ diff, active environments, running-match count, and queued-ticket count. It is
 strictly non-mutating; publication and production activation remain separate
 scoped operations.
 
+Production (`prod` or `production`) activation and rollback additionally
+require `definition:approve`: one actor creates the approval and a different
+actor approves the same game, environment, revision, and digest. The returned
+approval ID is supplied as `X-Approval-Id` to the activation or rollback
+request. Development and staging activation retain the normal activation scope.
+
 `make dev-full` creates a Kind cluster using Kubernetes `v1.36.1`, installs
 the pinned Agones `1.60.0` chart, builds/loads the local simulator image, and
 deploys the smoke Fleet and FleetAutoscaler. The Kubernetes version is pinned

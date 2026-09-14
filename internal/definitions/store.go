@@ -16,9 +16,78 @@ var (
 	ErrUnauthorized      = errors.New("definition operation is unauthorized")
 	ErrImmutableConflict = errors.New("definition revision is immutable and conflicts with existing content")
 	ErrReasonRequired    = errors.New("definition operation reason is required")
+	ErrApprovalRequired  = errors.New("a second actor approval is required")
 )
 
 type Store struct{ Pool *pgxpool.Pool }
+
+type Approval struct {
+	ID          string `json:"approvalId"`
+	GameID      string `json:"gameId"`
+	Environment string `json:"environment"`
+	Revision    int64  `json:"revision"`
+	Digest      string `json:"digest"`
+	RequestedBy string `json:"requestedBy"`
+	ApprovedBy  string `json:"approvedBy,omitempty"`
+	Status      string `json:"status"`
+}
+
+func (s Store) RequestOrApprove(ctx context.Context, gameID, environment string, revision int64, actorID, reason string) (Approval, error) {
+	if s.Pool == nil {
+		return Approval{}, errors.New("definition store is not configured")
+	}
+	if strings.TrimSpace(gameID) == "" || strings.TrimSpace(environment) == "" || revision < 1 || strings.TrimSpace(actorID) == "" {
+		return Approval{}, errors.New("approval data is incomplete")
+	}
+	if strings.TrimSpace(reason) == "" {
+		return Approval{}, ErrReasonRequired
+	}
+	tx, err := s.Pool.Begin(ctx)
+	if err != nil {
+		return Approval{}, err
+	}
+	defer tx.Rollback(ctx)
+	var digest string
+	if err := tx.QueryRow(ctx, `SELECT digest FROM platform.definition_revisions WHERE game_id=$1 AND revision=$2 AND status IN ('published','activated')`, gameID, revision).Scan(&digest); err != nil {
+		return Approval{}, err
+	}
+	var approval Approval
+	err = tx.QueryRow(ctx, `SELECT approval_id::text,requested_by,COALESCE(approved_by,''),status FROM platform.definition_approvals WHERE game_id=$1 AND environment=$2 AND revision=$3 AND status IN ('pending','approved') ORDER BY created_at DESC LIMIT 1`, gameID, environment, revision).Scan(&approval.ID, &approval.RequestedBy, &approval.ApprovedBy, &approval.Status)
+	if errors.Is(err, pgx.ErrNoRows) {
+		err = tx.QueryRow(ctx, `INSERT INTO platform.definition_approvals(game_id,environment,revision,digest,requested_by,status,reason) VALUES($1,$2,$3,$4,$5,'pending',$6) RETURNING approval_id::text`, gameID, environment, revision, digest, actorID, reason).Scan(&approval.ID)
+		if err != nil {
+			return Approval{}, err
+		}
+		approval = Approval{ID: approval.ID, GameID: gameID, Environment: environment, Revision: revision, Digest: digest, RequestedBy: actorID, Status: "pending"}
+	} else if err != nil {
+		return Approval{}, err
+	} else if approval.Status == "pending" {
+		if approval.RequestedBy == actorID {
+			return Approval{}, ErrApprovalRequired
+		}
+		if _, err := tx.Exec(ctx, `UPDATE platform.definition_approvals SET status='approved',approved_by=$1,approved_at=now(),reason=$2 WHERE approval_id=$3::uuid AND status='pending'`, actorID, reason, approval.ID); err != nil {
+			return Approval{}, err
+		}
+		approval.ApprovedBy, approval.Status = actorID, "approved"
+	}
+	approval.GameID, approval.Environment, approval.Revision, approval.Digest = gameID, environment, revision, digest
+	if _, err := tx.Exec(ctx, `INSERT INTO ops.audit_log(actor_type,actor_id,action,resource_type,resource_id,correlation_id,details) VALUES('admin',$1,$2,'definition',$3,$4,$5::jsonb)`, actorID, "definition.approval."+approval.Status, fmt.Sprintf("%s:%d", gameID, revision), approval.ID, mustJSON(map[string]string{"environment": environment, "reason": reason})); err != nil {
+		return Approval{}, err
+	}
+	if err := tx.Commit(ctx); err != nil {
+		return Approval{}, err
+	}
+	return approval, nil
+}
+
+func (s Store) HasApprovedActivation(ctx context.Context, gameID, environment string, revision int64, approvalID, actorID string) (bool, error) {
+	if s.Pool == nil {
+		return false, errors.New("definition store is not configured")
+	}
+	var valid bool
+	err := s.Pool.QueryRow(ctx, `SELECT EXISTS(SELECT 1 FROM platform.definition_approvals WHERE approval_id=$1::uuid AND game_id=$2 AND environment=$3 AND revision=$4 AND status='approved' AND approved_by<>$5 AND digest=(SELECT digest FROM platform.definition_revisions WHERE game_id=$2 AND revision=$4))`, approvalID, gameID, environment, revision, actorID).Scan(&valid)
+	return valid, err
+}
 
 func publishTx(ctx context.Context, tx pgx.Tx, report compiler.Report, source, actorID, reason string) error {
 	if strings.TrimSpace(reason) == "" {

@@ -30,7 +30,7 @@ func TestOpenAPIContainsImplementedSurface(t *testing.T) {
 		"/v1/matches/{matchId}": "get", "/v1/matches/{matchId}/join-claims": "post",
 		"/v1/server/matches/{matchId}/ready": "post", "/v1/server/matches/{matchId}/heartbeat": "post", "/v1/server/matches/{matchId}/results": "post",
 		"/v1/admin/definitions/validate": "post", "/v1/admin/definitions/dry-run": "post", "/v1/admin/definitions": "post",
-		"/v1/admin/definitions/{revision}/activate": "post", "/v1/admin/definitions/{revision}/rollback": "post", "/v1/admin/audit": "get",
+		"/v1/admin/definitions/{revision}/approval": "post", "/v1/admin/definitions/{revision}/activate": "post", "/v1/admin/definitions/{revision}/rollback": "post", "/v1/admin/audit": "get",
 		"/health/live": "get", "/health/ready": "get", "/metrics": "get",
 	}
 	for path, method := range required {

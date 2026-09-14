@@ -187,6 +187,12 @@ type DryRunDefinitionParams struct {
 	Revision *int    `form:"revision,omitempty" json:"revision,omitempty"`
 }
 
+// RequestOrApproveDefinitionParams defines parameters for RequestOrApproveDefinition.
+type RequestOrApproveDefinitionParams struct {
+	GameId      string `form:"gameId" json:"gameId"`
+	Environment string `form:"environment" json:"environment"`
+}
+
 // DeletePlayerAccountParams defines parameters for DeletePlayerAccount.
 type DeletePlayerAccountParams struct {
 	IdempotencyKey string `json:"Idempotency-Key"`
@@ -299,6 +305,9 @@ type ClientInterface interface {
 
 	// ActivateDefinition request
 	ActivateDefinition(ctx context.Context, revision int, reqEditors ...RequestEditorFn) (*http.Response, error)
+
+	// RequestOrApproveDefinition request
+	RequestOrApproveDefinition(ctx context.Context, revision int, params *RequestOrApproveDefinitionParams, reqEditors ...RequestEditorFn) (*http.Response, error)
 
 	// RollbackDefinition request
 	RollbackDefinition(ctx context.Context, revision int, reqEditors ...RequestEditorFn) (*http.Response, error)
@@ -442,6 +451,18 @@ func (c *Client) ValidateDefinition(ctx context.Context, reqEditors ...RequestEd
 
 func (c *Client) ActivateDefinition(ctx context.Context, revision int, reqEditors ...RequestEditorFn) (*http.Response, error) {
 	req, err := NewActivateDefinitionRequest(c.Server, revision)
+	if err != nil {
+		return nil, err
+	}
+	req = req.WithContext(ctx)
+	if err := c.applyEditors(ctx, req, reqEditors); err != nil {
+		return nil, err
+	}
+	return c.Client.Do(req)
+}
+
+func (c *Client) RequestOrApproveDefinition(ctx context.Context, revision int, params *RequestOrApproveDefinitionParams, reqEditors ...RequestEditorFn) (*http.Response, error) {
+	req, err := NewRequestOrApproveDefinitionRequest(c.Server, revision, params)
 	if err != nil {
 		return nil, err
 	}
@@ -931,6 +952,70 @@ func NewActivateDefinitionRequest(server string, revision int) (*http.Request, e
 	queryURL, err := serverURL.Parse(operationPath)
 	if err != nil {
 		return nil, err
+	}
+
+	req, err := http.NewRequest("POST", queryURL.String(), nil)
+	if err != nil {
+		return nil, err
+	}
+
+	return req, nil
+}
+
+// NewRequestOrApproveDefinitionRequest generates requests for RequestOrApproveDefinition
+func NewRequestOrApproveDefinitionRequest(server string, revision int, params *RequestOrApproveDefinitionParams) (*http.Request, error) {
+	var err error
+
+	var pathParam0 string
+
+	pathParam0, err = runtime.StyleParamWithLocation("simple", false, "revision", runtime.ParamLocationPath, revision)
+	if err != nil {
+		return nil, err
+	}
+
+	serverURL, err := url.Parse(server)
+	if err != nil {
+		return nil, err
+	}
+
+	operationPath := fmt.Sprintf("/v1/admin/definitions/%s/approval", pathParam0)
+	if operationPath[0] == '/' {
+		operationPath = "." + operationPath
+	}
+
+	queryURL, err := serverURL.Parse(operationPath)
+	if err != nil {
+		return nil, err
+	}
+
+	if params != nil {
+		queryValues := queryURL.Query()
+
+		if queryFrag, err := runtime.StyleParamWithLocation("form", true, "gameId", runtime.ParamLocationQuery, params.GameId); err != nil {
+			return nil, err
+		} else if parsed, err := url.ParseQuery(queryFrag); err != nil {
+			return nil, err
+		} else {
+			for k, v := range parsed {
+				for _, v2 := range v {
+					queryValues.Add(k, v2)
+				}
+			}
+		}
+
+		if queryFrag, err := runtime.StyleParamWithLocation("form", true, "environment", runtime.ParamLocationQuery, params.Environment); err != nil {
+			return nil, err
+		} else if parsed, err := url.ParseQuery(queryFrag); err != nil {
+			return nil, err
+		} else {
+			for k, v := range parsed {
+				for _, v2 := range v {
+					queryValues.Add(k, v2)
+				}
+			}
+		}
+
+		queryURL.RawQuery = queryValues.Encode()
 	}
 
 	req, err := http.NewRequest("POST", queryURL.String(), nil)
@@ -1589,6 +1674,9 @@ type ClientWithResponsesInterface interface {
 	// ActivateDefinitionWithResponse request
 	ActivateDefinitionWithResponse(ctx context.Context, revision int, reqEditors ...RequestEditorFn) (*ActivateDefinitionResponse, error)
 
+	// RequestOrApproveDefinitionWithResponse request
+	RequestOrApproveDefinitionWithResponse(ctx context.Context, revision int, params *RequestOrApproveDefinitionParams, reqEditors ...RequestEditorFn) (*RequestOrApproveDefinitionResponse, error)
+
 	// RollbackDefinitionWithResponse request
 	RollbackDefinitionWithResponse(ctx context.Context, revision int, reqEditors ...RequestEditorFn) (*RollbackDefinitionResponse, error)
 
@@ -1807,6 +1895,27 @@ func (r ActivateDefinitionResponse) Status() string {
 
 // StatusCode returns HTTPResponse.StatusCode
 func (r ActivateDefinitionResponse) StatusCode() int {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.StatusCode
+	}
+	return 0
+}
+
+type RequestOrApproveDefinitionResponse struct {
+	Body         []byte
+	HTTPResponse *http.Response
+}
+
+// Status returns HTTPResponse.Status
+func (r RequestOrApproveDefinitionResponse) Status() string {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.Status
+	}
+	return http.StatusText(0)
+}
+
+// StatusCode returns HTTPResponse.StatusCode
+func (r RequestOrApproveDefinitionResponse) StatusCode() int {
 	if r.HTTPResponse != nil {
 		return r.HTTPResponse.StatusCode
 	}
@@ -2247,6 +2356,15 @@ func (c *ClientWithResponses) ActivateDefinitionWithResponse(ctx context.Context
 	return ParseActivateDefinitionResponse(rsp)
 }
 
+// RequestOrApproveDefinitionWithResponse request returning *RequestOrApproveDefinitionResponse
+func (c *ClientWithResponses) RequestOrApproveDefinitionWithResponse(ctx context.Context, revision int, params *RequestOrApproveDefinitionParams, reqEditors ...RequestEditorFn) (*RequestOrApproveDefinitionResponse, error) {
+	rsp, err := c.RequestOrApproveDefinition(ctx, revision, params, reqEditors...)
+	if err != nil {
+		return nil, err
+	}
+	return ParseRequestOrApproveDefinitionResponse(rsp)
+}
+
 // RollbackDefinitionWithResponse request returning *RollbackDefinitionResponse
 func (c *ClientWithResponses) RollbackDefinitionWithResponse(ctx context.Context, revision int, reqEditors ...RequestEditorFn) (*RollbackDefinitionResponse, error) {
 	rsp, err := c.RollbackDefinition(ctx, revision, reqEditors...)
@@ -2537,6 +2655,22 @@ func ParseActivateDefinitionResponse(rsp *http.Response) (*ActivateDefinitionRes
 	}
 
 	response := &ActivateDefinitionResponse{
+		Body:         bodyBytes,
+		HTTPResponse: rsp,
+	}
+
+	return response, nil
+}
+
+// ParseRequestOrApproveDefinitionResponse parses an HTTP response from a RequestOrApproveDefinitionWithResponse call
+func ParseRequestOrApproveDefinitionResponse(rsp *http.Response) (*RequestOrApproveDefinitionResponse, error) {
+	bodyBytes, err := io.ReadAll(rsp.Body)
+	defer func() { _ = rsp.Body.Close() }()
+	if err != nil {
+		return nil, err
+	}
+
+	response := &RequestOrApproveDefinitionResponse{
 		Body:         bodyBytes,
 		HTTPResponse: rsp,
 	}

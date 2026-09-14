@@ -62,3 +62,16 @@ func TestPrivacyRequestIDAndHash(t *testing.T) {
 		t.Fatal("missing idempotency key accepted")
 	}
 }
+
+func TestProductionDefinitionEnvironmentsRequireFourEyes(t *testing.T) {
+	for _, environment := range []string{"prod", "production", "PROD"} {
+		if !requiresFourEyes(environment) {
+			t.Fatalf("environment %q did not require approval", environment)
+		}
+	}
+	for _, environment := range []string{"dev", "staging", ""} {
+		if requiresFourEyes(environment) {
+			t.Fatalf("environment %q unexpectedly required production approval", environment)
+		}
+	}
+}
