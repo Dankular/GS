@@ -97,6 +97,8 @@ type AuditRecord struct {
 	CorrelationID string          `json:"correlationId"`
 	Details       json.RawMessage `json:"details"`
 	CreatedAt     string          `json:"createdAt"`
+	PreviousHash  string          `json:"previousHash,omitempty"`
+	RecordHash    string          `json:"recordHash,omitempty"`
 }
 
 func (s Store) Publish(ctx context.Context, report compiler.Report, source, actorID, reason string, authorized bool) error {
@@ -199,7 +201,7 @@ func (s Store) Audit(ctx context.Context, limit int) ([]AuditRecord, error) {
 	if limit < 1 || limit > 200 {
 		limit = 50
 	}
-	rows, err := s.Pool.Query(ctx, `SELECT audit_id::text,actor_type,actor_id,action,resource_type,resource_id,correlation_id,details,created_at::text FROM ops.audit_log ORDER BY created_at DESC LIMIT $1`, limit)
+	rows, err := s.Pool.Query(ctx, `SELECT audit_id::text,actor_type,actor_id,action,resource_type,resource_id,correlation_id,details,created_at::text,COALESCE(previous_hash,''),COALESCE(record_hash,'') FROM ops.audit_log ORDER BY created_at DESC LIMIT $1`, limit)
 	if err != nil {
 		return nil, err
 	}
@@ -207,7 +209,7 @@ func (s Store) Audit(ctx context.Context, limit int) ([]AuditRecord, error) {
 	var records []AuditRecord
 	for rows.Next() {
 		var record AuditRecord
-		if err := rows.Scan(&record.AuditID, &record.ActorType, &record.ActorID, &record.Action, &record.ResourceType, &record.ResourceID, &record.CorrelationID, &record.Details, &record.CreatedAt); err != nil {
+		if err := rows.Scan(&record.AuditID, &record.ActorType, &record.ActorID, &record.Action, &record.ResourceType, &record.ResourceID, &record.CorrelationID, &record.Details, &record.CreatedAt, &record.PreviousHash, &record.RecordHash); err != nil {
 			return nil, err
 		}
 		records = append(records, record)

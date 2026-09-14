@@ -74,23 +74,23 @@ func (s CommandService) Handle(ctx context.Context, tx pgx.Tx, e commands.Envelo
 			limit = int(parsed)
 		}
 		action := stringArg(e.Spec.Arguments, "action")
-		rows, err := tx.Query(ctx, `SELECT audit_id::text,actor_type,actor_id,action,resource_type,resource_id,correlation_id,details,created_at::text FROM ops.audit_log WHERE ($1='' OR action=$1) ORDER BY created_at DESC LIMIT $2`, action, limit)
+		rows, err := tx.Query(ctx, `SELECT audit_id::text,actor_type,actor_id,action,resource_type,resource_id,correlation_id,details,created_at::text,COALESCE(previous_hash,''),COALESCE(record_hash,'') FROM ops.audit_log WHERE ($1='' OR action=$1) ORDER BY created_at DESC LIMIT $2`, action, limit)
 		if err != nil {
 			return commands.Result{}, err
 		}
 		defer rows.Close()
 		records := []map[string]any{}
 		for rows.Next() {
-			var id, actorType, actorID, recordAction, resourceType, resourceID, correlationID, createdAt string
+			var id, actorType, actorID, recordAction, resourceType, resourceID, correlationID, createdAt, previousHash, recordHash string
 			var details []byte
-			if err := rows.Scan(&id, &actorType, &actorID, &recordAction, &resourceType, &resourceID, &correlationID, &details, &createdAt); err != nil {
+			if err := rows.Scan(&id, &actorType, &actorID, &recordAction, &resourceType, &resourceID, &correlationID, &details, &createdAt, &previousHash, &recordHash); err != nil {
 				return commands.Result{}, err
 			}
 			var decoded any
 			if err := json.Unmarshal(details, &decoded); err != nil {
 				return commands.Result{}, err
 			}
-			records = append(records, map[string]any{"auditId": id, "actorType": actorType, "actorId": actorID, "action": recordAction, "resourceType": resourceType, "resourceId": resourceID, "correlationId": correlationID, "details": decoded, "createdAt": createdAt})
+			records = append(records, map[string]any{"auditId": id, "actorType": actorType, "actorId": actorID, "action": recordAction, "resourceType": resourceType, "resourceId": resourceID, "correlationId": correlationID, "details": decoded, "createdAt": createdAt, "previousHash": previousHash, "recordHash": recordHash})
 		}
 		if err := rows.Err(); err != nil {
 			return commands.Result{}, err
