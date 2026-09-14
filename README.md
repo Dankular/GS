@@ -69,6 +69,13 @@ GAMESERVICE_E2E_SERVER_URL=http://127.0.0.1:17001 \
 go test -tags=e2e ./tests/e2e -run TestSyntheticMatchLifecycle -count=1
 ```
 
+For the Kind simulator, create the port-forward against the corresponding
+pod, not the Agones `GameServer` custom resource:
+
+```text
+kubectl -n platform-gameservers-eu-west port-forward pod/<gameserver-name> 17001:7001
+```
+
 The test creates two real tickets, waits for their shared match and Ready
 server, obtains player join claims, joins both players, submits a result, and
 verifies the durable Completed state and matched ticket association. Set
