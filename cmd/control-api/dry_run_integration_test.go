@@ -28,17 +28,27 @@ func TestDryRunImpactReportsActiveAndInFlightState(t *testing.T) {
 
 	gameID := "dry-run-impact-" + time.Now().UTC().Format("20060102150405.000000000")
 	canonical := []byte(`{"apiVersion":"game.platform/v1alpha1","kind":"GameDefinition","metadata":{"gameId":"` + gameID + `","revision":1},"spec":{"catalog":{}}}`)
-	_, err = pool.Exec(ctx, `
-		INSERT INTO platform.games(game_id) VALUES($1);
-		INSERT INTO platform.environments(game_id,environment) VALUES($1,'test');
-		INSERT INTO platform.definition_revisions(game_id,revision,digest,source_yaml,canonical,compiled,validation_report,actor_id,status)
-		VALUES($1,1,'sha256:from','{}',$2,$2,$2,'integration','published');
-		INSERT INTO platform.definition_activations(game_id,environment,revision,activated_by) VALUES($1,'test',1,'integration');
-		INSERT INTO match.matches(match_id,game_id,environment,mode_id,definition_revision,state,server_build)
-		VALUES($1,$1,'test','arena',1,'Running','sha256:build');
-		INSERT INTO match.tickets(ticket_id,game_id,environment,mode_id,definition_revision,build,region,capacity,status,properties,expires_at)
-		VALUES($1,$1,'test','arena',1,'sha256:build','eu-west',2,'matching','{}',now()+interval '1 hour');
-	`, gameID, canonical)
+	_, err = pool.Exec(ctx, `INSERT INTO platform.games(game_id) VALUES($1)`, gameID)
+	if err != nil {
+		t.Fatal(err)
+	}
+	_, err = pool.Exec(ctx, `INSERT INTO platform.environments(game_id,environment) VALUES($1,'test')`, gameID)
+	if err != nil {
+		t.Fatal(err)
+	}
+	_, err = pool.Exec(ctx, `INSERT INTO platform.definition_revisions(game_id,revision,digest,source_yaml,canonical,compiled,validation_report,actor_id,status) VALUES($1,1,'sha256:from','{}',$2,$2,$2,'integration','published')`, gameID, canonical)
+	if err != nil {
+		t.Fatal(err)
+	}
+	_, err = pool.Exec(ctx, `INSERT INTO platform.definition_activations(game_id,environment,revision,activated_by) VALUES($1,'test',1,'integration')`, gameID)
+	if err != nil {
+		t.Fatal(err)
+	}
+	_, err = pool.Exec(ctx, `INSERT INTO match.matches(match_id,game_id,environment,mode_id,definition_revision,state,server_build) VALUES($1,$1,'test','arena',1,'Running','sha256:build')`, gameID)
+	if err != nil {
+		t.Fatal(err)
+	}
+	_, err = pool.Exec(ctx, `INSERT INTO match.tickets(ticket_id,game_id,environment,mode_id,definition_revision,build,region,capacity,status,properties,expires_at) VALUES($1,$1,'test','arena',1,'sha256:build','eu-west',2,'matching','{}',now()+interval '1 hour')`, gameID)
 	if err != nil {
 		t.Fatal(err)
 	}

@@ -37,10 +37,11 @@ spec: {catalog: {}}
 	if err != nil {
 		t.Fatal(err)
 	}
-	_, err = pool.Exec(ctx, `
-		INSERT INTO platform.games(game_id) VALUES($1);
-		INSERT INTO platform.definition_revisions(game_id,revision,digest,source_yaml,canonical,compiled,validation_report,actor_id,status)
-		VALUES($1,1,$2,$3,$4,$4,$4,'publisher','published')`, gameID, report.Digest, source, report.Canonical)
+	_, err = pool.Exec(ctx, `INSERT INTO platform.games(game_id) VALUES($1)`, gameID)
+	if err != nil {
+		t.Fatal(err)
+	}
+	_, err = pool.Exec(ctx, `INSERT INTO platform.definition_revisions(game_id,revision,digest,source_yaml,canonical,compiled,validation_report,actor_id,status) VALUES($1,1,$2,$3,$4,$4,$4,'publisher','published')`, gameID, report.Digest, source, report.Canonical)
 	if err != nil {
 		t.Fatal(err)
 	}
