@@ -361,7 +361,10 @@ func main() {
 			http.Error(w, "match could not be loaded", http.StatusServiceUnavailable)
 			return
 		}
-		if state != "Running" && state != "Finalizing" {
+		// Completed is accepted here only so ResultFinalizer can inspect the
+		// existing sequence and return an idempotent duplicate. A new sequence
+		// still fails inside the transactional state transition.
+		if !resultStateAccepts(state) {
 			http.Error(w, "match is not accepting results", http.StatusConflict)
 			return
 		}
@@ -559,6 +562,10 @@ func main() {
 func writeJSON(w http.ResponseWriter, value any) {
 	w.Header().Set("Content-Type", "application/json")
 	_ = json.NewEncoder(w).Encode(value)
+}
+
+func resultStateAccepts(state string) bool {
+	return state == "Running" || state == "Finalizing" || state == "Completed"
 }
 
 func authenticateServer(r *http.Request, keys []ed25519.PublicKey, matchID, allocationID, build string) (matches.JoinClaim, error) {

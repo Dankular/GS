@@ -33,3 +33,16 @@ func TestSessionAllowsBaselinePlayerAccessWithoutNakamaScope(t *testing.T) {
 		t.Fatal("privileged or unscopeable access was allowed")
 	}
 }
+
+func TestCompletedMatchAcceptsOnlyDuplicateResultCheck(t *testing.T) {
+	for _, state := range []string{"Running", "Finalizing", "Completed"} {
+		if !resultStateAccepts(state) {
+			t.Fatalf("result state %q was rejected", state)
+		}
+	}
+	for _, state := range []string{"Ready", "Failed", "Abandoned"} {
+		if resultStateAccepts(state) {
+			t.Fatalf("result state %q was accepted", state)
+		}
+	}
+}
