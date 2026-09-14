@@ -16,4 +16,4 @@ spec:
       ticketTimeout: 90s
       regions: [eu-west]
       fleetRef: deathmatch-v1
-      serverBuild: sha256:REPLACE_WITH_IMAGE_DIGEST
+      serverBuild: sha256:0000000000000000000000000000000000000000000000000000000000000000
