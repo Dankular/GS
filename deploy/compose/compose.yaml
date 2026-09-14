@@ -17,7 +17,8 @@ services:
   alertmanager:
     profiles: [observability]
     image: prom/alertmanager@sha256:27c475db5fb156cab31d5c18a4251ac7ed567746a2483ff264516437a39b15ba
-    command: ["--config.file=/etc/alertmanager/alertmanager.yaml", "--storage.path=/alertmanager", "--config.expand-env"]
+    entrypoint: ["/bin/sh", "-ec"]
+    command: ["sed \"s#__ALERTMANAGER_WEBHOOK_URL__#$${ALERTMANAGER_WEBHOOK_URL}#g\" /etc/alertmanager/alertmanager.yaml > /tmp/alertmanager.yaml; exec /bin/alertmanager --config.file=/tmp/alertmanager.yaml --storage.path=/alertmanager"]
     environment:
       ALERTMANAGER_WEBHOOK_URL: ${ALERTMANAGER_WEBHOOK_URL:?set ALERTMANAGER_WEBHOOK_URL}
     volumes:

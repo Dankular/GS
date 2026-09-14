@@ -87,7 +87,8 @@ func TestComposeObservabilityProfileIsPinnedAndSecretGated(t *testing.T) {
 		"grafana/grafana@sha256:a1701c2180249361737a99a01bc770db39381640e4d631825d38ff4535efa47d",
 		"ALERTMANAGER_WEBHOOK_URL:?set ALERTMANAGER_WEBHOOK_URL",
 		"GRAFANA_ADMIN_PASSWORD:?set GRAFANA_ADMIN_PASSWORD",
-		"--config.expand-env",
+		"__ALERTMANAGER_WEBHOOK_URL__",
+		"entrypoint: [\"/bin/sh\", \"-ec\"]",
 		"prometheus-data:",
 		"grafana-data:",
 	} {

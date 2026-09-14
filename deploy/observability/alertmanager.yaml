@@ -11,5 +11,5 @@ route:
 receivers:
   - name: gameservice-ops
     webhook_configs:
-      - url: ${ALERTMANAGER_WEBHOOK_URL}
+      - url: __ALERTMANAGER_WEBHOOK_URL__
         send_resolved: true
