@@ -37,6 +37,9 @@ func main() {
 	}
 	issuer := os.Getenv("NAKAMA_SESSION_ISSUER")
 	audience := os.Getenv("NAKAMA_SESSION_AUDIENCE")
+	authenticate := func(r *http.Request) (auth.SessionClaims, error) {
+		return auth.VerifyNakamaSession(strings.TrimPrefix(r.Header.Get("Authorization"), "Bearer "), sessionSigningKey, issuer, audience, time.Now())
+	}
 	mux := http.NewServeMux()
 	mux.HandleFunc("GET /health/live", func(w http.ResponseWriter, _ *http.Request) { w.WriteHeader(http.StatusOK) })
 	mux.HandleFunc("GET /health/ready", func(w http.ResponseWriter, r *http.Request) {
@@ -47,6 +50,10 @@ func main() {
 		w.WriteHeader(http.StatusOK)
 	})
 	mux.HandleFunc("GET /v1/commands/{requestId}", func(w http.ResponseWriter, r *http.Request) {
+		if _, err := authenticate(r); err != nil {
+			http.Error(w, "authentication required", http.StatusUnauthorized)
+			return
+		}
 		result, err := repository.Get(r.Context(), r.PathValue("requestId"))
 		if errors.Is(err, pgx.ErrNoRows) {
 			http.Error(w, "command not found", http.StatusNotFound)
@@ -63,7 +70,7 @@ func main() {
 			http.Error(w, "content type must be application/json", http.StatusUnsupportedMediaType)
 			return
 		}
-		claims, err := auth.VerifyNakamaSession(strings.TrimPrefix(r.Header.Get("Authorization"), "Bearer "), sessionSigningKey, issuer, audience, time.Now())
+		claims, err := authenticate(r)
 		if err != nil {
 			http.Error(w, "authentication required", http.StatusUnauthorized)
 			return
