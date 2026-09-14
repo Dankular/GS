@@ -24,13 +24,13 @@ paths:
               schema: { $ref: '#/components/schemas/CommandResult' }
         '400': { description: Invalid command }
   /v1/commands/{requestId}:
+    parameters:
+      - name: requestId
+        in: path
+        required: true
+        schema: { type: string, minLength: 1 }
     get:
       operationId: getCommandResult
-      parameters:
-        - name: requestId
-          in: path
-          required: true
-          schema: { type: string, minLength: 1 }
       responses:
         '200':
           description: Stored command result
@@ -53,27 +53,72 @@ paths:
       responses:
         '202': { description: Ticket accepted, content: { application/json: { schema: { $ref: '#/components/schemas/Ticket' } } } }
   /v1/matchmaking/tickets/{ticketId}:
+    parameters:
+      - name: ticketId
+        in: path
+        required: true
+        schema: { type: string, minLength: 1 }
     get: { operationId: getMatchmakingTicket, responses: { '200': { description: Ticket status } } }
     delete: { operationId: cancelMatchmakingTicket, responses: { '204': { description: Ticket cancelled } } }
   /v1/matches/{matchId}:
+    parameters:
+      - name: matchId
+        in: path
+        required: true
+        schema: { type: string, minLength: 1 }
     get: { operationId: getMatch, responses: { '200': { description: Match state, content: { application/json: { schema: { $ref: '#/components/schemas/Match' } } } } } }
   /v1/matches/{matchId}/join-claims:
+    parameters:
+      - name: matchId
+        in: path
+        required: true
+        schema: { type: string, minLength: 1 }
     post: { operationId: issueJoinClaims, responses: { '200': { description: Join claims, content: { application/json: { schema: { $ref: '#/components/schemas/JoinClaimResponse' } } } } } }
   /v1/server/matches/{matchId}/ready:
+    parameters:
+      - name: matchId
+        in: path
+        required: true
+        schema: { type: string, minLength: 1 }
     post: { operationId: markMatchReady, security: [{ ServerClaim: [] }], responses: { '204': { description: Match ready } } }
   /v1/server/matches/{matchId}/heartbeat:
+    parameters:
+      - name: matchId
+        in: path
+        required: true
+        schema: { type: string, minLength: 1 }
     post: { operationId: matchHeartbeat, security: [{ ServerClaim: [] }], responses: { '204': { description: Heartbeat accepted } } }
   /v1/server/matches/{matchId}/start:
+    parameters:
+      - name: matchId
+        in: path
+        required: true
+        schema: { type: string, minLength: 1 }
     post: { operationId: startMatch, security: [{ ServerClaim: [] }], responses: { '204': { description: Match running } } }
   /v1/server/matches/{matchId}/results:
+    parameters:
+      - name: matchId
+        in: path
+        required: true
+        schema: { type: string, minLength: 1 }
     post: { operationId: submitMatchResult, security: [{ ServerClaim: [] }], responses: { '202': { description: Result accepted } } }
   /v1/admin/definitions/validate:
     post: { operationId: validateDefinition, security: [{ AdminSession: [] }], responses: { '200': { description: Validation report } } }
   /v1/admin/definitions:
     post: { operationId: publishDefinition, security: [{ AdminSession: [] }], responses: { '201': { description: Published immutable revision } } }
   /v1/admin/definitions/{revision}/activate:
+    parameters:
+      - name: revision
+        in: path
+        required: true
+        schema: { type: integer, minimum: 1 }
     post: { operationId: activateDefinition, security: [{ AdminSession: [] }], responses: { '204': { description: Definition activated } } }
   /v1/admin/definitions/{revision}/rollback:
+    parameters:
+      - name: revision
+        in: path
+        required: true
+        schema: { type: integer, minimum: 1 }
     post: { operationId: rollbackDefinition, security: [{ AdminSession: [] }], responses: { '204': { description: Definition rolled back } } }
   /v1/admin/audit:
     get: { operationId: searchAudit, security: [{ AdminSession: [] }], responses: { '200': { description: Audit records } } }

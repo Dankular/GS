@@ -8,7 +8,10 @@ bootstrap:
 	@command -v docker-compose >/dev/null 2>&1 || docker compose version >/dev/null
 
 generate:
-	@go test ./api ./internal/compiler ./internal/commands
+	@go run github.com/oapi-codegen/oapi-codegen/v2/cmd/oapi-codegen@v2.5.0 -config sdk/generated/config.yaml api/openapi.yaml
+	@gofmt -w sdk/generated/client.gen.go
+	@git diff --exit-code -- api/openapi.yaml sdk/generated/client.gen.go
+	@go test ./api ./internal/compiler ./internal/commands ./sdk/generated
 	@test -f api/openapi.yaml
 	@test -f api/asyncapi.yaml
 

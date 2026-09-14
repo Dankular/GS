@@ -26,6 +26,8 @@ jobs:
         run: go test -race ./...
       - name: Contract and schema tests
         run: go test ./api ./internal/commands
+      - name: Generated client drift
+        run: make generate
 
   helm:
     runs-on: ubuntu-latest

@@ -1,0 +1,9 @@
+# This file is the reproducible input for the generated Go client.
+package: gameservice
+generate:
+  client: true
+  models: true
+output-options:
+  skip-prune: true
+output: sdk/generated/client.gen.go
+
