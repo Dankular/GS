@@ -1,6 +1,7 @@
 package main
 
 import (
+	"context"
 	"encoding/json"
 	"io"
 	"log/slog"
@@ -8,7 +9,7 @@ import (
 	"os"
 
 	"github.com/Dankular/GameService/internal/commands"
-	"github.com/Dankular/GameService/internal/idempotency"
+	"github.com/Dankular/GameService/internal/commandstore"
 )
 
 func main() {
@@ -16,7 +17,12 @@ func main() {
 	if addr == "" {
 		addr = ":8080"
 	}
-	store := idempotency.New[commands.Result]()
+	repository, err := commandstore.New(context.Background(), os.Getenv("DATABASE_URL"))
+	if err != nil {
+		slog.Error("database initialization failed", "error", err)
+		os.Exit(1)
+	}
+	defer repository.Close()
 	mux := http.NewServeMux()
 	mux.HandleFunc("GET /health/live", func(w http.ResponseWriter, _ *http.Request) { w.WriteHeader(http.StatusOK) })
 	mux.HandleFunc("GET /health/ready", func(w http.ResponseWriter, _ *http.Request) { w.WriteHeader(http.StatusOK) })
@@ -39,11 +45,11 @@ func main() {
 			http.Error(w, err.Error(), http.StatusBadRequest)
 			return
 		}
-		result, duplicate := store.GetOrPut(e.Metadata.RequestID, func() commands.Result {
-			return commands.Result{RequestID: e.Metadata.RequestID, CorrelationID: e.Metadata.CorrelationID, Status: "succeeded", Operation: e.Spec.Operation, Events: []string{"command.accepted.v1"}, Result: map[string]any{"accepted": true}}
-		})
-		if duplicate {
-			result.Events = append(result.Events, "idempotency.hit.v1")
+		result, duplicate, err := repository.Submit(r.Context(), e)
+		if err != nil {
+			slog.Error("command submission failed", "requestId", e.Metadata.RequestID, "correlationId", e.Metadata.CorrelationID, "error", err)
+			http.Error(w, "command could not be stored", http.StatusServiceUnavailable)
+			return
 		}
 		w.Header().Set("Content-Type", "application/json")
 		if duplicate {
