@@ -1,12 +1,13 @@
 #!/bin/sh
 set -eu
 AGONES_VERSION="1.60.0"
+KIND_NODE_IMAGE="kindest/node:v1.36.0"
 command -v kind >/dev/null || { echo 'kind is required' >&2; exit 1; }
 command -v helm >/dev/null || { echo 'helm is required' >&2; exit 1; }
 command -v kubectl >/dev/null || { echo 'kubectl is required' >&2; exit 1; }
 command -v docker >/dev/null || { echo 'docker is required' >&2; exit 1; }
 if ! kind get clusters | grep -qx gameservice; then
-  kind create cluster --name gameservice
+  kind create cluster --name gameservice --image "$KIND_NODE_IMAGE"
 fi
 helm repo add agones https://agones.dev/chart/stable
 helm repo update
