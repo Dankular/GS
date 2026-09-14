@@ -94,4 +94,21 @@ func VerifyServerClaim(token string, key ed25519.PublicKey, now time.Time, expec
 	return claim, nil
 }
 
+// VerifyServerClaimAny accepts a key ring so operators can overlap old and
+// new signing keys during rotation without widening claim permissions.
+func VerifyServerClaimAny(token string, keys []ed25519.PublicKey, now time.Time, expectedMatch, expectedAllocation, expectedBuild string) (JoinClaim, error) {
+	var lastErr error
+	for _, key := range keys {
+		claim, err := VerifyServerClaim(token, key, now, expectedMatch, expectedAllocation, expectedBuild)
+		if err == nil {
+			return claim, nil
+		}
+		lastErr = err
+	}
+	if lastErr == nil {
+		lastErr = errors.New("no verification keys configured")
+	}
+	return JoinClaim{}, lastErr
+}
+
 func Digest(data []byte) string { h := sha256.Sum256(data); return fmt.Sprintf("sha256:%x", h[:]) }

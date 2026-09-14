@@ -17,6 +17,8 @@ spec:
             - { name: DATABASE_URL, valueFrom: { secretKeyRef: { name: {{ .Values.database.secretName }}, key: {{ .Values.database.urlKey }} } } }
             - { name: NAKAMA_SESSION_SIGNING_KEY, valueFrom: { secretKeyRef: { name: {{ .Values.nakama.secretName }}, key: {{ .Values.nakama.signingKeyKey }} } } }
             - { name: OTEL_EXPORTER_OTLP_ENDPOINT, value: {{ .Values.otel.endpoint | quote }} }
+            - name: SERVER_CLAIM_PUBLIC_KEYS
+              valueFrom: { secretKeyRef: { name: {{ .Values.serverClaims.publicKeysSecretName }}, key: {{ .Values.serverClaims.publicKeysSecretKey }} } }
           readinessProbe: { httpGet: { path: /health/ready, port: http }, periodSeconds: 5 }
           livenessProbe: { httpGet: { path: /health/live, port: http }, periodSeconds: 10 }
           resources: {{- toYaml .Values.resources | nindent 12 }}

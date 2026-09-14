@@ -1,6 +1,7 @@
 package matches
 
 import (
+	"crypto/ed25519"
 	"testing"
 	"time"
 )
@@ -81,6 +82,17 @@ func TestServerClaimBindsAllocation(t *testing.T) {
 		t.Fatal("expected allocation mismatch")
 	}
 	if _, err := VerifyServerClaim(token, publicKey, time.Unix(10, 0), "m", "a", "b"); err != nil {
+		t.Fatal(err)
+	}
+	rotatedPublic, rotatedPrivate, err := NewKeyPair()
+	if err != nil {
+		t.Fatal(err)
+	}
+	rotatedToken, err := SignClaim(claim, rotatedPrivate)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if _, err := VerifyServerClaimAny(rotatedToken, []ed25519.PublicKey{publicKey, rotatedPublic}, time.Unix(10, 0), "m", "a", "b"); err != nil {
 		t.Fatal(err)
 	}
 }

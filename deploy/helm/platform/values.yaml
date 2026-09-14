@@ -31,6 +31,9 @@ allocator:
   caKey: ca.pem
   certKey: client.crt
   privateKey: client.key
+serverClaims:
+  publicKeysSecretName: gameservice-secrets
+  publicKeysSecretKey: server-claim-public-keys
 autoscaling:
   enabled: true
   minReplicas: 2

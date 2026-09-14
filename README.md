@@ -128,6 +128,10 @@ type. It derives the actor ID from the verified Nakama `uid` (or `sub`) claim
 and rejects a command whose body claims a different actor. Configure
 `NAKAMA_SESSION_SIGNING_KEY` from the deployment secret; the Compose example
 falls back to `NAKAMA_SESSION_ENCRYPTION_KEY` for the current Nakama setup.
+Server result and lifecycle claims accept `SERVER_CLAIM_PUBLIC_KEYS` as a
+comma-separated base64-raw Ed25519 public-key ring, allowing old and new keys
+to overlap during rotation; `SERVER_CLAIM_PUBLIC_KEY` remains a single-key
+compatibility fallback.
 
 ### Planned Kubernetes topology
 

@@ -62,7 +62,12 @@ func main() {
 	}
 	issuer := os.Getenv("NAKAMA_SESSION_ISSUER")
 	audience := os.Getenv("NAKAMA_SESSION_AUDIENCE")
-	serverPublicKey, _ := base64.RawStdEncoding.DecodeString(os.Getenv("SERVER_CLAIM_PUBLIC_KEY"))
+	serverPublicKeys := decodePublicKeys(os.Getenv("SERVER_CLAIM_PUBLIC_KEYS"))
+	if len(serverPublicKeys) == 0 {
+		if key, err := base64.RawStdEncoding.DecodeString(os.Getenv("SERVER_CLAIM_PUBLIC_KEY")); err == nil && len(key) == ed25519.PublicKeySize {
+			serverPublicKeys = []ed25519.PublicKey{ed25519.PublicKey(key)}
+		}
+	}
 	metricRegistry := telemetry.New()
 	authenticate := func(r *http.Request) (auth.SessionClaims, error) {
 		return auth.VerifyNakamaSession(strings.TrimPrefix(r.Header.Get("Authorization"), "Bearer "), sessionSigningKey, issuer, audience, time.Now())
@@ -265,7 +270,7 @@ func main() {
 		w.WriteHeader(http.StatusNoContent)
 	})
 	mux.HandleFunc("POST /v1/server/matches/{matchId}/results", func(w http.ResponseWriter, r *http.Request) {
-		if len(serverPublicKey) != ed25519.PublicKeySize {
+		if len(serverPublicKeys) == 0 {
 			http.Error(w, "server claim verification is not configured", http.StatusServiceUnavailable)
 			return
 		}
@@ -282,7 +287,7 @@ func main() {
 			http.Error(w, "match is not accepting results", http.StatusConflict)
 			return
 		}
-		_, err := authenticateServer(r, ed25519.PublicKey(serverPublicKey), matchID, expectedAllocation, expectedBuild)
+		_, err := authenticateServer(r, serverPublicKeys, matchID, expectedAllocation, expectedBuild)
 		if err != nil {
 			http.Error(w, "invalid server claim", http.StatusUnauthorized)
 			return
@@ -324,7 +329,7 @@ func main() {
 		writeJSON(w, map[string]any{"accepted": true, "duplicate": duplicate, "payloadDigest": digest})
 	})
 	mux.HandleFunc("POST /v1/server/matches/{matchId}/ready", func(w http.ResponseWriter, r *http.Request) {
-		if err := verifyServerRequest(r, repository, serverPublicKey, r.PathValue("matchId")); err != nil {
+		if err := verifyServerRequest(r, repository, serverPublicKeys, r.PathValue("matchId")); err != nil {
 			writeServerError(w, err)
 			return
 		}
@@ -338,7 +343,7 @@ func main() {
 		w.WriteHeader(http.StatusNoContent)
 	})
 	mux.HandleFunc("POST /v1/server/matches/{matchId}/heartbeat", func(w http.ResponseWriter, r *http.Request) {
-		if err := verifyServerRequest(r, repository, serverPublicKey, r.PathValue("matchId")); err != nil {
+		if err := verifyServerRequest(r, repository, serverPublicKeys, r.PathValue("matchId")); err != nil {
 			writeServerError(w, err)
 			return
 		}
@@ -464,8 +469,8 @@ func writeJSON(w http.ResponseWriter, value any) {
 	_ = json.NewEncoder(w).Encode(value)
 }
 
-func authenticateServer(r *http.Request, key ed25519.PublicKey, matchID, allocationID, build string) (matches.JoinClaim, error) {
-	return matches.VerifyServerClaim(strings.TrimPrefix(r.Header.Get("Authorization"), "Bearer "), key, time.Now(), matchID, allocationID, build)
+func authenticateServer(r *http.Request, keys []ed25519.PublicKey, matchID, allocationID, build string) (matches.JoinClaim, error) {
+	return matches.VerifyServerClaimAny(strings.TrimPrefix(r.Header.Get("Authorization"), "Bearer "), keys, time.Now(), matchID, allocationID, build)
 }
 
 func requireScope(w http.ResponseWriter, r *http.Request, authenticate func(*http.Request) (auth.SessionClaims, error), scope string) (auth.SessionClaims, bool) {
@@ -495,18 +500,29 @@ func readDefinitionSource(r *http.Request) ([]byte, error) {
 	return data, nil
 }
 
-func verifyServerRequest(r *http.Request, repository *commandstore.Repository, key []byte, matchID string) error {
-	if len(key) != ed25519.PublicKeySize {
+func verifyServerRequest(r *http.Request, repository *commandstore.Repository, keys []ed25519.PublicKey, matchID string) error {
+	if len(keys) == 0 {
 		return errors.New("server claim verification is not configured")
 	}
 	var build, allocation, state string
 	if err := repository.Pool().QueryRow(r.Context(), `SELECT server_build,COALESCE(allocation_id,''),state FROM match.matches WHERE match_id=$1`, matchID).Scan(&build, &allocation, &state); err != nil {
 		return err
 	}
-	if _, err := authenticateServer(r, ed25519.PublicKey(key), matchID, allocation, build); err != nil {
+	if _, err := authenticateServer(r, keys, matchID, allocation, build); err != nil {
 		return err
 	}
 	return nil
+}
+
+func decodePublicKeys(value string) []ed25519.PublicKey {
+	var keys []ed25519.PublicKey
+	for _, encoded := range strings.Split(value, ",") {
+		key, err := base64.RawStdEncoding.DecodeString(strings.TrimSpace(encoded))
+		if err == nil && len(key) == ed25519.PublicKeySize {
+			keys = append(keys, ed25519.PublicKey(key))
+		}
+	}
+	return keys
 }
 
 func writeServerError(w http.ResponseWriter, err error) {
