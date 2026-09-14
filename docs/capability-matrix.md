@@ -8,7 +8,7 @@ the Control API never reads Nakama tables.
 |---|---|---|---|
 | Authentication and sessions | Nakama | Device/session JWT; Control API verifies the session | VPS authenticated profile command |
 | Profile | Nakama | `gameservice.profile`; `profile.get`, `profile.patch_public_fields` | Runtime smoke and RPC unit test |
-| Friends, groups, notifications, chat | Nakama | `gameservice.social` bounded RPC; native Nakama APIs | VPS `friends.list` smoke; runtime registration test |
+| Friends, groups, notifications, chat | Nakama | `gameservice.social` bounded RPC (`friends.*`, `group.*`, `groups.mine`, `notifications.list`, `chat.send`); native Nakama APIs | VPS `friends.list` smoke; runtime registration test |
 | Economy and progression | GameService | Wallet, ledger, inventory, entitlement, progression, reward commands | Go unit/integration suites |
 | Definitions | GameService | Validate, diff, publish, activate, rollback | VPS definition integration suite |
 | Matchmaking and admission | GameService + Agones | Queue/status/cancel, allocator worker, join claims, restrictions | Go integration suite; Kind/Agones smoke |

@@ -161,6 +161,8 @@ function gameserviceSocial(ctx, logger, nk, payload) {
     result = { left: true, groupId: leaveGroupId };
   } else if (operation === "group.users") {
     result = nk.groupUsersList(socialString(request.groupId, "groupId", true), socialLimit(request.limit), socialState(request.state), socialString(request.cursor, "cursor", false));
+  } else if (operation === "groups.mine") {
+    result = nk.userGroupsList(ctx.userId, socialLimit(request.limit), socialState(request.state), socialString(request.cursor, "cursor", false));
   } else if (operation === "notifications.list") {
     result = nk.notificationsList(ctx.userId, socialLimit(request.limit), socialString(request.cursor, "cursor", false));
   } else if (operation === "chat.send") {
