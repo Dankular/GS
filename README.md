@@ -42,8 +42,9 @@ used.
 
 Nakama also loads the JavaScript bridge in `nakama/runtime/index.js`. Its
 `gameservice.health` RPC performs a bounded health check against the Control
-API; domain mutations remain owned by GameService and Nakama-owned tables are
-not accessed by the bridge.
+API, while `gameservice.profile` reads and patches only the authenticated
+Nakama account through supported runtime APIs. Domain mutations remain owned
+by GameService and Nakama-owned tables are not accessed by the bridge.
 
 The Compose TURN relay publishes a bounded 100-port UDP allocation range;
 increase it only after measuring concurrent relay demand and host capacity.
