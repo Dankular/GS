@@ -5,6 +5,8 @@ info:
   description: Declarative, idempotent game backend control plane.
 servers:
   - url: http://localhost:8080
+security:
+  - NakamaSession: []
 paths:
   /v1/commands:
     post:
@@ -43,30 +45,36 @@ paths:
   /v1/players/me/wallets:
     get: { operationId: getPlayerWallets, responses: { '200': { description: Player wallets } } }
   /v1/matchmaking/tickets:
-    post: { operationId: createMatchmakingTicket, responses: { '202': { description: Ticket accepted } } }
+    post:
+      operationId: createMatchmakingTicket
+      requestBody:
+        required: true
+        content: { application/json: { schema: { $ref: '#/components/schemas/TicketRequest' } } }
+      responses:
+        '202': { description: Ticket accepted, content: { application/json: { schema: { $ref: '#/components/schemas/Ticket' } } } }
   /v1/matchmaking/tickets/{ticketId}:
     get: { operationId: getMatchmakingTicket, responses: { '200': { description: Ticket status } } }
     delete: { operationId: cancelMatchmakingTicket, responses: { '204': { description: Ticket cancelled } } }
   /v1/matches/{matchId}:
-    get: { operationId: getMatch, responses: { '200': { description: Match state } } }
+    get: { operationId: getMatch, responses: { '200': { description: Match state, content: { application/json: { schema: { $ref: '#/components/schemas/Match' } } } } } }
   /v1/matches/{matchId}/join-claims:
-    post: { operationId: issueJoinClaims, responses: { '200': { description: Join claims } } }
+    post: { operationId: issueJoinClaims, responses: { '200': { description: Join claims, content: { application/json: { schema: { $ref: '#/components/schemas/JoinClaimResponse' } } } } } }
   /v1/server/matches/{matchId}/ready:
-    post: { operationId: markMatchReady, responses: { '204': { description: Match ready } } }
+    post: { operationId: markMatchReady, security: [{ ServerClaim: [] }], responses: { '204': { description: Match ready } } }
   /v1/server/matches/{matchId}/heartbeat:
-    post: { operationId: matchHeartbeat, responses: { '204': { description: Heartbeat accepted } } }
+    post: { operationId: matchHeartbeat, security: [{ ServerClaim: [] }], responses: { '204': { description: Heartbeat accepted } } }
   /v1/server/matches/{matchId}/results:
-    post: { operationId: submitMatchResult, responses: { '202': { description: Result accepted } } }
+    post: { operationId: submitMatchResult, security: [{ ServerClaim: [] }], responses: { '202': { description: Result accepted } } }
   /v1/admin/definitions/validate:
-    post: { operationId: validateDefinition, responses: { '200': { description: Validation report } } }
+    post: { operationId: validateDefinition, security: [{ AdminSession: [] }], responses: { '200': { description: Validation report } } }
   /v1/admin/definitions:
-    post: { operationId: publishDefinition, responses: { '201': { description: Published immutable revision } } }
+    post: { operationId: publishDefinition, security: [{ AdminSession: [] }], responses: { '201': { description: Published immutable revision } } }
   /v1/admin/definitions/{revision}/activate:
-    post: { operationId: activateDefinition, responses: { '204': { description: Definition activated } } }
+    post: { operationId: activateDefinition, security: [{ AdminSession: [] }], responses: { '204': { description: Definition activated } } }
   /v1/admin/definitions/{revision}/rollback:
-    post: { operationId: rollbackDefinition, responses: { '204': { description: Definition rolled back } } }
+    post: { operationId: rollbackDefinition, security: [{ AdminSession: [] }], responses: { '204': { description: Definition rolled back } } }
   /v1/admin/audit:
-    get: { operationId: searchAudit, responses: { '200': { description: Audit records } } }
+    get: { operationId: searchAudit, security: [{ AdminSession: [] }], responses: { '200': { description: Audit records } } }
   /metrics:
     get: { operationId: metrics, responses: { '200': { description: Prometheus metrics } } }
   /health/live:
@@ -74,6 +82,22 @@ paths:
   /health/ready:
     get: { operationId: readiness, responses: { '200': { description: OK } } }
 components:
+  securitySchemes:
+    NakamaSession:
+      type: http
+      scheme: bearer
+      bearerFormat: JWT
+      description: Nakama-issued player or administrator session JWT.
+    AdminSession:
+      type: http
+      scheme: bearer
+      bearerFormat: JWT
+      description: Nakama session JWT carrying the required administrator scope.
+    ServerClaim:
+      type: http
+      scheme: bearer
+      bearerFormat: JWT
+      description: Short-lived match-scoped server claim.
   schemas:
     Command:
       type: object
@@ -117,3 +141,60 @@ components:
         correlationId: { type: string }
         status: { type: string, enum: [succeeded, rejected] }
         operation: { type: string }
+    TicketRequest:
+      type: object
+      additionalProperties: false
+      required: [gameId, environment, modeId, definitionRevision, build, region, capacity, playerIds, expiresAt]
+      properties:
+        gameId: { type: string, minLength: 1 }
+        environment: { type: string, minLength: 1 }
+        modeId: { type: string, minLength: 1 }
+        definitionRevision: { type: integer, minimum: 1 }
+        build: { type: string, minLength: 1 }
+        region: { type: string, minLength: 1 }
+        capacity: { type: integer, minimum: 1 }
+        playerIds: { type: array, minItems: 1, items: { type: string, minLength: 1 } }
+        properties: { type: object }
+        expiresAt: { type: string, format: date-time }
+    Ticket:
+      allOf:
+        - $ref: '#/components/schemas/TicketRequest'
+        - type: object
+          required: [ticketId, status, createdAt]
+          properties:
+            ticketId: { type: string }
+            status: { type: string, enum: [queued, matching, matched, cancelled, expired] }
+            createdAt: { type: string, format: date-time }
+    Match:
+      type: object
+      required: [matchId, gameId, environment, modeId, definitionRevision, state, build, roster]
+      properties:
+        matchId: { type: string }
+        gameId: { type: string }
+        environment: { type: string }
+        modeId: { type: string }
+        definitionRevision: { type: integer }
+        state: { type: string, enum: [Queued, Matched, Allocating, Ready, Running, Finalizing, Completed, Abandoned, Disputed, Failed, Cancelled] }
+        build: { type: string }
+        allocationId: { type: string }
+        serverAddress: { type: string }
+        serverPorts: { type: object, additionalProperties: { type: integer } }
+        roster: { type: array, items: { $ref: '#/components/schemas/RosterMember' } }
+    RosterMember:
+      type: object
+      required: [playerId, slot]
+      properties:
+        playerId: { type: string }
+        slot: { type: integer, minimum: 0 }
+        team: { type: string }
+    JoinClaimResponse:
+      type: object
+      required: [matchId, token]
+      properties:
+        matchId: { type: string }
+        token: { type: string }
+    Error:
+      type: object
+      required: [message]
+      properties:
+        message: { type: string }
