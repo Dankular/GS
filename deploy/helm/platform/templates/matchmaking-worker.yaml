@@ -39,13 +39,17 @@ spec:
             - { name: MATCH_RATING_WINDOW, value: {{ .Values.matchmaking.ratingWindow | quote }} }
             - { name: MATCH_PROTOCOL, value: {{ .Values.matchmaking.protocol | quote }} }
             - { name: MATCHMAKING_INTERVAL_SECONDS, value: {{ .Values.matchmaking.intervalSeconds | quote }} }
-            - { name: SERVER_CLAIM_PRIVATE_KEY, valueFrom: { secretKeyRef: { name: {{ .Values.serverClaims.privateKeySecretName }}, key: {{ .Values.serverClaims.privateKeySecretKey }} } } }
+            - { name: SERVER_CLAIM_PRIVATE_KEY_FILE, value: /run/server-claims/{{ .Values.serverClaims.privateKeySecretKey }} }
             - { name: SERVER_CLAIM_TTL_SECONDS, value: {{ .Values.serverClaims.ttlSeconds | quote }} }
           volumeMounts:
             - { name: allocator, mountPath: /run/allocator, readOnly: true }
+            - { name: server-claims, mountPath: /run/server-claims, readOnly: true }
           resources:
 {{ toYaml .Values.resources | nindent 12 }}
       volumes:
         - name: allocator
           secret:
             secretName: {{ .Values.allocator.secretName }}
+        - name: server-claims
+          secret:
+            secretName: {{ .Values.serverClaims.privateKeySecretName }}
