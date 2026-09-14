@@ -32,6 +32,20 @@ func New(ctx context.Context, databaseURL string) (*Repository, error) {
 
 func (r *Repository) Close() { r.pool.Close() }
 
+func (r *Repository) Ping(ctx context.Context) error { return r.pool.Ping(ctx) }
+
+func (r *Repository) Get(ctx context.Context, requestID string) (commands.Result, error) {
+	var payload []byte
+	if err := r.pool.QueryRow(ctx, `SELECT result FROM platform.command_requests WHERE request_id=$1`, requestID).Scan(&payload); err != nil {
+		return commands.Result{}, err
+	}
+	var result commands.Result
+	if err := json.Unmarshal(payload, &result); err != nil {
+		return commands.Result{}, fmt.Errorf("decode result: %w", err)
+	}
+	return result, nil
+}
+
 // Submit stores a command result and its outbox event atomically. A duplicate
 // request returns the original result and does not append another event.
 func (r *Repository) Submit(ctx context.Context, e commands.Envelope) (commands.Result, bool, error) {

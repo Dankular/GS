@@ -3,6 +3,7 @@ package main
 import (
 	"context"
 	"encoding/json"
+	"errors"
 	"io"
 	"log/slog"
 	"net/http"
@@ -11,6 +12,7 @@ import (
 	"github.com/Dankular/GameService/internal/commands"
 	"github.com/Dankular/GameService/internal/commandstore"
 	"github.com/Dankular/GameService/internal/economy"
+	"github.com/jackc/pgx/v5"
 )
 
 func main() {
@@ -27,7 +29,25 @@ func main() {
 	economyService := economy.Service{}
 	mux := http.NewServeMux()
 	mux.HandleFunc("GET /health/live", func(w http.ResponseWriter, _ *http.Request) { w.WriteHeader(http.StatusOK) })
-	mux.HandleFunc("GET /health/ready", func(w http.ResponseWriter, _ *http.Request) { w.WriteHeader(http.StatusOK) })
+	mux.HandleFunc("GET /health/ready", func(w http.ResponseWriter, r *http.Request) {
+		if err := repository.Ping(r.Context()); err != nil {
+			http.Error(w, "not ready", http.StatusServiceUnavailable)
+			return
+		}
+		w.WriteHeader(http.StatusOK)
+	})
+	mux.HandleFunc("GET /v1/commands/{requestId}", func(w http.ResponseWriter, r *http.Request) {
+		result, err := repository.Get(r.Context(), r.PathValue("requestId"))
+		if errors.Is(err, pgx.ErrNoRows) {
+			http.Error(w, "command not found", http.StatusNotFound)
+			return
+		}
+		if err != nil {
+			http.Error(w, "command could not be loaded", http.StatusServiceUnavailable)
+			return
+		}
+		writeJSON(w, result)
+	})
 	mux.HandleFunc("POST /v1/commands", func(w http.ResponseWriter, r *http.Request) {
 		if r.Header.Get("Content-Type") != "application/json" {
 			http.Error(w, "content type must be application/json", http.StatusUnsupportedMediaType)
@@ -57,11 +77,16 @@ func main() {
 		if duplicate {
 			w.Header().Set("X-Idempotency-Replay", "true")
 		}
-		json.NewEncoder(w).Encode(result)
+		writeJSON(w, result)
 	})
 	slog.Info("control API listening", "addr", addr)
 	if err := http.ListenAndServe(addr, mux); err != nil {
 		slog.Error("server stopped", "error", err)
 		os.Exit(1)
 	}
+}
+
+func writeJSON(w http.ResponseWriter, value any) {
+	w.Header().Set("Content-Type", "application/json")
+	_ = json.NewEncoder(w).Encode(value)
 }
