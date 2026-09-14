@@ -109,7 +109,12 @@ func watchAssignment(sdk *agonessdk.SDK, server *simulator.Server, readyReporter
 	defer ticker.Stop()
 	for range ticker.C {
 		gameServer, err := sdk.GameServer()
-		if err != nil || gameServer == nil || gameServer.GetObjectMeta() == nil {
+		if err != nil {
+			slog.Warn("Agones assignment lookup failed", "error", err)
+			continue
+		}
+		if gameServer == nil || gameServer.GetObjectMeta() == nil {
+			slog.Warn("Agones assignment metadata unavailable")
 			continue
 		}
 		annotations := gameServer.GetObjectMeta().GetAnnotations()
@@ -118,7 +123,10 @@ func watchAssignment(sdk *agonessdk.SDK, server *simulator.Server, readyReporter
 		build := annotations["gameservice.io/server-build"]
 		roster := parseRoster(annotations["gameservice.io/match-roster"])
 		serverToken := annotations["gameservice.io/server-token"]
-		if err := server.AssignWithServerToken(matchID, allocationID, build, roster, serverToken); err == nil {
+		if err := server.AssignWithServerToken(matchID, allocationID, build, roster, serverToken); err != nil {
+			slog.Warn("Agones assignment metadata invalid", "error", err)
+			continue
+		} else {
 			*assignedMatchID = matchID
 			*assignedServerToken = serverToken
 			if readyReporter != nil {
