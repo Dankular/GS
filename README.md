@@ -118,6 +118,39 @@ them. Expose UDP/TCP 3478, TLS 5349, and the configured relay range in the VPS
 firewall. GNS.NET signaling should mint short-lived TURN credentials from this
 secret and return them through its authenticated signaling endpoint.
 
+### Load and chaos profiles
+
+The load profile is a real HTTP harness, not a unit-test alias. It is gated by
+deployment credentials and exercises authenticated snapshot, inventory, and
+matchmaking ticket create/cancel paths while reporting p50, p95, and maximum
+latency:
+
+```text
+GAMESERVICE_LOAD_API_URL=http://127.0.0.1:8080 \
+GAMESERVICE_LOAD_SESSION_SIGNING_KEY=... \
+GAMESERVICE_LOAD_PLAYER=load-player \
+GAMESERVICE_LOAD_REQUESTS=100 \
+GAMESERVICE_LOAD_WORKERS=10 \
+go test -tags=load ./tests/load -run TestHTTPProfiles -count=1 -v
+```
+
+`GAMESERVICE_LOAD_PROFILES` can narrow the run to `auth`, `snapshot`,
+`inventory`, or `matchmaking`. The matchmaking profile cancels every ticket
+it creates. The chaos profile is explicitly opt-in and only permits restarting
+application services; it will not target PostgreSQL or Nakama:
+
+```text
+GAMESERVICE_CHAOS_ENABLE=1 \
+GAMESERVICE_CHAOS_SERVICE=outbox-worker \
+GAMESERVICE_CHAOS_DIR=/opt/gameservice \
+GAMESERVICE_CHAOS_COMPOSE_FILE=deploy/compose/compose.yaml \
+GAMESERVICE_CHAOS_HEALTH_URL=http://127.0.0.1:8080/health/ready \
+go test -tags=chaos ./tests/chaos -run TestRestartServiceRecovers -count=1 -v
+```
+
+These profiles produce an execution result but do not constitute a capacity
+claim; record the exact configuration and host saturation with each run.
+
 ## Topology
 
 The target runtime boundary is the configured VPS. Docker Compose runs the

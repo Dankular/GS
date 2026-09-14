@@ -1,6 +1,6 @@
 SHELL := sh
 
-.PHONY: bootstrap generate lint test test-integration test-e2e dev-core dev-full down migrate-up migrate-down-one seed definition-validate load-smoke backup verify-restore
+.PHONY: bootstrap generate lint test test-integration test-e2e test-load test-chaos dev-core dev-full down migrate-up migrate-down-one seed definition-validate load-smoke backup verify-restore
 
 bootstrap:
 	@go version
@@ -49,8 +49,13 @@ seed:
 definition-validate:
 	go run ./cmd/definition-compiler --file $(FILE)
 
-load-smoke:
-	go test ./...
+test-load:
+	go test -tags=load ./tests/load
+
+test-chaos:
+	go test -tags=chaos ./tests/chaos
+
+load-smoke: test-load
 
 simulator-build:
 	docker compose -f deploy/compose/compose.yaml --profile simulator build simulator-server
