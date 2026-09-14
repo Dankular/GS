@@ -27,7 +27,7 @@ func TestServiceRewardClaimIsAtomicAndOncePerPlayer(t *testing.T) {
 	ctx := context.Background()
 	suffix := time.Now().UTC().Format("20060102150405.000000000")
 	gameID, playerID := "economy-game-"+suffix, "economy-player-"+suffix
-	canonical, err := json.Marshal(map[string]any{"apiVersion": "game.platform/v1alpha1", "kind": "GameDefinition", "metadata": map[string]any{"gameId": gameID, "revision": 1}, "spec": map[string]any{"rewards": []any{map[string]any{"id": "welcome", "oncePerPlayer": true, "grants": []any{map[string]any{"currency": "coins", "amount": 25}, map[string]any{"item": "badge", "quantity": 1}}}}}})
+	canonical, err := json.Marshal(map[string]any{"apiVersion": "game.platform/v1alpha1", "kind": "GameDefinition", "metadata": map[string]any{"gameId": gameID, "revision": 1}, "spec": map[string]any{"catalog": map[string]any{"currencies": []any{map[string]any{"id": "coins", "precision": 0, "minBalance": 0, "maxBalance": 1000}}, "items": []any{map[string]any{"id": "badge", "stackLimit": 2}}}, "rewards": []any{map[string]any{"id": "welcome", "oncePerPlayer": true, "grants": []any{map[string]any{"currency": "coins", "amount": 25}, map[string]any{"item": "badge", "quantity": 1}}}}}})
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -141,5 +141,40 @@ func TestServiceRewardClaimIsAtomicAndOncePerPlayer(t *testing.T) {
 	}
 	if concurrentClaims != 1 {
 		t.Fatalf("concurrent reward claims persisted %d claims", concurrentClaims)
+	}
+
+	targetPlayerID := playerID + "-target"
+	transfer := func(operation string, arguments map[string]any) {
+		tx, err := pool.Begin(ctx)
+		if err != nil {
+			t.Fatal(err)
+		}
+		result, err := (Service{}).Handle(ctx, tx, commands.Envelope{Metadata: commands.Metadata{RequestID: operation + "-" + suffix, CorrelationID: operation + "-" + suffix, GameID: gameID, Environment: "test", DefinitionRevision: 1}, Actor: commands.Actor{ID: playerID}, Spec: commands.Spec{Operation: operation, Arguments: arguments}})
+		if err != nil {
+			_ = tx.Rollback(ctx)
+			t.Fatal(err)
+		}
+		if result.Status != "succeeded" {
+			_ = tx.Rollback(ctx)
+			t.Fatalf("%s failed: %#v", operation, result)
+		}
+		if err := tx.Commit(ctx); err != nil {
+			t.Fatal(err)
+		}
+	}
+	transfer("wallet.transfer", map[string]any{"targetPlayerId": targetPlayerID, "currency": "coins", "amount": 10})
+	transfer("inventory.transfer", map[string]any{"targetPlayerId": targetPlayerID, "itemId": "badge", "quantity": 1})
+	var sourceBalance, targetBalance, targetQuantity int64
+	if err := pool.QueryRow(ctx, `SELECT balance FROM economy.wallet_accounts WHERE player_id=$1 AND currency='coins'`, playerID).Scan(&sourceBalance); err != nil {
+		t.Fatal(err)
+	}
+	if err := pool.QueryRow(ctx, `SELECT balance FROM economy.wallet_accounts WHERE player_id=$1 AND currency='coins'`, targetPlayerID).Scan(&targetBalance); err != nil {
+		t.Fatal(err)
+	}
+	if err := pool.QueryRow(ctx, `SELECT quantity FROM economy.inventory_stacks WHERE player_id=$1 AND item_id='badge'`, targetPlayerID).Scan(&targetQuantity); err != nil {
+		t.Fatal(err)
+	}
+	if sourceBalance != 15 || targetBalance != 10 || targetQuantity != 1 {
+		t.Fatalf("transfer results are incorrect: source=%d target=%d items=%d", sourceBalance, targetBalance, targetQuantity)
 	}
 }
