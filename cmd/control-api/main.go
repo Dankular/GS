@@ -508,7 +508,16 @@ func requireScope(w http.ResponseWriter, r *http.Request, authenticate func(*htt
 }
 
 func commandScope(operation string) string {
-	if strings.HasPrefix(operation, "admin.") || strings.HasPrefix(operation, "definition.") {
+	switch operation {
+	case "definition.validate":
+		return "definition:validate"
+	case "definition.publish":
+		return "definition:publish"
+	case "definition.activate", "definition.rollback":
+		return "definition:activate"
+	case "admin.audit_search":
+		return "admin:read"
+	case "admin.player_snapshot", "admin.execute_command":
 		return "admin:write"
 	}
 	switch operation {

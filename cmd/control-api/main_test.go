@@ -8,8 +8,9 @@ func TestCommandScopeMatrix(t *testing.T) {
 		"wallet.transfer":       "player:write",
 		"matchmaking.enqueue":   "player:write",
 		"match.get":             "player:read",
-		"definition.activate":   "admin:write",
+		"definition.activate":   "definition:activate",
 		"admin.player_snapshot": "admin:write",
+		"admin.audit_search":    "admin:read",
 		"unknown.operation":     "",
 	}
 	for operation, expected := range checks {
