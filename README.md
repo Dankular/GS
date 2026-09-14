@@ -295,6 +295,10 @@ coturn when required.
 Game clients and generated proposals are untrusted: they may authenticate,
 read permitted state, and request validated commands. The edge handles TLS,
 routing, WAF, and coarse rate limits but does not perform domain writes.
+The Control API also applies bounded process-local per-IP and credential rate
+limits, with stricter defaults for commands, definition mutations, and
+matchmaking. A multi-replica production deployment must retain a distributed
+gateway limiter in front of these per-process safeguards.
 Nakama owns identity, sessions, social features, parties, chat, and
 Nakama-owned storage. GameService owns definitions, economy, inventory,
 matchmaking coordination, match state, result application, audit, and the

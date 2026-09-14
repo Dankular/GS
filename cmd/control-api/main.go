@@ -27,6 +27,7 @@ import (
 	"github.com/Dankular/GameService/internal/matchmaking"
 	telemetry "github.com/Dankular/GameService/internal/metrics"
 	"github.com/Dankular/GameService/internal/nakama"
+	"github.com/Dankular/GameService/internal/ratelimit"
 	tracing "github.com/Dankular/GameService/internal/telemetry"
 	"github.com/jackc/pgx/v5"
 	"github.com/jackc/pgx/v5/pgxpool"
@@ -99,6 +100,8 @@ func main() {
 	}
 	nakamaRuntime := nakama.Client{BaseURL: nakamaURL, RuntimeHTTPKey: os.Getenv("NAKAMA_RUNTIME_HTTP_KEY")}
 	metricRegistry := telemetry.New()
+	rateConfig := ratelimit.DefaultConfig()
+	rateLimiter := ratelimit.New(10000)
 	authenticate := func(r *http.Request) (auth.SessionClaims, error) {
 		return auth.VerifyNakamaSession(strings.TrimPrefix(r.Header.Get("Authorization"), "Bearer "), sessionSigningKey, issuer, audience, time.Now())
 	}
@@ -748,7 +751,7 @@ func main() {
 		writeJSON(w, map[string]any{"records": records})
 	})
 	slog.Info("control API listening", "addr", addr)
-	if err := http.ListenAndServe(addr, otelhttp.NewHandler(metricRegistry.Middleware(mux), "gameservice.control-api")); err != nil {
+	if err := http.ListenAndServe(addr, otelhttp.NewHandler(metricRegistry.Middleware(rateConfig.Middleware(rateLimiter, mux)), "gameservice.control-api")); err != nil {
 		slog.Error("server stopped", "error", err)
 		os.Exit(1)
 	}
