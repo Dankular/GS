@@ -75,10 +75,17 @@ func (c Client) WriteTournamentRecord(ctx context.Context, config TournamentConf
 	}
 	payload := map[string]any{
 		"tournamentId": config.ID, "eventKey": config.EventKey, "ownerId": record.UserID, "username": "",
-		"score": record.Score, "subscore": record.Subscore, "metadata": record.Metadata,
+		"score": record.Score, "subscore": record.Subscore,
 		"durationSeconds": config.DurationSeconds, "resetSchedule": config.ResetSchedule,
 		"joinRequired": config.JoinRequired, "maxScoreAttempts": config.MaxScoreAttempts,
 	}
+	metadata := map[string]any{}
+	if strings.TrimSpace(record.Metadata) != "" {
+		if err := json.Unmarshal([]byte(record.Metadata), &metadata); err != nil {
+			return fmt.Errorf("decode Nakama tournament metadata: %w", err)
+		}
+	}
+	payload["metadata"] = metadata
 	body, err := json.Marshal(payload)
 	if err != nil {
 		return fmt.Errorf("encode Nakama tournament record: %w", err)
