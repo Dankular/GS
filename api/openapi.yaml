@@ -185,6 +185,7 @@ components:
         definitionRevision: { type: integer, minimum: 1 }
     Actor:
       type: object
+      description: The actor ID must match the authenticated identity; actor type is derived from the operation scope at the HTTP boundary.
       additionalProperties: false
       required: [type, id]
       properties:
