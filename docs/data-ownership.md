@@ -6,7 +6,7 @@ below; Nakama data is accessed through Nakama APIs or runtime contracts.
 
 | Data | Authoritative owner | Access contract |
 | --- | --- | --- |
-| Identity, sessions, usernames, profile, friends, groups, parties, chat, notifications | Nakama | Nakama client APIs and the `gameservice.profile` runtime RPC |
+| Identity, sessions, usernames, profile, friends, groups, parties, chat, notifications | Nakama | Nakama client APIs plus the authenticated `gameservice.profile` and `gameservice.social` runtime RPCs |
 | Nakama storage objects and Nakama leaderboards | Nakama | Nakama APIs; the leaderboard worker uses the supported server API |
 | Definitions, revisions, activation history | GameService | Control API and `platform` schema |
 | Commands, idempotency results, audit records, outbox | GameService | Control API and `platform`/`ops` schemas |
