@@ -1,0 +1,48 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: gameservice-matchmaking-worker
+  namespace: {{ .Values.namespace.app }}
+  labels:
+{{ include "gameservice.labels" . | nindent 4 }}
+spec:
+  replicas: {{ .Values.replicaCount }}
+  selector: { matchLabels: { app: gameservice-matchmaking-worker } }
+  template:
+    metadata: { labels: { app: gameservice-matchmaking-worker } }
+    spec:
+      serviceAccountName: gameservice
+      automountServiceAccountToken: false
+      terminationGracePeriodSeconds: {{ .Values.pod.terminationGracePeriodSeconds }}
+      securityContext:
+{{ toYaml .Values.pod.securityContext | nindent 8 }}
+      topologySpreadConstraints:
+        - maxSkew: {{ .Values.pod.topologySpread.maxSkew }}
+          topologyKey: {{ .Values.pod.topologySpread.topologyKey }}
+          whenUnsatisfiable: {{ .Values.pod.topologySpread.whenUnsatisfiable }}
+          labelSelector: { matchLabels: { app: gameservice-matchmaking-worker } }
+      containers:
+        - name: matchmaking-worker
+          image: {{ include "gameservice.image" (dict "Values" .Values "name" "matchmakingWorker") | quote }}
+          securityContext:
+{{ toYaml .Values.pod.containerSecurityContext | nindent 12 }}
+          env:
+            - { name: DATABASE_URL, valueFrom: { secretKeyRef: { name: {{ .Values.database.secretName }}, key: {{ .Values.database.urlKey }} } } }
+            - { name: AGONES_ALLOCATOR_ENDPOINT, value: {{ .Values.allocator.endpoint | quote }} }
+            - { name: AGONES_ALLOCATOR_NAMESPACE, value: {{ .Values.allocator.namespace | quote }} }
+            - { name: AGONES_ALLOCATOR_CA_FILE, value: /run/allocator/{{ .Values.allocator.caKey }} }
+            - { name: AGONES_ALLOCATOR_CERT_FILE, value: /run/allocator/{{ .Values.allocator.certKey }} }
+            - { name: AGONES_ALLOCATOR_KEY_FILE, value: /run/allocator/{{ .Values.allocator.privateKey }} }
+            - { name: MATCH_TEAM_SIZE, value: {{ .Values.matchmaking.teamSize | quote }} }
+            - { name: MATCH_TEAMS, value: {{ .Values.matchmaking.teams | quote }} }
+            - { name: MATCH_RATING_WINDOW, value: {{ .Values.matchmaking.ratingWindow | quote }} }
+            - { name: MATCH_PROTOCOL, value: {{ .Values.matchmaking.protocol | quote }} }
+            - { name: MATCHMAKING_INTERVAL_SECONDS, value: {{ .Values.matchmaking.intervalSeconds | quote }} }
+          volumeMounts:
+            - { name: allocator, mountPath: /run/allocator, readOnly: true }
+          resources:
+{{ toYaml .Values.resources | nindent 12 }}
+      volumes:
+        - name: allocator
+          secret:
+            secretName: {{ .Values.allocator.secretName }}

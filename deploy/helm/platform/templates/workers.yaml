@@ -9,9 +9,21 @@ spec:
     metadata: { labels: { app: gameservice-{{ $worker.name }}-worker } }
     spec:
       serviceAccountName: gameservice
+      automountServiceAccountToken: false
+      terminationGracePeriodSeconds: {{ $.Values.pod.terminationGracePeriodSeconds }}
+      securityContext:
+{{ toYaml $.Values.pod.securityContext | nindent 8 }}
+      topologySpreadConstraints:
+        - maxSkew: {{ $.Values.pod.topologySpread.maxSkew }}
+          topologyKey: {{ $.Values.pod.topologySpread.topologyKey }}
+          whenUnsatisfiable: {{ $.Values.pod.topologySpread.whenUnsatisfiable }}
+          labelSelector: { matchLabels: { app: gameservice-{{ $worker.name }}-worker } }
       containers:
         - name: {{ $worker.name }}-worker
           image: {{ include "gameservice.image" (dict "Values" $.Values "name" $worker.image) | quote }}
+          securityContext:
+{{ toYaml $.Values.pod.containerSecurityContext | nindent 12 }}
+          volumeMounts: [{ name: tmp, mountPath: /tmp }]
           env:
             - { name: DATABASE_URL, valueFrom: { secretKeyRef: { name: {{ $.Values.database.secretName }}, key: {{ $.Values.database.urlKey }} } } }
             {{- if eq $worker.name "leaderboard" }}
@@ -19,5 +31,6 @@ spec:
             - { name: NAKAMA_SOCKET_SERVER_KEY, valueFrom: { secretKeyRef: { name: {{ $.Values.nakama.secretName }}, key: {{ $.Values.nakama.serverKeySecretKey }} } } }
             {{- end }}
           resources: {{- toYaml $.Values.resources | nindent 12 }}
+      volumes: [{ name: tmp, emptyDir: {} }]
 ---
 {{- end }}

@@ -8,10 +8,22 @@ spec:
     metadata: { labels: { app: gameservice-control-api } }
     spec:
       serviceAccountName: gameservice
+      automountServiceAccountToken: false
+      terminationGracePeriodSeconds: {{ .Values.pod.terminationGracePeriodSeconds }}
+      securityContext:
+{{ toYaml .Values.pod.securityContext | nindent 8 }}
+      topologySpreadConstraints:
+        - maxSkew: {{ .Values.pod.topologySpread.maxSkew }}
+          topologyKey: {{ .Values.pod.topologySpread.topologyKey }}
+          whenUnsatisfiable: {{ .Values.pod.topologySpread.whenUnsatisfiable }}
+          labelSelector: { matchLabels: { app: gameservice-control-api } }
       containers:
         - name: control-api
           image: {{ include "gameservice.image" (dict "Values" .Values "name" "controlApi") | quote }}
           ports: [{ name: http, containerPort: 8080 }]
+          securityContext:
+{{ toYaml .Values.pod.containerSecurityContext | nindent 12 }}
+          volumeMounts: [{ name: tmp, mountPath: /tmp }]
           env:
             - { name: CONTROL_API_ADDR, value: ":8080" }
             - { name: DATABASE_URL, valueFrom: { secretKeyRef: { name: {{ .Values.database.secretName }}, key: {{ .Values.database.urlKey }} } } }
@@ -22,6 +34,7 @@ spec:
           readinessProbe: { httpGet: { path: /health/ready, port: http }, periodSeconds: 5 }
           livenessProbe: { httpGet: { path: /health/live, port: http }, periodSeconds: 10 }
           resources: {{- toYaml .Values.resources | nindent 12 }}
+      volumes: [{ name: tmp, emptyDir: {} }]
 ---
 apiVersion: v1
 kind: Service

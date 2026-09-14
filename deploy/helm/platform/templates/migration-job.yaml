@@ -13,9 +13,13 @@ spec:
     metadata: { labels: { app.kubernetes.io/name: gameservice-migration } }
     spec:
       restartPolicy: OnFailure
+      securityContext:
+{{ toYaml .Values.pod.securityContext | nindent 8 }}
       containers:
         - name: migrations
           image: {{ include "gameservice.image" (dict "Values" .Values "name" "migrations") | quote }}
+          securityContext:
+{{ toYaml .Values.pod.containerSecurityContext | nindent 12 }}
           command: ["sh", "-ec"]
           args: ["psql \"$DATABASE_URL\" -f /migrations/001_control.sql"]
           env:

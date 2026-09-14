@@ -3,12 +3,14 @@ images:
   controlApi: { repository: ghcr.io/dankular/gameservice-control-api, digest: "" }
   outboxWorker: { repository: ghcr.io/dankular/gameservice-outbox-worker, digest: "" }
   leaderboardWorker: { repository: ghcr.io/dankular/gameservice-leaderboard-worker, digest: "" }
+  matchmakingWorker: { repository: ghcr.io/dankular/gameservice-matchmaking-worker, digest: "" }
   migrations: { repository: postgres, digest: "" }
 replicaCount: 2
 namespace:
   app: platform-app
   edge: platform-edge
   gameservers: platform-gameservers-eu-west
+  observability: platform-observability
 service:
   port: 8080
 resources:
@@ -31,6 +33,27 @@ allocator:
   caKey: ca.pem
   certKey: client.crt
   privateKey: client.key
+matchmaking:
+  teamSize: 1
+  teams: 2
+  ratingWindow: 0
+  protocol: udp
+  intervalSeconds: 2
+pod:
+  terminationGracePeriodSeconds: 30
+  securityContext:
+    runAsNonRoot: true
+    runAsUser: 65532
+    runAsGroup: 65532
+    seccompProfile: { type: RuntimeDefault }
+  containerSecurityContext:
+    allowPrivilegeEscalation: false
+    readOnlyRootFilesystem: true
+    capabilities: { drop: [ALL] }
+  topologySpread:
+    maxSkew: 1
+    topologyKey: topology.kubernetes.io/zone
+    whenUnsatisfiable: ScheduleAnyway
 serverClaims:
   publicKeysSecretName: gameservice-secrets
   publicKeysSecretKey: server-claim-public-keys

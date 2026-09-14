@@ -9,3 +9,7 @@ metadata: { name: {{ .Values.namespace.edge }} }
 apiVersion: v1
 kind: Namespace
 metadata: { name: {{ .Values.namespace.gameservers }} }
+---
+apiVersion: v1
+kind: Namespace
+metadata: { name: {{ .Values.namespace.observability }} }
