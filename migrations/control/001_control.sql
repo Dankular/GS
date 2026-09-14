@@ -20,8 +20,16 @@ CREATE TABLE IF NOT EXISTS ops.outbox_events (
   event_type text NOT NULL,
   correlation_id text NOT NULL,
   payload jsonb NOT NULL,
-  published_at timestamptz
+  published_at timestamptz,
+  attempts integer NOT NULL DEFAULT 0 CHECK (attempts >= 0),
+  leased_until timestamptz,
+  last_error text,
+  dead_lettered_at timestamptz
 );
+ALTER TABLE ops.outbox_events ADD COLUMN IF NOT EXISTS attempts integer NOT NULL DEFAULT 0;
+ALTER TABLE ops.outbox_events ADD COLUMN IF NOT EXISTS leased_until timestamptz;
+ALTER TABLE ops.outbox_events ADD COLUMN IF NOT EXISTS last_error text;
+ALTER TABLE ops.outbox_events ADD COLUMN IF NOT EXISTS dead_lettered_at timestamptz;
 
 CREATE SCHEMA IF NOT EXISTS economy;
 CREATE TABLE IF NOT EXISTS economy.wallet_accounts (

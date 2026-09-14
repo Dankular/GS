@@ -13,6 +13,8 @@ import (
 
 type Repository struct{ pool *pgxpool.Pool }
 
+func (r *Repository) Pool() *pgxpool.Pool { return r.pool }
+
 type Handler func(context.Context, pgx.Tx, commands.Envelope) (commands.Result, error)
 
 func New(ctx context.Context, databaseURL string) (*Repository, error) {
