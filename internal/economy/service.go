@@ -139,6 +139,26 @@ func base(e commands.Envelope, result map[string]any, event string) commands.Res
 	return commands.Result{RequestID: e.Metadata.RequestID, CorrelationID: e.Metadata.CorrelationID, Status: "succeeded", Operation: e.Spec.Operation, Result: result, Events: []string{event}}
 }
 
+const systemLedgerAccount = "__system__"
+
+type ledgerEntry struct {
+	Account string
+	Amount  int64
+}
+
+func balancedLedgerEntries(player string, amount int64) []ledgerEntry {
+	return []ledgerEntry{{Account: player, Amount: amount}, {Account: systemLedgerAccount, Amount: -amount}}
+}
+
+func appendLedgerEntries(ctx context.Context, tx pgx.Tx, requestID, player, currency string, amount int64) error {
+	for _, entry := range balancedLedgerEntries(player, amount) {
+		if _, err := tx.Exec(ctx, `INSERT INTO economy.ledger_entries(request_id,player_id,currency,amount) VALUES($1,$2,$3,$4)`, requestID, entry.Account, currency, entry.Amount); err != nil {
+			return err
+		}
+	}
+	return nil
+}
+
 func walletGet(ctx context.Context, tx pgx.Tx, player string, e commands.Envelope) (commands.Result, error) {
 	currency, err := stringArg(e.Spec.Arguments, "currency", "")
 	if err != nil {
@@ -202,13 +222,11 @@ func walletChange(ctx context.Context, tx pgx.Tx, player string, args map[string
 	if err != nil {
 		return commands.Result{}, err
 	}
-	_, err = tx.Exec(ctx, `INSERT INTO economy.ledger_entries(request_id,player_id,currency,amount) VALUES($1,$2,$3,$4)`, e.Metadata.RequestID, player, currency, func() int64 {
-		if credit {
-			return amount
-		}
-		return -amount
-	}())
-	if err != nil {
+	amountSigned := amount
+	if !credit {
+		amountSigned = -amount
+	}
+	if err = appendLedgerEntries(ctx, tx, e.Metadata.RequestID, player, currency, amountSigned); err != nil {
 		return commands.Result{}, err
 	}
 	event := "wallet.debited.v1"
@@ -416,7 +434,7 @@ func rewardClaim(ctx context.Context, tx pgx.Tx, player string, args map[string]
 			if _, err := tx.Exec(ctx, `INSERT INTO economy.ledger_transactions(request_id,reason) VALUES($1,$2)`, requestID, "reward.claim"); err != nil {
 				return commands.Result{}, err
 			}
-			if _, err := tx.Exec(ctx, `INSERT INTO economy.ledger_entries(request_id,player_id,currency,amount) VALUES($1,$2,$3,$4)`, requestID, player, grant.Currency, amount); err != nil {
+			if err := appendLedgerEntries(ctx, tx, requestID, player, grant.Currency, amount); err != nil {
 				return commands.Result{}, err
 			}
 		} else if grant.Item != "" {

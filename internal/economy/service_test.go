@@ -19,6 +19,18 @@ func TestIntArgRejectsFractionsAndZero(t *testing.T) {
 	}
 }
 
+func TestBalancedLedgerEntriesOffsetPlayerDelta(t *testing.T) {
+	for _, amount := range []int64{-25, 100} {
+		entries := balancedLedgerEntries("player", amount)
+		if len(entries) != 2 || entries[0].Account != "player" || entries[1].Account != systemLedgerAccount {
+			t.Fatalf("unexpected ledger entries: %#v", entries)
+		}
+		if entries[0].Amount+entries[1].Amount != 0 {
+			t.Fatalf("ledger entries are not balanced: %#v", entries)
+		}
+	}
+}
+
 func TestCatalogLookupAndBusinessErrorCodes(t *testing.T) {
 	definition := compiler.Definition{Spec: compiler.Spec{Catalog: compiler.Catalog{Currencies: []compiler.Currency{{ID: "coins", MinBalance: 0, MaxBalance: 100}}, Items: []compiler.Item{{ID: "badge", StackLimit: 1}}}}}
 	if currency, ok := findCurrency(definition, "coins"); !ok || currency.MaxBalance != 100 {
