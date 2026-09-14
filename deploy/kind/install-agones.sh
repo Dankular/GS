@@ -25,9 +25,29 @@ fi
   --set agones.ping.http.serviceType=NodePort \
   --set agones.ping.udp.serviceType=NodePort \
   --wait
+NODE_IP="$(docker inspect -f '{{(index .NetworkSettings.Networks "kind").IPAddress}}' gameservice-control-plane)"
+# The chart's development certificate does not include the Kind node IP, while
+# the Docker Compose worker reaches the NodePort through that IP. Re-issue only
+# the dev allocator server certificate with the exact SAN used by the worker;
+# client authentication continues to use Agones' separate allocator-client-ca.
+CERT_DIR="$(mktemp -d)"
+trap 'rm -rf "$CERT_DIR"' EXIT
+openssl req -x509 -newkey rsa:2048 -nodes -subj /CN=gameservice-agones-dev-ca \
+  -keyout "$CERT_DIR/ca.key" -out "$CERT_DIR/ca.crt" -days 3650 >/dev/null 2>&1
+openssl req -newkey rsa:2048 -nodes -subj /CN=agones-allocator \
+  -keyout "$CERT_DIR/server.key" -out "$CERT_DIR/server.csr" >/dev/null 2>&1
+cat > "$CERT_DIR/server.ext" <<EOF
+subjectAltName=IP:${NODE_IP},DNS:agones-allocator.agones-system.svc,DNS:agones-allocator.agones-system.svc.cluster.local
+extendedKeyUsage=serverAuth
+EOF
+openssl x509 -req -in "$CERT_DIR/server.csr" -CA "$CERT_DIR/ca.crt" -CAkey "$CERT_DIR/ca.key" \
+  -CAcreateserial -out "$CERT_DIR/server.crt" -days 365 -sha256 -extfile "$CERT_DIR/server.ext" >/dev/null 2>&1
+kubectl create secret tls allocator-tls -n agones-system --cert "$CERT_DIR/server.crt" --key "$CERT_DIR/server.key" --dry-run=client -o yaml | kubectl apply -f -
+kubectl create secret generic allocator-tls-ca -n agones-system --from-file=tls-ca.crt="$CERT_DIR/ca.crt" --dry-run=client -o yaml | kubectl apply -f -
+kubectl rollout restart deployment/agones-allocator -n agones-system
+kubectl rollout status deployment/agones-allocator -n agones-system --timeout=180s
 docker build -f deploy/compose/simulator-server.Dockerfile -t gameservice-simulator:dev .
 kind load docker-image gameservice-simulator:dev --name gameservice
-NODE_IP="$(docker inspect -f '{{(index .NetworkSettings.Networks "kind").IPAddress}}' gameservice-control-plane)"
 if [ -z "${SERVER_CLAIM_PUBLIC_KEY:-}" ] && [ -f .env ]; then
   SERVER_CLAIM_PUBLIC_KEY="$(awk -F= '$1 == "SERVER_CLAIM_PUBLIC_KEY" { print $2; exit }' .env)"
 fi
