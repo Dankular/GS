@@ -1,22 +1,27 @@
 # PostgreSQL backup and restore
 
-The VPS Compose PostgreSQL volume is not itself an off-site backup. Run the
-backup script to create an encrypted-storage-ready custom-format dump and a
-sidecar SHA-256 checksum:
+The VPS Compose PostgreSQL volume is not itself an off-site backup. For
+production, provide an age recipient and make encryption mandatory; keep the
+age identity outside the VPS or in the approved secret manager:
 
 ```sh
 cd /opt/gameservice
 sudo install -d -m 700 /var/backups/gameservice
 sudo GAMESERVICE_BACKUP_DIR=/var/backups/gameservice \
+  GAMESERVICE_BACKUP_AGE_RECIPIENT='age1...' \
+  GAMESERVICE_BACKUP_REQUIRE_ENCRYPTION=1 \
   ./deploy/backup/backup-postgres.sh
 ```
 
-Copy the dump and checksum to the approved encrypted off-site location. Do not
-put dumps in Git or paste them into tickets. Verify a dump in an isolated
-database with:
+Set `GAMESERVICE_BACKUP_S3_URI` to an off-site bucket prefix to upload the
+encrypted dump and checksum with the AWS CLI. Configure bucket object-lock,
+encrypted retention, and credentials through the approved operations system.
+Do not put dumps in Git or paste them into tickets. Verify a dump in an
+isolated database with:
 
 ```sh
-./deploy/backup/verify-restore.sh /var/backups/gameservice/gameservice-<timestamp>.dump
+GAMESERVICE_BACKUP_AGE_IDENTITY=/run/secrets/gameservice-backup-agekey \
+  ./deploy/backup/verify-restore.sh /var/backups/gameservice/gameservice-<timestamp>.dump.age
 ```
 
 The verifier creates and removes a uniquely named temporary database. It does
