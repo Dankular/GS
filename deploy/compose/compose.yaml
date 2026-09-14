@@ -1,6 +1,6 @@
 services:
   postgres:
-    image: postgres:16.10
+    image: postgres@sha256:21f6013073bc6b92830a2129570e2f5ec42a6c734b5a985a41e83aa58f54c3c1
     environment:
       POSTGRES_DB: gameservice
       POSTGRES_USER: gameservice
@@ -8,7 +8,7 @@ services:
     volumes: [postgres-data:/var/lib/postgresql/data]
     healthcheck: { test: [CMD-SHELL, 'pg_isready -U gameservice -d gameservice'], interval: 5s, timeout: 5s, retries: 10 }
   nakama:
-    image: heroiclabs/nakama:3.40.0
+    image: heroiclabs/nakama@sha256:92fb184e3271be12fd4d239766afb285322a50aaf769a59433445d59624c78cd
     depends_on: { postgres: { condition: service_healthy } }
     entrypoint: ["/bin/sh", "-ec"]
     command: ["/nakama/nakama migrate up --database.address gameservice:${POSTGRES_PASSWORD}@postgres:5432/gameservice && exec /nakama/nakama --database.address gameservice:${POSTGRES_PASSWORD}@postgres:5432/gameservice --logger.level INFO --console.username ${NAKAMA_CONSOLE_USERNAME} --console.password ${NAKAMA_CONSOLE_PASSWORD} --console.signing_key ${NAKAMA_CONSOLE_SIGNING_KEY} --socket.server_key ${NAKAMA_SOCKET_SERVER_KEY} --session.encryption_key ${NAKAMA_SESSION_ENCRYPTION_KEY} --session.refresh_encryption_key ${NAKAMA_SESSION_REFRESH_ENCRYPTION_KEY} --runtime.http_key ${NAKAMA_RUNTIME_HTTP_KEY}"]
@@ -19,7 +19,7 @@ services:
     ports: ["8080:8080"]
     depends_on: { postgres: { condition: service_healthy } }
   migrations:
-    image: postgres:16.10
+    image: postgres@sha256:21f6013073bc6b92830a2129570e2f5ec42a6c734b5a985a41e83aa58f54c3c1
     profiles: [tools]
     entrypoint: ["sh", "-c"]
     command: ["psql \"$$DATABASE_URL\" -f /migrations/001_control.sql"]
