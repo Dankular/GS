@@ -234,10 +234,7 @@ function gameserviceTournamentRecord(ctx, logger, nk, payload) {
   if (request.joinRequired === true) {
     nk.tournamentJoin(tournamentId, ownerId, username);
   }
-  // Nakama 3.40's JavaScript binding accepts tournament metadata as the JSON
-  // string used by its underlying API (the published TypeScript signature is
-  // broader than the runtime's actual coercion rule).
-  var record = nk.tournamentRecordWrite(tournamentId, ownerId, username, request.score, subscore, JSON.stringify(metadata));
+  var record = nk.tournamentRecordWrite(tournamentId, ownerId, username, request.score, subscore, metadata);
   return JSON.stringify({ tournamentId: tournamentId, ownerId: ownerId, record: record || {} });
 }
 
