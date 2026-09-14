@@ -51,6 +51,14 @@ func TestEnvelopeRejectsUnknownOperationArguments(t *testing.T) {
 	}
 }
 
+func FuzzDecodeStrictNeverPanics(f *testing.F) {
+	f.Add([]byte(`{"apiVersion":"game.platform/v1alpha1","kind":"Command","metadata":{"requestId":"r","correlationId":"c","gameId":"g","environment":"dev","definitionRevision":1},"actor":{"type":"player","id":"p"},"spec":{"operation":"inventory.list","arguments":{}}}`))
+	f.Add([]byte("not-json"))
+	f.Fuzz(func(t *testing.T, data []byte) {
+		_, _ = DecodeStrict(data)
+	})
+}
+
 func TestEnvelopeRejectsOversizedArguments(t *testing.T) {
 	cases := []struct {
 		name string

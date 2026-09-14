@@ -24,6 +24,8 @@ jobs:
         run: go vet ./...
       - name: Test with race detector
         run: go test -race ./...
+      - name: Fuzz smoke
+        run: make fuzz-smoke
       - name: Contract and schema tests
         run: go test ./api ./internal/commands
       - name: Generated client drift

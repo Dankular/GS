@@ -1,6 +1,6 @@
 SHELL := sh
 
-.PHONY: bootstrap generate lint test test-integration test-e2e test-load test-chaos dev-core dev-full down migrate-up migrate-down-one migrate-cycle seed definition-validate load-smoke backup verify-restore
+.PHONY: bootstrap generate lint test test-integration test-e2e test-load test-chaos fuzz-smoke dev-core dev-full down migrate-up migrate-down-one migrate-cycle seed definition-validate load-smoke backup verify-restore
 
 bootstrap:
 	@go version
@@ -57,6 +57,9 @@ test-load:
 
 test-chaos:
 	go test -tags=chaos ./tests/chaos
+
+fuzz-smoke:
+	go test ./internal/commands -fuzz=FuzzDecodeStrictNeverPanics -fuzztime=3s
 
 load-smoke: test-load
 
