@@ -927,38 +927,19 @@ func requiresFourEyes(environment string) bool {
 }
 
 func commandScope(operation string) string {
-	switch operation {
-	case "definition.validate":
-		return "definition:validate"
-	case "definition.publish":
-		return "definition:publish"
-	case "definition.activate", "definition.rollback":
-		return "definition:activate"
-	case "admin.audit_search":
-		return "admin:read"
-	case "admin.player_snapshot":
-		return "admin:read"
-	case "admin.execute_command":
-		return "admin:write"
-	case "admin.player_restrict", "admin.player_unrestrict":
-		return "admin:write"
-	}
-	switch operation {
-	case "profile.get", "inventory.list", "wallet.get", "entitlement.list", "progression.get", "reward.preview", "match.get", "matchmaking.status":
-		return "player:read"
-	case "profile.patch_public_fields", "inventory.grant", "inventory.consume", "inventory.transfer", "wallet.credit", "wallet.debit", "wallet.transfer", "entitlement.grant", "entitlement.revoke", "progression.add_xp", "progression.complete_objective", "reward.claim", "matchmaking.enqueue", "matchmaking.cancel", "match.issue_join_claim", "match.abandon":
-		return "player:write"
-	default:
+	definition, ok := commands.DefinitionFor(operation)
+	if !ok {
 		return ""
 	}
+	return definition.Scope
 }
 
 func commandActorType(operation string) string {
-	scope := commandScope(operation)
-	if strings.HasPrefix(scope, "admin:") || strings.HasPrefix(scope, "definition:") {
-		return "admin"
+	definition, ok := commands.DefinitionFor(operation)
+	if !ok {
+		return ""
 	}
-	return "player"
+	return definition.ActorType
 }
 
 func readDefinitionSource(r *http.Request) ([]byte, error) {

@@ -8,6 +8,8 @@ import (
 	"path/filepath"
 	"testing"
 	"time"
+
+	"github.com/Dankular/GameService/internal/commands"
 )
 
 func TestLoadEd25519PrivateKeyFromFile(t *testing.T) {
@@ -22,6 +24,32 @@ func TestLoadEd25519PrivateKeyFromFile(t *testing.T) {
 	got, err := loadEd25519PrivateKey(path, "invalid-fallback")
 	if err != nil || string(got) != string(expected) {
 		t.Fatalf("file key load failed: %v", err)
+	}
+}
+
+func TestCommandAuthorizationUsesOperationDefinitions(t *testing.T) {
+	cases := []struct {
+		operation, scope, actor string
+	}{
+		{"inventory.list", "player:read", "player"},
+		{"wallet.credit", "player:write", "player"},
+		{"match.submit_result", "server:write", "server"},
+		{"definition.activate", "definition:activate", "admin"},
+		{"admin.execute_command", "admin:write", "admin"},
+	}
+	for _, tc := range cases {
+		if got := commandScope(tc.operation); got != tc.scope {
+			t.Errorf("%s scope=%q, want %q", tc.operation, got, tc.scope)
+		}
+		if got := commandActorType(tc.operation); got != tc.actor {
+			t.Errorf("%s actor=%q, want %q", tc.operation, got, tc.actor)
+		}
+		if _, ok := commands.DefinitionFor(tc.operation); !ok {
+			t.Errorf("%s missing operation definition", tc.operation)
+		}
+	}
+	if commandScope("unknown.operation") != "" || commandActorType("unknown.operation") != "" {
+		t.Fatal("unknown operation received authorization metadata")
 	}
 }
 
