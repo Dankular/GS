@@ -83,4 +83,15 @@ func VerifyClaim(token string, key ed25519.PublicKey, now time.Time, expectedAud
 	return c, nil
 }
 
+func VerifyServerClaim(token string, key ed25519.PublicKey, now time.Time, expectedMatch, expectedAllocation, expectedBuild string) (JoinClaim, error) {
+	claim, err := VerifyClaim(token, key, now, "control-plane", expectedMatch, expectedBuild)
+	if err != nil {
+		return JoinClaim{}, err
+	}
+	if claim.Subject != "game-server" || claim.AllocationID != expectedAllocation {
+		return JoinClaim{}, errors.New("server claim allocation mismatch")
+	}
+	return claim, nil
+}
+
 func Digest(data []byte) string { h := sha256.Sum256(data); return fmt.Sprintf("sha256:%x", h[:]) }

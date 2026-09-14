@@ -2,6 +2,8 @@ package main
 
 import (
 	"context"
+	"crypto/ed25519"
+	"encoding/base64"
 	"encoding/json"
 	"errors"
 	"io"
@@ -15,6 +17,7 @@ import (
 	"github.com/Dankular/GameService/internal/commands"
 	"github.com/Dankular/GameService/internal/commandstore"
 	"github.com/Dankular/GameService/internal/economy"
+	"github.com/Dankular/GameService/internal/matches"
 	"github.com/Dankular/GameService/internal/matchmaking"
 	"github.com/jackc/pgx/v5"
 )
@@ -39,6 +42,7 @@ func main() {
 	}
 	issuer := os.Getenv("NAKAMA_SESSION_ISSUER")
 	audience := os.Getenv("NAKAMA_SESSION_AUDIENCE")
+	serverPublicKey, _ := base64.RawStdEncoding.DecodeString(os.Getenv("SERVER_CLAIM_PUBLIC_KEY"))
 	authenticate := func(r *http.Request) (auth.SessionClaims, error) {
 		return auth.VerifyNakamaSession(strings.TrimPrefix(r.Header.Get("Authorization"), "Bearer "), sessionSigningKey, issuer, audience, time.Now())
 	}
@@ -164,6 +168,65 @@ func main() {
 		}
 		w.WriteHeader(http.StatusNoContent)
 	})
+	mux.HandleFunc("POST /v1/server/matches/{matchId}/results", func(w http.ResponseWriter, r *http.Request) {
+		if len(serverPublicKey) != ed25519.PublicKeySize {
+			http.Error(w, "server claim verification is not configured", http.StatusServiceUnavailable)
+			return
+		}
+		matchID := r.PathValue("matchId")
+		var expectedBuild, expectedAllocation, state string
+		if err := repository.Pool().QueryRow(r.Context(), `SELECT server_build,COALESCE(allocation_id,''),state FROM match.matches WHERE match_id=$1`, matchID).Scan(&expectedBuild, &expectedAllocation, &state); errors.Is(err, pgx.ErrNoRows) {
+			http.Error(w, "match not found", http.StatusNotFound)
+			return
+		} else if err != nil {
+			http.Error(w, "match could not be loaded", http.StatusServiceUnavailable)
+			return
+		}
+		if state != "Running" && state != "Finalizing" {
+			http.Error(w, "match is not accepting results", http.StatusConflict)
+			return
+		}
+		_, err := authenticateServer(r, ed25519.PublicKey(serverPublicKey), matchID, expectedAllocation, expectedBuild)
+		if err != nil {
+			http.Error(w, "invalid server claim", http.StatusUnauthorized)
+			return
+		}
+		var request struct {
+			Sequence      int64           `json:"sequence"`
+			Payload       json.RawMessage `json:"payload"`
+			PayloadDigest string          `json:"payloadDigest"`
+		}
+		decoder := json.NewDecoder(io.LimitReader(r.Body, 1<<20))
+		decoder.DisallowUnknownFields()
+		if err := decoder.Decode(&request); err != nil {
+			http.Error(w, "invalid result request", http.StatusBadRequest)
+			return
+		}
+		tx, err := repository.Pool().Begin(r.Context())
+		if err != nil {
+			http.Error(w, "result transaction unavailable", http.StatusServiceUnavailable)
+			return
+		}
+		defer tx.Rollback(r.Context())
+		duplicate, digest, err := matches.SubmitResult(r.Context(), tx, matches.ResultSubmission{MatchID: matchID, Sequence: request.Sequence, Payload: request.Payload, PayloadDigest: request.PayloadDigest})
+		if errors.Is(err, matches.ErrResultDigestMismatch) {
+			http.Error(w, "result digest conflict", http.StatusConflict)
+			return
+		}
+		if errors.Is(err, matches.ErrMatchNotRunning) {
+			http.Error(w, "match is not running", http.StatusConflict)
+			return
+		}
+		if err != nil {
+			http.Error(w, "result rejected", http.StatusUnprocessableEntity)
+			return
+		}
+		if err := tx.Commit(r.Context()); err != nil {
+			http.Error(w, "result commit failed", http.StatusServiceUnavailable)
+			return
+		}
+		writeJSON(w, map[string]any{"accepted": true, "duplicate": duplicate, "payloadDigest": digest})
+	})
 	slog.Info("control API listening", "addr", addr)
 	if err := http.ListenAndServe(addr, mux); err != nil {
 		slog.Error("server stopped", "error", err)
@@ -174,4 +237,8 @@ func main() {
 func writeJSON(w http.ResponseWriter, value any) {
 	w.Header().Set("Content-Type", "application/json")
 	_ = json.NewEncoder(w).Encode(value)
+}
+
+func authenticateServer(r *http.Request, key ed25519.PublicKey, matchID, allocationID, build string) (matches.JoinClaim, error) {
+	return matches.VerifyServerClaim(strings.TrimPrefix(r.Header.Get("Authorization"), "Bearer "), key, time.Now(), matchID, allocationID, build)
 }

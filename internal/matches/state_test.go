@@ -66,3 +66,21 @@ func TestJoinClaimRejectsTampering(t *testing.T) {
 		t.Fatal("expected tampered signature rejection")
 	}
 }
+
+func TestServerClaimBindsAllocation(t *testing.T) {
+	publicKey, privateKey, err := NewKeyPair()
+	if err != nil {
+		t.Fatal(err)
+	}
+	claim := JoinClaim{Issuer: "control-plane", Audience: "control-plane", Subject: "game-server", MatchID: "m", AllocationID: "a", ServerBuild: "b", IssuedAt: 10, NotBefore: 10, ExpiresAt: 20, JTI: "j"}
+	token, err := SignClaim(claim, privateKey)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if _, err := VerifyServerClaim(token, publicKey, time.Unix(10, 0), "m", "wrong", "b"); err == nil {
+		t.Fatal("expected allocation mismatch")
+	}
+	if _, err := VerifyServerClaim(token, publicKey, time.Unix(10, 0), "m", "a", "b"); err != nil {
+		t.Fatal(err)
+	}
+}
