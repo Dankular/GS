@@ -16,7 +16,7 @@ remaining domain operations are still incomplete.
 
 ## Development
 
-Requirements for local checks: Go 1.25+. Runtime Docker deployment is performed
+Requirements for local checks: Go 1.26.5+. Runtime Docker deployment is performed
 on the configured VPS; the workstation is not the target runtime.
 
 ```text
