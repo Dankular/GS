@@ -77,6 +77,7 @@ matchmaking:
   intervalSeconds: 2
 reconciliation:
   intervalSeconds: 300
+  allocationTimeoutSeconds: 120
 pod:
   terminationGracePeriodSeconds: 30
   securityContext:

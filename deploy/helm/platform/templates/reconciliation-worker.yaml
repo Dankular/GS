@@ -24,5 +24,6 @@ spec:
           env:
             - { name: DATABASE_URL, valueFrom: { secretKeyRef: { name: {{ .Values.database.secretName }}, key: {{ .Values.database.urlKey }} } } }
             - { name: RECONCILIATION_INTERVAL_SECONDS, value: {{ .Values.reconciliation.intervalSeconds | quote }} }
+            - { name: MATCH_ALLOCATION_TIMEOUT_SECONDS, value: {{ .Values.reconciliation.allocationTimeoutSeconds | quote }} }
           resources:
 {{ toYaml .Values.resources | nindent 12 }}

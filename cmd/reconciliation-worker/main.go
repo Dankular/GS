@@ -22,6 +22,12 @@ func main() {
 	interval := time.Duration(envInt("RECONCILIATION_INTERVAL_SECONDS", 300)) * time.Second
 	once := os.Getenv("RECONCILIATION_ONCE") == "true"
 	for {
+		allocationTimeout := time.Duration(envInt("MATCH_ALLOCATION_TIMEOUT_SECONDS", 120)) * time.Second
+		if recovered, recoveryErr := reconciliation.RecoverStaleAllocations(ctx, repo.Pool(), time.Now().UTC().Add(-allocationTimeout)); recoveryErr != nil {
+			slog.Error("stale allocation recovery failed", "error", recoveryErr)
+		} else if recovered > 0 {
+			slog.Warn("stale allocations failed", "count", recovered)
+		}
 		findings, scanErr := reconciliation.Scan(ctx, repo.Pool())
 		if scanErr != nil {
 			slog.Error("reconciliation scan failed", "error", scanErr)

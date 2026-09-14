@@ -159,6 +159,11 @@ entries and reports mismatches without editing financial history:
 docker compose --env-file .env -f deploy/compose/compose.yaml --profile reconciliation up -d --build reconciliation-worker
 ```
 
+The same worker fails `Allocating` matches that remain stale for
+`MATCH_ALLOCATION_TIMEOUT_SECONDS` (120 seconds by default), expires their
+matched tickets, and emits `match.failed.v1`. Set that value in the deployment
+environment to match the server Ready timeout policy.
+
 The Nakama leaderboard consumer is available through the `leaderboards` Compose
 profile and consumes `match.result.accepted.v1` with a per-consumer checkpoint;
 it expects authoritative result payloads in the form
