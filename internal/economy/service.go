@@ -82,6 +82,14 @@ func businessErrorCode(err error) (string, bool) {
 		return "REWARD_NOT_FOUND", true
 	case strings.HasPrefix(message, "invalid reward"):
 		return "INVALID_REWARD", true
+	case strings.HasPrefix(message, "unknown currency"):
+		return "UNKNOWN_CURRENCY", true
+	case strings.HasPrefix(message, "unknown item"):
+		return "UNKNOWN_ITEM", true
+	case strings.Contains(message, "currency bounds"):
+		return "CURRENCY_LIMIT", true
+	case strings.Contains(message, "stack limit"):
+		return "STACK_LIMIT", true
 	default:
 		return "", false
 	}
@@ -136,6 +144,14 @@ func walletGet(ctx context.Context, tx pgx.Tx, player string, e commands.Envelop
 	if err != nil {
 		return commands.Result{}, err
 	}
+	definition, err := loadDefinition(ctx, tx, e)
+	if err != nil {
+		return commands.Result{}, err
+	}
+	currencySpec, ok := findCurrency(definition, currency)
+	if !ok {
+		return commands.Result{}, fmt.Errorf("unknown currency: %s", currency)
+	}
 	var balance int64
 	err = tx.QueryRow(ctx, `SELECT balance FROM economy.wallet_accounts WHERE player_id=$1 AND currency=$2`, player, currency).Scan(&balance)
 	if errors.Is(err, pgx.ErrNoRows) {
@@ -143,6 +159,9 @@ func walletGet(ctx context.Context, tx pgx.Tx, player string, e commands.Envelop
 	}
 	if err != nil && !errors.Is(err, pgx.ErrNoRows) {
 		return commands.Result{}, err
+	}
+	if balance < currencySpec.MinBalance || balance > currencySpec.MaxBalance {
+		return commands.Result{}, fmt.Errorf("wallet balance violates currency bounds")
 	}
 	return base(e, map[string]any{"playerId": player, "currency": currency, "balance": balance}, "wallet.read.v1"), nil
 }
@@ -156,6 +175,14 @@ func walletChange(ctx context.Context, tx pgx.Tx, player string, args map[string
 	if err != nil {
 		return commands.Result{}, err
 	}
+	definition, err := loadDefinition(ctx, tx, e)
+	if err != nil {
+		return commands.Result{}, err
+	}
+	currencySpec, ok := findCurrency(definition, currency)
+	if !ok {
+		return commands.Result{}, fmt.Errorf("unknown currency: %s", currency)
+	}
 	var balance int64
 	if credit {
 		err = tx.QueryRow(ctx, `INSERT INTO economy.wallet_accounts(player_id,currency,balance) VALUES($1,$2,$3) ON CONFLICT(player_id,currency) DO UPDATE SET balance=economy.wallet_accounts.balance+$3 RETURNING balance`, player, currency, amount).Scan(&balance)
@@ -167,6 +194,9 @@ func walletChange(ctx context.Context, tx pgx.Tx, player string, args map[string
 	}
 	if err != nil {
 		return commands.Result{}, err
+	}
+	if balance < currencySpec.MinBalance || balance > currencySpec.MaxBalance {
+		return commands.Result{}, fmt.Errorf("wallet balance violates currency bounds")
 	}
 	_, err = tx.Exec(ctx, `INSERT INTO economy.ledger_transactions(request_id,reason) VALUES($1,$2)`, e.Metadata.RequestID, e.Spec.Operation)
 	if err != nil {
@@ -218,6 +248,14 @@ func inventoryChange(ctx context.Context, tx pgx.Tx, player string, args map[str
 	if err != nil {
 		return commands.Result{}, err
 	}
+	definition, err := loadDefinition(ctx, tx, e)
+	if err != nil {
+		return commands.Result{}, err
+	}
+	itemSpec, ok := findItem(definition, item)
+	if !ok {
+		return commands.Result{}, fmt.Errorf("unknown item: %s", item)
+	}
 	var quantity, version int64
 	if grant {
 		err = tx.QueryRow(ctx, `INSERT INTO economy.inventory_stacks(player_id,item_id,quantity,version) VALUES($1,$2,$3,1) ON CONFLICT(player_id,item_id) DO UPDATE SET quantity=economy.inventory_stacks.quantity+$3,version=economy.inventory_stacks.version+1 RETURNING quantity,version`, player, item, q).Scan(&quantity, &version)
@@ -229,6 +267,9 @@ func inventoryChange(ctx context.Context, tx pgx.Tx, player string, args map[str
 	}
 	if err != nil {
 		return commands.Result{}, err
+	}
+	if quantity > itemSpec.StackLimit {
+		return commands.Result{}, fmt.Errorf("item stack limit exceeded")
 	}
 	event := "inventory.consumed.v1"
 	if grant {
@@ -392,12 +433,8 @@ func loadReward(ctx context.Context, tx pgx.Tx, e commands.Envelope, args map[st
 	if err != nil {
 		return compiler.Reward{}, err
 	}
-	var canonical []byte
-	if err := tx.QueryRow(ctx, `SELECT canonical FROM platform.definition_revisions WHERE game_id=$1 AND revision=$2`, e.Metadata.GameID, e.Metadata.DefinitionRevision).Scan(&canonical); err != nil {
-		return compiler.Reward{}, err
-	}
-	var definition compiler.Definition
-	if err := json.Unmarshal(canonical, &definition); err != nil {
+	definition, err := loadDefinition(ctx, tx, e)
+	if err != nil {
 		return compiler.Reward{}, err
 	}
 	for _, reward := range definition.Spec.Rewards {
@@ -406,4 +443,34 @@ func loadReward(ctx context.Context, tx pgx.Tx, e commands.Envelope, args map[st
 		}
 	}
 	return compiler.Reward{}, fmt.Errorf("reward not found: %s", rewardID)
+}
+
+func loadDefinition(ctx context.Context, tx pgx.Tx, e commands.Envelope) (compiler.Definition, error) {
+	var canonical []byte
+	if err := tx.QueryRow(ctx, `SELECT canonical FROM platform.definition_revisions WHERE game_id=$1 AND revision=$2`, e.Metadata.GameID, e.Metadata.DefinitionRevision).Scan(&canonical); err != nil {
+		return compiler.Definition{}, err
+	}
+	var definition compiler.Definition
+	if err := json.Unmarshal(canonical, &definition); err != nil {
+		return compiler.Definition{}, fmt.Errorf("decode published definition: %w", err)
+	}
+	return definition, nil
+}
+
+func findCurrency(definition compiler.Definition, id string) (compiler.Currency, bool) {
+	for _, currency := range definition.Spec.Catalog.Currencies {
+		if currency.ID == id {
+			return currency, true
+		}
+	}
+	return compiler.Currency{}, false
+}
+
+func findItem(definition compiler.Definition, id string) (compiler.Item, bool) {
+	for _, item := range definition.Spec.Catalog.Items {
+		if item.ID == id {
+			return item, true
+		}
+	}
+	return compiler.Item{}, false
 }
