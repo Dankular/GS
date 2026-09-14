@@ -18,7 +18,7 @@ services:
     command:
       - |
         psql "$$DATABASE_URL" -v ON_ERROR_STOP=1 --set=nakama_password="$$NAKAMA_DATABASE_PASSWORD" <<'SQL'
-        DO $$
+        DO $$$$
         BEGIN
           IF NOT EXISTS (SELECT 1 FROM pg_roles WHERE rolname = 'nakama') THEN
             EXECUTE format('CREATE ROLE nakama LOGIN PASSWORD %L', :'nakama_password');
@@ -26,7 +26,7 @@ services:
             EXECUTE format('ALTER ROLE nakama LOGIN PASSWORD %L', :'nakama_password');
           END IF;
         END
-        $$;
+        $$$$;
         GRANT CONNECT ON DATABASE gameservice TO nakama;
         GRANT USAGE, CREATE ON SCHEMA public TO nakama;
         REVOKE ALL ON SCHEMA platform, economy, progression, match, ops FROM nakama;
