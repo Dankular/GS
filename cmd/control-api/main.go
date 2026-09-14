@@ -407,9 +407,7 @@ func main() {
 			return
 		}
 		var request matchmaking.TicketRequest
-		decoder := json.NewDecoder(io.LimitReader(r.Body, 1<<20))
-		decoder.DisallowUnknownFields()
-		if err := decoder.Decode(&request); err != nil {
+		if err := decodeJSONStrict(io.LimitReader(r.Body, 1<<20), &request); err != nil {
 			http.Error(w, "invalid ticket request", http.StatusBadRequest)
 			return
 		}
@@ -488,9 +486,7 @@ func main() {
 			Payload       json.RawMessage `json:"payload"`
 			PayloadDigest string          `json:"payloadDigest"`
 		}
-		decoder := json.NewDecoder(io.LimitReader(r.Body, 1<<20))
-		decoder.DisallowUnknownFields()
-		if err := decoder.Decode(&request); err != nil {
+		if err := decodeJSONStrict(io.LimitReader(r.Body, 1<<20), &request); err != nil {
 			http.Error(w, "invalid result request", http.StatusBadRequest)
 			return
 		}
@@ -761,6 +757,19 @@ func main() {
 func writeJSON(w http.ResponseWriter, value any) {
 	w.Header().Set("Content-Type", "application/json")
 	_ = json.NewEncoder(w).Encode(value)
+}
+
+func decodeJSONStrict(reader io.Reader, destination any) error {
+	decoder := json.NewDecoder(reader)
+	decoder.DisallowUnknownFields()
+	if err := decoder.Decode(destination); err != nil {
+		return err
+	}
+	var trailing any
+	if err := decoder.Decode(&trailing); err != io.EOF {
+		return errors.New("trailing JSON data")
+	}
+	return nil
 }
 
 func dryRunImpact(ctx context.Context, pool *pgxpool.Pool, report compiler.Report, gameID string, revision int64) (map[string]any, error) {

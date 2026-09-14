@@ -1,11 +1,19 @@
 package main
 
 import (
+	"bytes"
 	"net/http/httptest"
 	"testing"
 
 	"github.com/Dankular/GameService/internal/auth"
 )
+
+func TestDecodeJSONStrictRejectsTrailingData(t *testing.T) {
+	var value map[string]any
+	if err := decodeJSONStrict(bytes.NewBufferString(`{"ok":true} {"extra":true}`), &value); err == nil {
+		t.Fatal("expected trailing JSON rejection")
+	}
+}
 
 func TestCommandScopeMatrix(t *testing.T) {
 	checks := map[string]string{
