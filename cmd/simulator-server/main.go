@@ -63,6 +63,9 @@ func main() {
 	if dynamic {
 		go watchAssignment(sdk, server, readyReporter, &assignedMatchID, &assignedServerToken)
 	}
+	if sdk != nil {
+		go maintainHealth(sdk)
+	}
 	addr := os.Getenv("SIMULATOR_ADDR")
 	if addr == "" {
 		addr = ":7000"
@@ -71,6 +74,17 @@ func main() {
 	if err := http.ListenAndServe(addr, server.Handler()); err != nil {
 		slog.Error("simulator stopped", "error", err)
 		os.Exit(1)
+	}
+}
+
+func maintainHealth(sdk interface{ Health() error }) {
+	ticker := time.NewTicker(2 * time.Second)
+	defer ticker.Stop()
+	for range ticker.C {
+		if err := sdk.Health(); err != nil {
+			slog.Error("Agones health heartbeat failed", "error", err)
+			return
+		}
 	}
 }
 
