@@ -89,6 +89,40 @@ CREATE TABLE IF NOT EXISTS economy.inventory_stacks (
   version bigint NOT NULL CHECK (version > 0),
   PRIMARY KEY (player_id, item_id)
 );
+CREATE TABLE IF NOT EXISTS economy.entitlements (
+  player_id text NOT NULL,
+  entitlement_id text NOT NULL,
+  expires_at timestamptz,
+  metadata jsonb NOT NULL DEFAULT '{}'::jsonb,
+  granted_at timestamptz NOT NULL DEFAULT now(),
+  revoked_at timestamptz,
+  PRIMARY KEY (player_id, entitlement_id)
+);
+CREATE SCHEMA IF NOT EXISTS progression;
+CREATE TABLE IF NOT EXISTS progression.player_progress (
+  player_id text NOT NULL,
+  track_id text NOT NULL,
+  xp bigint NOT NULL CHECK (xp >= 0),
+  level bigint NOT NULL CHECK (level >= 1),
+  version bigint NOT NULL CHECK (version > 0),
+  PRIMARY KEY (player_id, track_id)
+);
+CREATE TABLE IF NOT EXISTS progression.objective_completions (
+  player_id text NOT NULL,
+  objective_id text NOT NULL,
+  source_id text NOT NULL,
+  completed_at timestamptz NOT NULL DEFAULT now(),
+  PRIMARY KEY (player_id, objective_id, source_id)
+);
+CREATE TABLE IF NOT EXISTS economy.reward_claims (
+  player_id text NOT NULL,
+  reward_id text NOT NULL,
+  source_id text NOT NULL,
+  request_id text NOT NULL,
+  claimed_at timestamptz NOT NULL DEFAULT now(),
+  PRIMARY KEY (player_id, reward_id, source_id),
+  UNIQUE (request_id)
+);
 
 CREATE SCHEMA IF NOT EXISTS match;
 CREATE TABLE IF NOT EXISTS match.tickets (

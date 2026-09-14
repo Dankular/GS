@@ -9,6 +9,7 @@ import (
 	"strings"
 
 	"github.com/Dankular/GameService/internal/commands"
+	"github.com/Dankular/GameService/internal/compiler"
 	"github.com/jackc/pgx/v5"
 )
 
@@ -35,6 +36,22 @@ func (Service) Handle(ctx context.Context, tx pgx.Tx, e commands.Envelope) (comm
 		return inventoryChange(ctx, tx, player, args, e, true)
 	case "inventory.consume":
 		return inventoryChange(ctx, tx, player, args, e, false)
+	case "entitlement.list":
+		return entitlementList(ctx, tx, player, e)
+	case "entitlement.grant":
+		return entitlementChange(ctx, tx, player, args, e, true)
+	case "entitlement.revoke":
+		return entitlementChange(ctx, tx, player, args, e, false)
+	case "progression.get":
+		return progressionGet(ctx, tx, player, args, e)
+	case "progression.add_xp":
+		return progressionAddXP(ctx, tx, player, args, e)
+	case "progression.complete_objective":
+		return objectiveComplete(ctx, tx, player, args, e)
+	case "reward.preview":
+		return rewardPreview(ctx, tx, player, args, e)
+	case "reward.claim":
+		return rewardClaim(ctx, tx, player, args, e)
 	default:
 		return commands.Result{RequestID: e.Metadata.RequestID, CorrelationID: e.Metadata.CorrelationID, Operation: e.Spec.Operation, Status: "rejected", Error: &commands.CommandError{Code: "UNSUPPORTED_OPERATION", Message: "operation is registered but not implemented", Retryable: false}}, nil
 	}
@@ -188,4 +205,175 @@ func inventoryChange(ctx context.Context, tx pgx.Tx, player string, args map[str
 		event = "inventory.granted.v1"
 	}
 	return base(e, map[string]any{"playerId": player, "itemId": item, "quantity": q, "newQuantity": quantity, "version": version}, event), nil
+}
+
+func entitlementList(ctx context.Context, tx pgx.Tx, player string, e commands.Envelope) (commands.Result, error) {
+	rows, err := tx.Query(ctx, `SELECT entitlement_id,COALESCE(expires_at::text,'') FROM economy.entitlements WHERE player_id=$1 AND revoked_at IS NULL AND (expires_at IS NULL OR expires_at>now()) ORDER BY entitlement_id`, player)
+	if err != nil {
+		return commands.Result{}, err
+	}
+	defer rows.Close()
+	items := []map[string]any{}
+	for rows.Next() {
+		var id string
+		var expiresAt string
+		if err := rows.Scan(&id, &expiresAt); err != nil {
+			return commands.Result{}, err
+		}
+		item := map[string]any{"entitlementId": id}
+		if expiresAt != "" {
+			item["expiresAt"] = expiresAt
+		}
+		items = append(items, item)
+	}
+	return base(e, map[string]any{"playerId": player, "entitlements": items}, "entitlement.listed.v1"), rows.Err()
+}
+
+func entitlementChange(ctx context.Context, tx pgx.Tx, player string, args map[string]any, e commands.Envelope, grant bool) (commands.Result, error) {
+	id, err := stringArg(args, "entitlementId", "")
+	if err != nil {
+		return commands.Result{}, err
+	}
+	if grant {
+		_, err = tx.Exec(ctx, `INSERT INTO economy.entitlements(player_id,entitlement_id) VALUES($1,$2) ON CONFLICT(player_id,entitlement_id) DO UPDATE SET revoked_at=NULL`, player, id)
+	} else {
+		_, err = tx.Exec(ctx, `UPDATE economy.entitlements SET revoked_at=now() WHERE player_id=$1 AND entitlement_id=$2`, player, id)
+	}
+	if err != nil {
+		return commands.Result{}, err
+	}
+	event := "entitlement.revoked.v1"
+	if grant {
+		event = "entitlement.granted.v1"
+	}
+	return base(e, map[string]any{"playerId": player, "entitlementId": id}, event), nil
+}
+
+func progressionGet(ctx context.Context, tx pgx.Tx, player string, args map[string]any, e commands.Envelope) (commands.Result, error) {
+	track, err := stringArg(args, "trackId", "default")
+	if err != nil {
+		return commands.Result{}, err
+	}
+	var xp, level int64
+	err = tx.QueryRow(ctx, `SELECT xp,level FROM progression.player_progress WHERE player_id=$1 AND track_id=$2`, player, track).Scan(&xp, &level)
+	if errors.Is(err, pgx.ErrNoRows) {
+		xp, level = 0, 1
+		err = nil
+	}
+	if err != nil {
+		return commands.Result{}, err
+	}
+	return base(e, map[string]any{"playerId": player, "trackId": track, "xp": xp, "level": level}, "progression.read.v1"), nil
+}
+
+func progressionAddXP(ctx context.Context, tx pgx.Tx, player string, args map[string]any, e commands.Envelope) (commands.Result, error) {
+	track, err := stringArg(args, "trackId", "default")
+	if err != nil {
+		return commands.Result{}, err
+	}
+	xp, err := intArg(args, "amount")
+	if err != nil {
+		return commands.Result{}, err
+	}
+	var total, level int64
+	err = tx.QueryRow(ctx, `INSERT INTO progression.player_progress(player_id,track_id,xp,level,version) VALUES($1,$2,$3,($3/100)+1,1) ON CONFLICT(player_id,track_id) DO UPDATE SET xp=progression.player_progress.xp+$3,level=((progression.player_progress.xp+$3)/100)+1,version=progression.player_progress.version+1 RETURNING xp,level`, player, track, xp).Scan(&total, &level)
+	if err != nil {
+		return commands.Result{}, err
+	}
+	return base(e, map[string]any{"playerId": player, "trackId": track, "amount": xp, "xp": total, "level": level}, "progression.updated.v1"), nil
+}
+
+func objectiveComplete(ctx context.Context, tx pgx.Tx, player string, args map[string]any, e commands.Envelope) (commands.Result, error) {
+	objective, err := stringArg(args, "objectiveId", "")
+	if err != nil {
+		return commands.Result{}, err
+	}
+	source, err := stringArg(args, "sourceId", e.Metadata.RequestID)
+	if err != nil {
+		return commands.Result{}, err
+	}
+	result, err := tx.Exec(ctx, `INSERT INTO progression.objective_completions(player_id,objective_id,source_id) VALUES($1,$2,$3) ON CONFLICT DO NOTHING`, player, objective, source)
+	if err != nil {
+		return commands.Result{}, err
+	}
+	return base(e, map[string]any{"playerId": player, "objectiveId": objective, "sourceId": source, "duplicate": result.RowsAffected() == 0}, "progression.objective.completed.v1"), nil
+}
+
+func rewardPreview(ctx context.Context, tx pgx.Tx, player string, args map[string]any, e commands.Envelope) (commands.Result, error) {
+	reward, err := loadReward(ctx, tx, e, args)
+	if err != nil {
+		return commands.Result{}, err
+	}
+	return base(e, map[string]any{"playerId": player, "rewardId": reward.ID, "grants": reward.Grants, "oncePerPlayer": reward.OncePerPlayer}, "reward.previewed.v1"), nil
+}
+
+func rewardClaim(ctx context.Context, tx pgx.Tx, player string, args map[string]any, e commands.Envelope) (commands.Result, error) {
+	reward, err := loadReward(ctx, tx, e, args)
+	if err != nil {
+		return commands.Result{}, err
+	}
+	source, err := stringArg(args, "sourceId", "")
+	if err != nil {
+		return commands.Result{}, err
+	}
+	if reward.OncePerPlayer {
+		var claimed bool
+		if err := tx.QueryRow(ctx, `SELECT EXISTS(SELECT 1 FROM economy.reward_claims WHERE player_id=$1 AND reward_id=$2)`, player, reward.ID).Scan(&claimed); err != nil {
+			return commands.Result{}, err
+		}
+		if claimed {
+			return base(e, map[string]any{"playerId": player, "rewardId": reward.ID, "duplicate": true}, "reward.claimed.v1"), nil
+		}
+	}
+	result, err := tx.Exec(ctx, `INSERT INTO economy.reward_claims(player_id,reward_id,source_id,request_id) VALUES($1,$2,$3,$4) ON CONFLICT DO NOTHING`, player, reward.ID, source, e.Metadata.RequestID)
+	if err != nil {
+		return commands.Result{}, err
+	}
+	if result.RowsAffected() == 0 {
+		return base(e, map[string]any{"playerId": player, "rewardId": reward.ID, "duplicate": true}, "reward.claimed.v1"), nil
+	}
+	for index, grant := range reward.Grants {
+		if grant.Currency != "" {
+			amount := grant.Amount
+			if amount < 1 {
+				return commands.Result{}, fmt.Errorf("invalid reward currency grant")
+			}
+			if _, err := tx.Exec(ctx, `INSERT INTO economy.wallet_accounts(player_id,currency,balance) VALUES($1,$2,$3) ON CONFLICT(player_id,currency) DO UPDATE SET balance=economy.wallet_accounts.balance+$3`, player, grant.Currency, amount); err != nil {
+				return commands.Result{}, err
+			}
+			requestID := fmt.Sprintf("%s:reward:%d", e.Metadata.RequestID, index)
+			if _, err := tx.Exec(ctx, `INSERT INTO economy.ledger_transactions(request_id,reason) VALUES($1,$2)`, requestID, "reward.claim"); err != nil {
+				return commands.Result{}, err
+			}
+			if _, err := tx.Exec(ctx, `INSERT INTO economy.ledger_entries(request_id,player_id,currency,amount) VALUES($1,$2,$3,$4)`, requestID, player, grant.Currency, amount); err != nil {
+				return commands.Result{}, err
+			}
+		} else if grant.Item != "" {
+			if _, err := tx.Exec(ctx, `INSERT INTO economy.inventory_stacks(player_id,item_id,quantity,version) VALUES($1,$2,$3,1) ON CONFLICT(player_id,item_id) DO UPDATE SET quantity=economy.inventory_stacks.quantity+$3,version=economy.inventory_stacks.version+1`, player, grant.Item, grant.Quantity); err != nil {
+				return commands.Result{}, err
+			}
+		}
+	}
+	return base(e, map[string]any{"playerId": player, "rewardId": reward.ID, "duplicate": false}, "reward.claimed.v1"), nil
+}
+
+func loadReward(ctx context.Context, tx pgx.Tx, e commands.Envelope, args map[string]any) (compiler.Reward, error) {
+	rewardID, err := stringArg(args, "rewardId", "")
+	if err != nil {
+		return compiler.Reward{}, err
+	}
+	var canonical []byte
+	if err := tx.QueryRow(ctx, `SELECT canonical FROM platform.definition_revisions WHERE game_id=$1 AND revision=$2`, e.Metadata.GameID, e.Metadata.DefinitionRevision).Scan(&canonical); err != nil {
+		return compiler.Reward{}, err
+	}
+	var definition compiler.Definition
+	if err := json.Unmarshal(canonical, &definition); err != nil {
+		return compiler.Reward{}, err
+	}
+	for _, reward := range definition.Spec.Rewards {
+		if reward.ID == rewardID {
+			return reward, nil
+		}
+	}
+	return compiler.Reward{}, fmt.Errorf("reward not found: %s", rewardID)
 }
