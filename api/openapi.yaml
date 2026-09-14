@@ -21,6 +21,54 @@ paths:
             application/json:
               schema: { $ref: '#/components/schemas/CommandResult' }
         '400': { description: Invalid command }
+  /v1/commands/{requestId}:
+    get:
+      operationId: getCommandResult
+      parameters:
+        - name: requestId
+          in: path
+          required: true
+          schema: { type: string, minLength: 1 }
+      responses:
+        '200':
+          description: Stored command result
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/CommandResult' }
+        '404': { description: Command not found }
+  /v1/players/me/snapshot:
+    get: { operationId: getPlayerSnapshot, responses: { '200': { description: Player snapshot } } }
+  /v1/players/me/inventory:
+    get: { operationId: getPlayerInventory, responses: { '200': { description: Player inventory } } }
+  /v1/players/me/wallets:
+    get: { operationId: getPlayerWallets, responses: { '200': { description: Player wallets } } }
+  /v1/matchmaking/tickets:
+    post: { operationId: createMatchmakingTicket, responses: { '202': { description: Ticket accepted } } }
+  /v1/matchmaking/tickets/{ticketId}:
+    get: { operationId: getMatchmakingTicket, responses: { '200': { description: Ticket status } } }
+    delete: { operationId: cancelMatchmakingTicket, responses: { '204': { description: Ticket cancelled } } }
+  /v1/matches/{matchId}:
+    get: { operationId: getMatch, responses: { '200': { description: Match state } } }
+  /v1/matches/{matchId}/join-claims:
+    post: { operationId: issueJoinClaims, responses: { '200': { description: Join claims } } }
+  /v1/server/matches/{matchId}/ready:
+    post: { operationId: markMatchReady, responses: { '204': { description: Match ready } } }
+  /v1/server/matches/{matchId}/heartbeat:
+    post: { operationId: matchHeartbeat, responses: { '204': { description: Heartbeat accepted } } }
+  /v1/server/matches/{matchId}/results:
+    post: { operationId: submitMatchResult, responses: { '202': { description: Result accepted } } }
+  /v1/admin/definitions/validate:
+    post: { operationId: validateDefinition, responses: { '200': { description: Validation report } } }
+  /v1/admin/definitions:
+    post: { operationId: publishDefinition, responses: { '201': { description: Published immutable revision } } }
+  /v1/admin/definitions/{revision}/activate:
+    post: { operationId: activateDefinition, responses: { '204': { description: Definition activated } } }
+  /v1/admin/definitions/{revision}/rollback:
+    post: { operationId: rollbackDefinition, responses: { '204': { description: Definition rolled back } } }
+  /v1/admin/audit:
+    get: { operationId: searchAudit, responses: { '200': { description: Audit records } } }
+  /metrics:
+    get: { operationId: metrics, responses: { '200': { description: Prometheus metrics } } }
   /health/live:
     get: { operationId: liveness, responses: { '200': { description: OK } } }
   /health/ready:
