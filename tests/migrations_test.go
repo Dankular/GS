@@ -38,4 +38,7 @@ func TestDeploymentsApplyAllForwardMigrationsInOrder(t *testing.T) {
 			t.Errorf("%s migration runner does not apply ordered, fail-fast migrations", name)
 		}
 	}
+	if !strings.Contains(string(compose), "migrations:\n") || !strings.Contains(string(compose), "postgres: { condition: service_healthy }") {
+		t.Fatal("Compose migrations do not wait for healthy PostgreSQL")
+	}
 }

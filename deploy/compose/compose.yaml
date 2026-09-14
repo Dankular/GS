@@ -56,6 +56,8 @@ services:
     environment:
       DATABASE_URL: postgres://gameservice:${POSTGRES_PASSWORD}@postgres:5432/gameservice?sslmode=disable
     volumes: [../../migrations/control:/migrations:ro]
+    depends_on:
+      postgres: { condition: service_healthy }
   outbox-worker:
     build: { context: ../.., dockerfile: deploy/compose/outbox-worker.Dockerfile }
     environment:
