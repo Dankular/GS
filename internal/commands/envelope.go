@@ -96,6 +96,7 @@ func DecodeStrict(data []byte) (Envelope, error) {
 	var e Envelope
 	d := json.NewDecoder(strings.NewReader(string(data)))
 	d.DisallowUnknownFields()
+	d.UseNumber()
 	if err := d.Decode(&e); err != nil {
 		return e, fmt.Errorf("%w: %v", ErrInvalidEnvelope, err)
 	}
