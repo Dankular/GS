@@ -17,3 +17,5 @@ spec:
       regions: [eu-west]
       fleetRef: deathmatch-v1
       serverBuild: sha256:0000000000000000000000000000000000000000000000000000000000000000
+      resultPolicy: { schema: deathmatch-result-v1, maxDuration: 20m }
+      rating: { leaderboardId: deathmatch_rating, strategy: authoritative }

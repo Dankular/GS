@@ -160,9 +160,15 @@ func validate(d Definition) error {
 			return fmt.Errorf("match mode %q requires a region", m.ID)
 		}
 		if m.ResultPolicy.MaxDuration != "" {
+			if m.ResultPolicy.Schema == "" {
+				return fmt.Errorf("match mode %q result policy schema is required", m.ID)
+			}
 			if duration, err := time.ParseDuration(m.ResultPolicy.MaxDuration); err != nil || duration <= 0 {
 				return fmt.Errorf("match mode %q has invalid result maxDuration", m.ID)
 			}
+		}
+		if (m.Rating.LeaderboardID == "") != (m.Rating.Strategy == "") {
+			return fmt.Errorf("match mode %q rating leaderboardId and strategy must be provided together", m.ID)
 		}
 		if m.Rating.LeaderboardID != "" && m.Rating.Strategy != "authoritative" {
 			return fmt.Errorf("match mode %q has unsupported rating strategy", m.ID)
