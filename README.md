@@ -12,8 +12,9 @@ economy operations (including atomic wallet/inventory transfers with balanced
 double-entry currency records), a deterministic definition compiler, persistent match
 lifecycle state, and an Agones allocator boundary. The control API stores
 command results in PostgreSQL and replays duplicate request IDs without
-appending another outbox event. Nakama runtime extensions, Kubernetes
-deployment, and full production hardening remain outstanding.
+appending another outbox event. The Nakama profile bridge and Kind/Agones
+validation deployment are implemented; broader social extensions, production
+Kubernetes deployment, and full production hardening remain outstanding.
 
 ## Development
 
