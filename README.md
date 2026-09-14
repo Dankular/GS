@@ -91,7 +91,7 @@ committed. Deploy with:
 
 ```text
 cd /opt/gameservice
-docker compose --env-file .env -f deploy/compose/compose.yaml --profile tools run --rm migrations
+docker compose --env-file .env -f deploy/compose/compose.yaml run --rm migrations
 docker compose --env-file .env -f deploy/compose/compose.yaml up -d --build
 docker compose --env-file .env -f deploy/compose/compose.yaml ps
 ```
