@@ -186,7 +186,7 @@ func TestProductionHelmIncludesAgonesFleetWhenEnabled(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	for _, required := range []string{"nginx.ingress.kubernetes.io/enable-modsecurity: \"true\"", "nginx.ingress.kubernetes.io/enable-owasp-core-rules: \"true\"", "nginx.ingress.kubernetes.io/ssl-redirect: \"true\""} {
+	for _, required := range []string{"nginx.ingress.kubernetes.io/enable-modsecurity: \"true\"", "nginx.ingress.kubernetes.io/enable-owasp-core-rules: \"true\"", "nginx.ingress.kubernetes.io/ssl-redirect: \"true\"", "supplyChain:\n  admissionPolicy:\n    enabled: true"} {
 		if !strings.Contains(string(production), required) {
 			t.Errorf("production ingress WAF configuration missing %q", required)
 		}

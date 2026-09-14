@@ -38,3 +38,6 @@ gameServer:
     digest: sha256:REPLACE_WITH_APPROVED_SERVER_DIGEST
   build: arena
   buildId: REPLACE_WITH_APPROVED_BUILD_ID
+supplyChain:
+  admissionPolicy:
+    enabled: true

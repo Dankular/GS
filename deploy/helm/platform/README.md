@@ -35,6 +35,12 @@ credentials. All application containers run non-root with a RuntimeDefault
 seccomp profile, dropped capabilities, read-only root filesystems, and a
 temporary filesystem only where needed.
 
+The production example enables the Kyverno image-signature admission policy.
+Install a compatible Kyverno release before applying those values, and keep
+the keyless issuer, subject, and Rekor settings aligned with the release
+workflow. Without Kyverno installed, the production admission gate cannot be
+verified.
+
 Set `ingress.enabled=true` and supply TLS through the release system to expose
 the Control API through an approved ingress controller. The checked-in
 `values.production.example.yaml` is a topology example only; it deliberately
