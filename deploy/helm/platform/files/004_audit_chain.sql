@@ -2,10 +2,16 @@ CREATE EXTENSION IF NOT EXISTS pgcrypto;
 ALTER TABLE ops.audit_log ADD COLUMN IF NOT EXISTS previous_hash text;
 ALTER TABLE ops.audit_log ADD COLUMN IF NOT EXISTS record_hash text;
 
-UPDATE ops.audit_log
-SET previous_hash = COALESCE(previous_hash, ''),
-    record_hash = COALESCE(record_hash, encode(digest(audit_id::text || '|' || actor_type || '|' || actor_id || '|' || action || '|' || resource_type || '|' || resource_id || '|' || correlation_id || '|' || details::text || '|' || created_at::text, 'sha256'), 'hex'))
-WHERE record_hash IS NULL;
+DO $$
+BEGIN
+  IF NOT EXISTS (SELECT 1 FROM pg_trigger WHERE tgrelid='ops.audit_log'::regclass AND tgname='audit_log_no_update') THEN
+    UPDATE ops.audit_log
+    SET previous_hash = COALESCE(previous_hash, ''),
+        record_hash = COALESCE(record_hash, encode(digest(audit_id::text || '|' || actor_type || '|' || actor_id || '|' || action || '|' || resource_type || '|' || resource_id || '|' || correlation_id || '|' || details::text || '|' || created_at::text, 'sha256'), 'hex'))
+    WHERE record_hash IS NULL;
+  END IF;
+END;
+$$;
 
 CREATE OR REPLACE FUNCTION ops.audit_log_immutable() RETURNS trigger LANGUAGE plpgsql AS $$
 BEGIN
