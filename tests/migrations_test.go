@@ -51,6 +51,13 @@ func TestDeploymentsApplyAllForwardMigrationsInOrder(t *testing.T) {
 			t.Errorf("%s migration runner does not apply ordered, fail-fast migrations", name)
 		}
 	}
+	configMap, err := os.ReadFile(filepath.Join("..", "deploy", "helm", "platform", "templates", "migration-configmap.yaml"))
+	if err != nil {
+		t.Fatal(err)
+	}
+	if !strings.Contains(string(configMap), "005_definition_approvals.sql") || !strings.Contains(string(configMap), "files/005_definition_approvals.sql") {
+		t.Fatal("Helm migration ConfigMap does not include the definition approvals migration")
+	}
 	if !strings.Contains(string(compose), "migrations:\n") || !strings.Contains(string(compose), "postgres: { condition: service_healthy }") {
 		t.Fatal("Compose migrations do not wait for healthy PostgreSQL")
 	}

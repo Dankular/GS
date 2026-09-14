@@ -10,3 +10,5 @@ data:
 {{ .Files.Get "files/003_privacy.sql" | indent 4 }}
   004_audit_chain.sql: |
 {{ .Files.Get "files/004_audit_chain.sql" | indent 4 }}
+  005_definition_approvals.sql: |
+{{ .Files.Get "files/005_definition_approvals.sql" | indent 4 }}
