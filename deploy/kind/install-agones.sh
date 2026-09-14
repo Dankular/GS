@@ -49,6 +49,17 @@ kubectl create secret tls allocator-tls -n agones-system --cert "$CERT_DIR/serve
 kubectl create secret generic allocator-tls-ca -n agones-system --from-file=tls-ca.crt="$CERT_DIR/ca.crt" --dry-run=client -o yaml | kubectl apply -f -
 kubectl rollout restart deployment/agones-allocator -n agones-system
 kubectl rollout status deployment/agones-allocator -n agones-system --timeout=180s
+ALLOCATOR_DIR="${AGONES_ALLOCATOR_SECRET_DIR:-/var/lib/gameservice/allocator}"
+mkdir -p "$ALLOCATOR_DIR"
+kubectl get secret allocator-client.default -n default -o yaml | awk '$1=="tls.crt:"{print $2}' | base64 -d > "$ALLOCATOR_DIR/client.crt"
+kubectl get secret allocator-client.default -n default -o yaml | awk '$1=="tls.key:"{print $2}' | base64 -d > "$ALLOCATOR_DIR/client.key"
+kubectl get secret allocator-tls-ca -n agones-system -o yaml | awk '$1=="tls-ca.crt:"{print $2}' | base64 -d > "$ALLOCATOR_DIR/ca.pem"
+chown -R 65532:65532 "$ALLOCATOR_DIR"
+chmod 700 "$ALLOCATOR_DIR"
+chmod 600 "$ALLOCATOR_DIR"/*
+if docker inspect compose-matchmaking-worker-1 >/dev/null 2>&1; then
+  docker restart compose-matchmaking-worker-1 >/dev/null
+fi
 docker build -f deploy/compose/simulator-server.Dockerfile -t gameservice-simulator:dev .
 kind load docker-image gameservice-simulator:dev --name gameservice
 if [ -z "${SERVER_CLAIM_PUBLIC_KEY:-}" ] && [ -f .env ]; then
