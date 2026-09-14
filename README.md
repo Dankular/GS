@@ -67,7 +67,7 @@ production baseline is declared.
 
 The compose stack includes an OpenTelemetry Collector, PostgreSQL migrations and the continuously running
 transactional outbox worker, plus coturn for GNS.NET relay fallback. The
-The optional reconciliation worker compares wallet projections with immutable ledger
+optional reconciliation worker compares wallet projections with immutable ledger
 entries and reports mismatches without editing financial history:
 
 ```text
