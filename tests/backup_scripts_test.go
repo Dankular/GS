@@ -26,4 +26,9 @@ func TestBackupScriptsSupportMandatoryAgeEncryptionAndRestore(t *testing.T) {
 			t.Errorf("restore script missing %q", required)
 		}
 	}
+	for _, required := range []string{`createdb -U "$database_user"`, `dropdb -U "$database_user"`} {
+		if !strings.Contains(string(restore), required) {
+			t.Errorf("restore script must use the deployment database role for temporary database lifecycle: %q", required)
+		}
+	}
 }

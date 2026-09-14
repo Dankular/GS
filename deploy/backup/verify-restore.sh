@@ -14,11 +14,11 @@ cd "$repo_dir"
 db="gameservice_restore_$$"
 cleanup() {
   docker compose --env-file .env -f deploy/compose/compose.yaml exec -T postgres \
-    dropdb -U gameservice --if-exists "$db" >/dev/null 2>&1 || true
+    dropdb -U "$database_user" --if-exists "$db" >/dev/null 2>&1 || true
 }
 trap cleanup EXIT
 docker compose --env-file .env -f deploy/compose/compose.yaml exec -T postgres \
-  createdb -U gameservice "$db"
+  createdb -U "$database_user" "$db"
 if [[ "$dump" == *.age ]]; then
   age -d -i "$identity" "$dump" | docker compose --env-file .env -f deploy/compose/compose.yaml exec -T postgres \
     pg_restore -U "$database_user" -d "$db" --no-owner
