@@ -65,6 +65,9 @@ jobs:
           trap 'docker compose --env-file .env.ci -f deploy/compose/compose.yaml down -v' EXIT
           docker compose --env-file .env.ci -f deploy/compose/compose.yaml \
             up -d postgres database-admin-bootstrap nakama-role-bootstrap migrations nakama control-api
+          docker compose --env-file .env.ci -f deploy/compose/compose.yaml run --rm migrations \
+            sh -ec 'psql "$DATABASE_URL" -v ON_ERROR_STOP=1 -f /migrations/001_control.down.sql'
+          docker compose --env-file .env.ci -f deploy/compose/compose.yaml run --rm migrations
           for attempt in {1..60}; do
             curl --fail --silent http://127.0.0.1:7350/healthcheck >/dev/null && break
             sleep 2
