@@ -1,7 +1,7 @@
 #!/bin/sh
 set -eu
 AGONES_VERSION="1.60.0"
-KIND_NODE_IMAGE="kindest/node:v1.36.0"
+KIND_NODE_IMAGE="kindest/node:v1.36.1"
 command -v kind >/dev/null || { echo 'kind is required' >&2; exit 1; }
 command -v helm >/dev/null || { echo 'helm is required' >&2; exit 1; }
 command -v kubectl >/dev/null || { echo 'kubectl is required' >&2; exit 1; }

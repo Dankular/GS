@@ -30,7 +30,7 @@ The API listens on `:8080` by default. Health endpoints are available at
 `/health/live` and `/health/ready`; commands are posted to `/v1/commands` and
 stored results can be read at `/v1/commands/{requestId}`.
 
-`make dev-full` creates a Kind cluster using Kubernetes `v1.36.0`, installs
+`make dev-full` creates a Kind cluster using Kubernetes `v1.36.1`, installs
 the pinned Agones `1.60.0` chart, builds/loads the local simulator image, and
 deploys the smoke Fleet and FleetAutoscaler. The Kubernetes version is pinned
 to Agones' supported range. The Kind manifest uses development-only
