@@ -22,7 +22,9 @@ services:
       NAKAMA_SESSION_ISSUER: ${NAKAMA_SESSION_ISSUER:-}
       NAKAMA_SESSION_AUDIENCE: ${NAKAMA_SESSION_AUDIENCE:-}
     ports: ["8080:8080"]
-    depends_on: { postgres: { condition: service_healthy } }
+    depends_on:
+      postgres: { condition: service_healthy }
+      migrations: { condition: service_completed_successfully }
   turn:
     image: coturn/coturn:4.6.3
     command: >-
@@ -38,19 +40,19 @@ services:
       - "49152-49251:49152-49251/udp"
   migrations:
     image: postgres@sha256:21f6013073bc6b92830a2129570e2f5ec42a6c734b5a985a41e83aa58f54c3c1
-    profiles: [tools]
     entrypoint: ["sh", "-c"]
     command: ["psql \"$$DATABASE_URL\" -f /migrations/001_control.sql"]
     environment:
       DATABASE_URL: postgres://gameservice:${POSTGRES_PASSWORD}@postgres:5432/gameservice?sslmode=disable
     volumes: [../../migrations/control:/migrations:ro]
   outbox-worker:
-    profiles: [workers]
     build: { context: ../.., dockerfile: deploy/compose/outbox-worker.Dockerfile }
     environment:
       DATABASE_URL: postgres://gameservice:${POSTGRES_PASSWORD}@postgres:5432/gameservice?sslmode=disable
       OUTBOX_CONSUMER: ${OUTBOX_CONSUMER:-stdout}
-    depends_on: { postgres: { condition: service_healthy } }
+    depends_on:
+      postgres: { condition: service_healthy }
+      migrations: { condition: service_completed_successfully }
   simulator-server:
     profiles: [simulator]
     build: { context: ../.., dockerfile: deploy/compose/simulator-server.Dockerfile }
