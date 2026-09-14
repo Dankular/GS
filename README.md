@@ -25,6 +25,10 @@ Authenticated players can request account export or deletion with
 See [`docs/privacy-retention.md`](docs/privacy-retention.md) for ownership,
 tombstones, and retention boundaries.
 
+CI also runs dependency vulnerability, secret, filesystem misconfiguration,
+and SBOM checks; production image signing and admission remain deployment-
+environment responsibilities described in [`docs/supply-chain.md`](docs/supply-chain.md).
+
 ## Development
 
 Requirements for local checks: Go 1.26.5+. Runtime Docker deployment is performed

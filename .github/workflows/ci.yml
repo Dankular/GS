@@ -45,6 +45,45 @@ jobs:
           --set images.matchmakingWorker.digest=sha256:5555555555555555555555555555555555555555555555555555555555555555
           --set images.reconciliationWorker.digest=sha256:6666666666666666666666666666666666666666666666666666666666666666
           --set images.migrations.digest=sha256:4444444444444444444444444444444444444444444444444444444444444444
+
+  supply-chain:
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      security-events: write
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+      - uses: actions/setup-go@v5
+        with:
+          go-version-file: go.mod
+          cache: true
+      - name: Go vulnerability scan
+        uses: golang/govulncheck-action@v1
+        with:
+          go-version-file: go.mod
+          go-package: ./...
+      - name: Secret scan
+        uses: gitleaks/gitleaks-action@v2
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+      - name: Filesystem vulnerability scan
+        uses: aquasecurity/trivy-action@0.28.0
+        with:
+          scan-type: fs
+          scan-ref: .
+          scanners: vuln,secret,misconfig
+          severity: HIGH,CRITICAL
+          ignore-unfixed: true
+          exit-code: '1'
+      - name: Generate source SBOM
+        uses: anchore/sbom-action@v0
+        with:
+          path: .
+          format: cyclonedx-json
+          artifact-name: gameservice-source-sbom.cdx.json
+          output-file: gameservice-source-sbom.cdx.json
       - name: Render production chart
         run: >-
           helm template gameservice deploy/helm/platform
