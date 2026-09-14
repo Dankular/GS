@@ -29,6 +29,7 @@ services:
       NAKAMA_SESSION_AUDIENCE: ${NAKAMA_SESSION_AUDIENCE:-}
       OTEL_EXPORTER_OTLP_ENDPOINT: ${OTEL_EXPORTER_OTLP_ENDPOINT:-otel-collector:4318}
       SERVER_CLAIM_PUBLIC_KEYS: ${SERVER_CLAIM_PUBLIC_KEYS:-}
+      SERVER_CLAIM_PUBLIC_KEY: ${SERVER_CLAIM_PUBLIC_KEY:-}
     ports: ["8080:8080"]
     depends_on:
       postgres: { condition: service_healthy }
