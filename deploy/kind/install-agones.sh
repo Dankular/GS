@@ -1,7 +1,7 @@
 #!/bin/sh
 set -eu
 AGONES_VERSION="1.60.0"
-KIND_NODE_IMAGE="kindest/node:v1.36.1"
+KIND_NODE_IMAGE="kindest/node@sha256:3489c7674813ba5d8b1a9977baea8a6e553784dab7b84759d1014dbd78f7ebd5"
 command -v kind >/dev/null || { echo 'kind is required' >&2; exit 1; }
 HELM_BIN="${HELM_BIN:-helm}"
 if command -v helm3 >/dev/null 2>&1; then HELM_BIN=helm3; fi
