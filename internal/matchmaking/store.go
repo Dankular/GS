@@ -7,6 +7,7 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
+	"sort"
 	"strings"
 	"time"
 
@@ -43,7 +44,10 @@ type TicketRecord struct {
 	ExpiresAt          time.Time      `json:"expiresAt"`
 }
 
-var ErrInvalidTicket = errors.New("invalid matchmaking ticket")
+var (
+	ErrInvalidTicket = errors.New("invalid matchmaking ticket")
+	ErrActiveTicket  = errors.New("player already has an active matchmaking ticket")
+)
 
 func (r TicketRequest) Validate(actorID string, now time.Time) error {
 	for name, value := range map[string]string{"gameId": r.GameID, "environment": r.Environment, "modeId": r.ModeID, "build": r.Build, "region": r.Region} {
@@ -98,6 +102,22 @@ func (s Store) Create(ctx context.Context, request TicketRequest, actorID string
 		return TicketRecord{}, err
 	}
 	defer tx.Rollback(ctx)
+	// Serialize active-ticket checks per player so concurrent ticket submissions
+	// cannot both pass the check before either transaction commits.
+	players := append([]string(nil), request.PlayerIDs...)
+	sort.Strings(players)
+	for _, playerID := range players {
+		if _, err = tx.Exec(ctx, `SELECT pg_advisory_xact_lock(hashtextextended($1, 0))`, playerID); err != nil {
+			return TicketRecord{}, fmt.Errorf("lock ticket member: %w", err)
+		}
+		var active bool
+		if err = tx.QueryRow(ctx, `SELECT EXISTS(SELECT 1 FROM match.ticket_members m JOIN match.tickets t ON t.ticket_id=m.ticket_id WHERE m.player_id=$1 AND t.status='queued' AND t.expires_at>now())`, playerID).Scan(&active); err != nil {
+			return TicketRecord{}, fmt.Errorf("check active ticket: %w", err)
+		}
+		if active {
+			return TicketRecord{}, fmt.Errorf("%w: %s", ErrActiveTicket, playerID)
+		}
+	}
 	_, err = tx.Exec(ctx, `INSERT INTO match.tickets(ticket_id,game_id,environment,mode_id,definition_revision,build,region,capacity,status,properties,expires_at) VALUES($1,$2,$3,$4,$5,$6,$7,$8,'queued',$9,$10)`, id, request.GameID, request.Environment, request.ModeID, request.DefinitionRevision, request.Build, request.Region, request.Capacity, properties, request.ExpiresAt)
 	if err != nil {
 		return TicketRecord{}, fmt.Errorf("create ticket: %w", err)

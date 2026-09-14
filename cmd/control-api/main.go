@@ -213,6 +213,10 @@ func main() {
 		}
 		ticket, err := matchmakingStore.Create(r.Context(), request, claims.UserID, time.Now())
 		if err != nil {
+			if errors.Is(err, matchmaking.ErrActiveTicket) {
+				http.Error(w, err.Error(), http.StatusConflict)
+				return
+			}
 			http.Error(w, err.Error(), http.StatusUnprocessableEntity)
 			return
 		}
