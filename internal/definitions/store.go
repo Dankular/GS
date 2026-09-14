@@ -20,6 +20,73 @@ var (
 
 type Store struct{ Pool *pgxpool.Pool }
 
+func publishTx(ctx context.Context, tx pgx.Tx, report compiler.Report, source, actorID, reason string) error {
+	if strings.TrimSpace(reason) == "" {
+		return ErrReasonRequired
+	}
+	if strings.TrimSpace(actorID) == "" || report.Definition.Metadata.GameID == "" || report.Definition.Metadata.Revision < 1 || len(report.Canonical) == 0 {
+		return errors.New("definition publication data is incomplete")
+	}
+	reportJSON, err := json.Marshal(report)
+	if err != nil {
+		return err
+	}
+	d := report.Definition
+	if _, err := tx.Exec(ctx, `INSERT INTO platform.games(game_id) VALUES($1) ON CONFLICT DO NOTHING`, d.Metadata.GameID); err != nil {
+		return err
+	}
+	result, err := tx.Exec(ctx, `INSERT INTO platform.definition_revisions(game_id,revision,digest,source_yaml,canonical,compiled,validation_report,actor_id,status) VALUES($1,$2,$3,$4,$5::jsonb,$6::jsonb,$7::jsonb,$8,'published') ON CONFLICT(game_id,revision) DO NOTHING`, d.Metadata.GameID, d.Metadata.Revision, report.Digest, source, report.Canonical, report.Canonical, reportJSON, actorID)
+	if err != nil {
+		return err
+	}
+	if result.RowsAffected() == 0 {
+		var digest string
+		if err := tx.QueryRow(ctx, `SELECT digest FROM platform.definition_revisions WHERE game_id=$1 AND revision=$2`, d.Metadata.GameID, d.Metadata.Revision).Scan(&digest); err != nil {
+			return err
+		}
+		if digest != report.Digest {
+			return ErrImmutableConflict
+		}
+	}
+	_, err = tx.Exec(ctx, `INSERT INTO ops.audit_log(actor_type,actor_id,action,resource_type,resource_id,correlation_id,details) VALUES('admin',$1,'definition.publish','definition',$2,$3,$4::jsonb)`, actorID, fmt.Sprintf("%s:%d", d.Metadata.GameID, d.Metadata.Revision), report.Digest, mustJSON(map[string]string{"reason": reason}))
+	return err
+}
+
+func (s Store) PublishTx(ctx context.Context, tx pgx.Tx, report compiler.Report, source, actorID, reason string) error {
+	return publishTx(ctx, tx, report, source, actorID, reason)
+}
+
+func (s Store) ActivateTx(ctx context.Context, tx pgx.Tx, gameID, environment string, revision int64, actorID, reason string, rollback bool) error {
+	action := "definition.activate"
+	if rollback {
+		action = "definition.rollback"
+	}
+	if strings.TrimSpace(reason) == "" {
+		return ErrReasonRequired
+	}
+	if strings.TrimSpace(gameID) == "" || strings.TrimSpace(environment) == "" || revision < 1 || strings.TrimSpace(actorID) == "" {
+		return errors.New("activation data is incomplete")
+	}
+	var digest string
+	if err := tx.QueryRow(ctx, `SELECT digest FROM platform.definition_revisions WHERE game_id=$1 AND revision=$2 AND status IN ('published','activated','superseded')`, gameID, revision).Scan(&digest); err != nil {
+		return err
+	}
+	if _, err := tx.Exec(ctx, `INSERT INTO platform.environments(game_id,environment) VALUES($1,$2) ON CONFLICT DO NOTHING`, gameID, environment); err != nil {
+		return err
+	}
+	if _, err := tx.Exec(ctx, `UPDATE platform.definition_revisions SET status='superseded' WHERE game_id=$1 AND revision <> $2 AND status='activated'`, gameID, revision); err != nil {
+		return err
+	}
+	if _, err := tx.Exec(ctx, `UPDATE platform.definition_revisions SET status='activated' WHERE game_id=$1 AND revision=$2`, gameID, revision); err != nil {
+		return err
+	}
+	if _, err := tx.Exec(ctx, `INSERT INTO platform.definition_activations(game_id,environment,revision,activated_by) VALUES($1,$2,$3,$4) ON CONFLICT(game_id,environment) DO UPDATE SET revision=EXCLUDED.revision,activated_by=EXCLUDED.activated_by,activated_at=now()`, gameID, environment, revision, actorID); err != nil {
+		return err
+	}
+	_, err := tx.Exec(ctx, `INSERT INTO ops.audit_log(actor_type,actor_id,action,resource_type,resource_id,correlation_id,details) VALUES('admin',$1,$2,'definition',$3,$4,$5::jsonb)`, actorID, action, fmt.Sprintf("%s:%d", gameID, revision), digest, mustJSON(map[string]string{"reason": reason, "environment": environment}))
+	return err
+}
+
 type AuditRecord struct {
 	AuditID       string          `json:"auditId"`
 	ActorType     string          `json:"actorType"`
