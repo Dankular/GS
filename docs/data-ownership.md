@@ -4,6 +4,14 @@ GameService and Nakama may share the VPS PostgreSQL cluster, but they do not
 share undocumented tables. The control plane writes only the schemas listed
 below; Nakama data is accessed through Nakama APIs or runtime contracts.
 
+In Docker Compose, `gameservice_admin` is deployment-only and is used by the
+bootstrap jobs; the Control API and workers use the non-superuser `gameservice`
+role, while Nakama uses the separate non-superuser `nakama` role. Nakama's
+role is denied usage on the GameService schemas, and GameService does not read
+Nakama's public tables. Production Kubernetes deployments must provide the
+same role separation through the external PostgreSQL/secret-management
+system.
+
 | Data | Authoritative owner | Access contract |
 | --- | --- | --- |
 | Identity, sessions, usernames, profile, friends, groups, parties, chat, notifications | Nakama | Nakama client APIs plus the authenticated `gameservice.profile` and `gameservice.social` runtime RPCs |

@@ -28,7 +28,7 @@ keys, database credentials, and audit records.
 | Economy inflation or unbalanced transfer | PostgreSQL transaction, bounds/stack checks, balanced ledger entries, advisory locks for once-only rewards | Economy unit and VPS PostgreSQL tests |
 | Malicious definition/LLM proposal | Strict schema, semantic compiler, closed operation registry, no scripts/network references | Compiler/schema tests |
 | Worker crash or duplicate external delivery | Leases, bounded retries, consumer checkpoints, dead-letter state | Outbox tests |
-| Database loss or secret exposure | Digest-pinned containers, restricted `.env`, backup checksum/isolated restore procedure | VPS backup verification and deployment audit |
+| Database loss or secret exposure | Digest-pinned containers, non-superuser app roles, restricted `.env`, backup checksum/isolated restore procedure | VPS role-boundary, backup verification, and deployment audit |
 | Game-server compromise | Match-scoped claims, non-root/read-only containers, no database/Kubernetes credentials | Kind simulator manifest and claim tests |
 
 Remaining production controls include an external secret manager, HA/PITR
