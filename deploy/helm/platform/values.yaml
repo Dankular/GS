@@ -1,0 +1,38 @@
+imagePullSecrets: []
+images:
+  controlApi: { repository: ghcr.io/dankular/gameservice-control-api, digest: "" }
+  outboxWorker: { repository: ghcr.io/dankular/gameservice-outbox-worker, digest: "" }
+  leaderboardWorker: { repository: ghcr.io/dankular/gameservice-leaderboard-worker, digest: "" }
+  migrations: { repository: postgres, digest: "" }
+replicaCount: 2
+namespace:
+  app: platform-app
+  edge: platform-edge
+  gameservers: platform-gameservers-eu-west
+service:
+  port: 8080
+resources:
+  requests: { cpu: 100m, memory: 128Mi }
+  limits: { cpu: 1, memory: 512Mi }
+database:
+  secretName: gameservice-secrets
+  urlKey: database-url
+nakama:
+  secretName: gameservice-secrets
+  signingKeyKey: nakama-session-signing-key
+  url: http://nakama.platform-app.svc.cluster.local:7350
+  serverKeySecretKey: nakama-server-key
+otel:
+  endpoint: otel-collector.platform-observability.svc.cluster.local:4318
+allocator:
+  endpoint: allocator.agones-system.svc.cluster.local:443
+  namespace: platform-gameservers-eu-west
+  secretName: gameservice-allocator-mtls
+  caKey: ca.pem
+  certKey: client.crt
+  privateKey: client.key
+autoscaling:
+  enabled: true
+  minReplicas: 2
+  maxReplicas: 8
+  targetCPUUtilizationPercentage: 70

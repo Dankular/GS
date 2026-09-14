@@ -1,0 +1,44 @@
+apiVersion: policy/v1
+kind: PodDisruptionBudget
+metadata: { name: gameservice-control-api, namespace: {{ .Values.namespace.app }} }
+spec: { minAvailable: 1, selector: { matchLabels: { app: gameservice-control-api } } }
+---
+{{- if .Values.autoscaling.enabled }}
+apiVersion: autoscaling/v2
+kind: HorizontalPodAutoscaler
+metadata: { name: gameservice-control-api, namespace: {{ .Values.namespace.app }} }
+spec:
+  scaleTargetRef: { apiVersion: apps/v1, kind: Deployment, name: gameservice-control-api }
+  minReplicas: {{ .Values.autoscaling.minReplicas }}
+  maxReplicas: {{ .Values.autoscaling.maxReplicas }}
+  metrics: [{ type: Resource, resource: { name: cpu, target: { type: Utilization, averageUtilization: {{ .Values.autoscaling.targetCPUUtilizationPercentage }} } } }]
+{{- end }}
+---
+apiVersion: networking.k8s.io/v1
+kind: NetworkPolicy
+metadata: { name: gameservice-default-deny, namespace: {{ .Values.namespace.app }} }
+spec:
+  podSelector: {}
+  policyTypes: [Ingress, Egress]
+---
+apiVersion: networking.k8s.io/v1
+kind: NetworkPolicy
+metadata: { name: gameservice-control-egress, namespace: {{ .Values.namespace.app }} }
+spec:
+  podSelector: { matchLabels: { app: gameservice-control-api } }
+  policyTypes: [Egress]
+  egress:
+    - to: [{ namespaceSelector: { matchLabels: { kubernetes.io/metadata.name: platform-app } } }]
+    - to: [{ namespaceSelector: { matchLabels: { kubernetes.io/metadata.name: agones-system } } }]
+    - to: [{ namespaceSelector: { matchLabels: { kubernetes.io/metadata.name: platform-observability } } }]
+      ports: [{ protocol: TCP, port: 4318 }]
+---
+apiVersion: networking.k8s.io/v1
+kind: NetworkPolicy
+metadata: { name: gameservice-control-ingress, namespace: {{ .Values.namespace.app }} }
+spec:
+  podSelector: { matchLabels: { app: gameservice-control-api } }
+  policyTypes: [Ingress]
+  ingress:
+    - from: [{ namespaceSelector: { matchLabels: { kubernetes.io/metadata.name: platform-edge } } }]
+      ports: [{ protocol: TCP, port: 8080 }]

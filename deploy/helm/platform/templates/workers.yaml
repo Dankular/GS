@@ -1,0 +1,23 @@
+{{- range $worker := list (dict "name" "outbox" "image" "outboxWorker") (dict "name" "leaderboard" "image" "leaderboardWorker") }}
+apiVersion: apps/v1
+kind: Deployment
+metadata: { name: gameservice-{{ $worker.name }}-worker, namespace: {{ $.Values.namespace.app }} }
+spec:
+  replicas: {{ $.Values.replicaCount }}
+  selector: { matchLabels: { app: gameservice-{{ $worker.name }}-worker } }
+  template:
+    metadata: { labels: { app: gameservice-{{ $worker.name }}-worker } }
+    spec:
+      serviceAccountName: gameservice
+      containers:
+        - name: {{ $worker.name }}-worker
+          image: {{ include "gameservice.image" (dict "Values" $.Values "name" $worker.image) | quote }}
+          env:
+            - { name: DATABASE_URL, valueFrom: { secretKeyRef: { name: {{ $.Values.database.secretName }}, key: {{ $.Values.database.urlKey }} } } }
+            {{- if eq $worker.name "leaderboard" }}
+            - { name: NAKAMA_URL, value: {{ $.Values.nakama.url | quote }} }
+            - { name: NAKAMA_SOCKET_SERVER_KEY, valueFrom: { secretKeyRef: { name: {{ $.Values.nakama.secretName }}, key: {{ $.Values.nakama.serverKeySecretKey }} } } }
+            {{- end }}
+          resources: {{- toYaml $.Values.resources | nindent 12 }}
+---
+{{- end }}
