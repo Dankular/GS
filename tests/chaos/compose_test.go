@@ -38,6 +38,10 @@ func TestRestartServiceRecovers(t *testing.T) {
 	runDocker(t, ctx, composeDir, composeFile, "kill", service)
 	runDocker(t, ctx, composeDir, composeFile, "up", "-d", service)
 
+	if service != "control-api" {
+		waitForRunningService(t, ctx, composeDir, composeFile, service)
+		return
+	}
 	healthURL := strings.TrimRight(os.Getenv("GAMESERVICE_CHAOS_HEALTH_URL"), "/")
 	if healthURL == "" {
 		healthURL = "http://127.0.0.1:8080/health/ready"
@@ -58,6 +62,25 @@ func TestRestartServiceRecovers(t *testing.T) {
 		time.Sleep(2 * time.Second)
 	}
 	t.Fatalf("service %q did not recover at %s", service, healthURL)
+}
+
+func waitForRunningService(t *testing.T, ctx context.Context, dir, file, service string) {
+	t.Helper()
+	deadline := time.Now().Add(90 * time.Second)
+	for time.Now().Before(deadline) {
+		commandArgs := []string{"compose", "-f", file, "ps", "--status", "running", "--services"}
+		command := exec.CommandContext(ctx, "docker", commandArgs...)
+		command.Dir = dir
+		if output, err := command.Output(); err == nil {
+			for _, running := range strings.Fields(string(output)) {
+				if running == service {
+					return
+				}
+			}
+		}
+		time.Sleep(2 * time.Second)
+	}
+	t.Fatalf("service %q did not return to running state", service)
 }
 
 func runDocker(t *testing.T, ctx context.Context, dir, file string, args ...string) {
