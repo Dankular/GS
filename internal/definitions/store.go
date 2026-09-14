@@ -15,13 +15,17 @@ import (
 var (
 	ErrUnauthorized      = errors.New("definition operation is unauthorized")
 	ErrImmutableConflict = errors.New("definition revision is immutable and conflicts with existing content")
+	ErrReasonRequired    = errors.New("definition operation reason is required")
 )
 
 type Store struct{ Pool *pgxpool.Pool }
 
-func (s Store) Publish(ctx context.Context, report compiler.Report, source, actorID string, authorized bool) error {
+func (s Store) Publish(ctx context.Context, report compiler.Report, source, actorID, reason string, authorized bool) error {
 	if !authorized {
 		return ErrUnauthorized
+	}
+	if strings.TrimSpace(reason) == "" {
+		return ErrReasonRequired
 	}
 	if s.Pool == nil {
 		return errors.New("definition store is not configured")
@@ -55,12 +59,18 @@ func (s Store) Publish(ctx context.Context, report compiler.Report, source, acto
 			return ErrImmutableConflict
 		}
 	}
+	if _, err := tx.Exec(ctx, `INSERT INTO ops.audit_log(actor_type,actor_id,action,resource_type,resource_id,correlation_id,details) VALUES('admin',$1,'definition.publish','definition',$2,$3,$4::jsonb)`, actorID, fmt.Sprintf("%s:%d", d.Metadata.GameID, d.Metadata.Revision), report.Digest, mustJSON(map[string]string{"reason": reason})); err != nil {
+		return err
+	}
 	return tx.Commit(ctx)
 }
 
-func (s Store) Activate(ctx context.Context, gameID, environment string, revision int64, actorID string, authorized bool) error {
+func (s Store) Activate(ctx context.Context, gameID, environment string, revision int64, actorID, reason string, authorized bool) error {
 	if !authorized {
 		return ErrUnauthorized
+	}
+	if strings.TrimSpace(reason) == "" {
+		return ErrReasonRequired
 	}
 	if s.Pool == nil {
 		return errors.New("definition store is not configured")
@@ -89,8 +99,13 @@ func (s Store) Activate(ctx context.Context, gameID, environment string, revisio
 	if _, err := tx.Exec(ctx, `INSERT INTO platform.definition_activations(game_id,environment,revision,activated_by) VALUES($1,$2,$3,$4) ON CONFLICT(game_id,environment) DO UPDATE SET revision=EXCLUDED.revision,activated_by=EXCLUDED.activated_by,activated_at=now()`, gameID, environment, revision, actorID); err != nil {
 		return err
 	}
+	if _, err := tx.Exec(ctx, `INSERT INTO ops.audit_log(actor_type,actor_id,action,resource_type,resource_id,correlation_id,details) VALUES('admin',$1,'definition.activate','definition',$2,$3,$4::jsonb)`, actorID, fmt.Sprintf("%s:%d", gameID, revision), found, mustJSON(map[string]string{"reason": reason, "environment": environment})); err != nil {
+		return err
+	}
 	return tx.Commit(ctx)
 }
+
+func mustJSON(value any) []byte { data, _ := json.Marshal(value); return data }
 
 func (s Store) Active(ctx context.Context, gameID, environment string) (int64, error) {
 	if s.Pool == nil {

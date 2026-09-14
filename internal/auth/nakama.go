@@ -12,14 +12,28 @@ import (
 )
 
 type SessionClaims struct {
-	UserID    string `json:"uid"`
-	Subject   string `json:"sub"`
-	Issuer    string `json:"iss"`
-	Audience  any    `json:"aud"`
-	TokenType string `json:"token_type"`
-	IssuedAt  int64  `json:"iat"`
-	NotBefore int64  `json:"nbf"`
-	ExpiresAt int64  `json:"exp"`
+	UserID    string            `json:"uid"`
+	Subject   string            `json:"sub"`
+	Issuer    string            `json:"iss"`
+	Audience  any               `json:"aud"`
+	TokenType string            `json:"token_type"`
+	Scope     string            `json:"scope"`
+	Vars      map[string]string `json:"vars"`
+	IssuedAt  int64             `json:"iat"`
+	NotBefore int64             `json:"nbf"`
+	ExpiresAt int64             `json:"exp"`
+}
+
+func (c SessionClaims) HasScope(required string) bool {
+	if c.Scope == required {
+		return true
+	}
+	for _, scope := range strings.Fields(c.Scope) {
+		if scope == required {
+			return true
+		}
+	}
+	return c.Vars != nil && c.Vars["scope"] == required
 }
 
 var rawURL = base64.RawURLEncoding

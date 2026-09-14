@@ -32,10 +32,10 @@ spec: {catalog: {currencies: [{id: coins, precision: 0, minBalance: 0, maxBalanc
 	}
 	store := Store{Pool: pool}
 	ctx := context.Background()
-	if err := store.Publish(ctx, report, "source", "integration-admin", true); err != nil {
+	if err := store.Publish(ctx, report, "source", "integration-admin", "integration publish", true); err != nil {
 		t.Fatal(err)
 	}
-	if err := store.Activate(ctx, "integration-definition", "test", 1, "integration-admin", true); err != nil {
+	if err := store.Activate(ctx, "integration-definition", "test", 1, "integration-admin", "integration activate", true); err != nil {
 		t.Fatal(err)
 	}
 	if revision, err := store.Active(ctx, "integration-definition", "test"); err != nil || revision != 1 {

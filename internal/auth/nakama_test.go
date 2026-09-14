@@ -52,4 +52,14 @@ func TestVerifyNakamaSessionRejectsMalformedAndWrongContext(t *testing.T) {
 	}
 }
 
+func TestSessionScopes(t *testing.T) {
+	claims := SessionClaims{Scope: "definition:validate player:read"}
+	if !claims.HasScope("definition:validate") || claims.HasScope("definition:publish") {
+		t.Fatal("scope matching failed")
+	}
+	if !(SessionClaims{Vars: map[string]string{"scope": "definition:activate"}}).HasScope("definition:activate") {
+		t.Fatal("vars scope matching failed")
+	}
+}
+
 var _ = base64.RawURLEncoding

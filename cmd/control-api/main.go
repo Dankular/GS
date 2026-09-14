@@ -10,12 +10,15 @@ import (
 	"log/slog"
 	"net/http"
 	"os"
+	"strconv"
 	"strings"
 	"time"
 
 	"github.com/Dankular/GameService/internal/auth"
 	"github.com/Dankular/GameService/internal/commands"
 	"github.com/Dankular/GameService/internal/commandstore"
+	"github.com/Dankular/GameService/internal/compiler"
+	"github.com/Dankular/GameService/internal/definitions"
 	"github.com/Dankular/GameService/internal/economy"
 	"github.com/Dankular/GameService/internal/matches"
 	"github.com/Dankular/GameService/internal/matchmaking"
@@ -35,6 +38,7 @@ func main() {
 	defer repository.Close()
 	economyService := economy.Service{}
 	matchmakingStore := matchmaking.Store{Pool: repository.Pool()}
+	definitionStore := definitions.Store{Pool: repository.Pool()}
 	sessionSigningKey := os.Getenv("NAKAMA_SESSION_SIGNING_KEY")
 	if sessionSigningKey == "" {
 		slog.Error("NAKAMA_SESSION_SIGNING_KEY is required")
@@ -227,6 +231,72 @@ func main() {
 		}
 		writeJSON(w, map[string]any{"accepted": true, "duplicate": duplicate, "payloadDigest": digest})
 	})
+	mux.HandleFunc("POST /v1/admin/definitions/validate", func(w http.ResponseWriter, r *http.Request) {
+		if _, ok := requireScope(w, r, authenticate, "definition:validate"); !ok {
+			return
+		}
+		source, err := readDefinitionSource(r)
+		if err != nil {
+			http.Error(w, err.Error(), http.StatusBadRequest)
+			return
+		}
+		report, err := compiler.Compile(strings.NewReader(string(source)))
+		if err != nil {
+			http.Error(w, err.Error(), http.StatusUnprocessableEntity)
+			return
+		}
+		writeJSON(w, report)
+	})
+	mux.HandleFunc("POST /v1/admin/definitions", func(w http.ResponseWriter, r *http.Request) {
+		claims, ok := requireScope(w, r, authenticate, "definition:publish")
+		if !ok {
+			return
+		}
+		reason := strings.TrimSpace(r.Header.Get("X-Reason"))
+		if reason == "" {
+			http.Error(w, "X-Reason is required", http.StatusBadRequest)
+			return
+		}
+		source, err := readDefinitionSource(r)
+		if err != nil {
+			http.Error(w, err.Error(), http.StatusBadRequest)
+			return
+		}
+		report, err := compiler.Compile(strings.NewReader(string(source)))
+		if err != nil {
+			http.Error(w, err.Error(), http.StatusUnprocessableEntity)
+			return
+		}
+		if err := definitionStore.Publish(r.Context(), report, string(source), claims.UserID, reason, true); err != nil {
+			http.Error(w, err.Error(), http.StatusConflict)
+			return
+		}
+		w.WriteHeader(http.StatusCreated)
+		writeJSON(w, map[string]any{"gameId": report.Definition.Metadata.GameID, "revision": report.Definition.Metadata.Revision, "digest": report.Digest, "status": "published"})
+	})
+	mux.HandleFunc("POST /v1/admin/definitions/{revision}/activate", func(w http.ResponseWriter, r *http.Request) {
+		claims, ok := requireScope(w, r, authenticate, "definition:activate")
+		if !ok {
+			return
+		}
+		revision, err := strconv.ParseInt(r.PathValue("revision"), 10, 64)
+		if err != nil {
+			http.Error(w, "revision must be an integer", http.StatusBadRequest)
+			return
+		}
+		gameID := strings.TrimSpace(r.URL.Query().Get("gameId"))
+		environment := strings.TrimSpace(r.URL.Query().Get("environment"))
+		reason := strings.TrimSpace(r.Header.Get("X-Reason"))
+		if gameID == "" || environment == "" || reason == "" {
+			http.Error(w, "gameId, environment, and X-Reason are required", http.StatusBadRequest)
+			return
+		}
+		if err := definitionStore.Activate(r.Context(), gameID, environment, revision, claims.UserID, reason, true); err != nil {
+			http.Error(w, err.Error(), http.StatusConflict)
+			return
+		}
+		w.WriteHeader(http.StatusNoContent)
+	})
 	slog.Info("control API listening", "addr", addr)
 	if err := http.ListenAndServe(addr, mux); err != nil {
 		slog.Error("server stopped", "error", err)
@@ -241,4 +311,31 @@ func writeJSON(w http.ResponseWriter, value any) {
 
 func authenticateServer(r *http.Request, key ed25519.PublicKey, matchID, allocationID, build string) (matches.JoinClaim, error) {
 	return matches.VerifyServerClaim(strings.TrimPrefix(r.Header.Get("Authorization"), "Bearer "), key, time.Now(), matchID, allocationID, build)
+}
+
+func requireScope(w http.ResponseWriter, r *http.Request, authenticate func(*http.Request) (auth.SessionClaims, error), scope string) (auth.SessionClaims, bool) {
+	claims, err := authenticate(r)
+	if err != nil {
+		http.Error(w, "authentication required", http.StatusUnauthorized)
+		return auth.SessionClaims{}, false
+	}
+	if !claims.HasScope(scope) {
+		http.Error(w, "insufficient scope", http.StatusForbidden)
+		return auth.SessionClaims{}, false
+	}
+	return claims, true
+}
+
+func readDefinitionSource(r *http.Request) ([]byte, error) {
+	if r.Header.Get("Content-Type") != "application/x-yaml" && r.Header.Get("Content-Type") != "text/yaml" && r.Header.Get("Content-Type") != "application/json" {
+		return nil, errors.New("content type must be application/x-yaml, text/yaml, or application/json")
+	}
+	data, err := io.ReadAll(io.LimitReader(r.Body, 1<<20+1))
+	if err != nil {
+		return nil, errors.New("invalid definition body")
+	}
+	if len(data) > 1<<20 {
+		return nil, errors.New("definition body too large")
+	}
+	return data, nil
 }

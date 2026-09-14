@@ -8,10 +8,13 @@ import (
 )
 
 func TestDefinitionStoreRequiresAuthorizationAndConfiguration(t *testing.T) {
-	if err := (Store{}).Publish(context.Background(), compiler.Report{}, "", "actor", false); err != ErrUnauthorized {
+	if err := (Store{}).Publish(context.Background(), compiler.Report{}, "", "actor", "reason", false); err != ErrUnauthorized {
 		t.Fatalf("expected authorization error, got %v", err)
 	}
-	if err := (Store{}).Activate(context.Background(), "game", "prod", 1, "actor", false); err != ErrUnauthorized {
+	if err := (Store{}).Activate(context.Background(), "game", "prod", 1, "actor", "reason", false); err != ErrUnauthorized {
 		t.Fatalf("expected authorization error, got %v", err)
+	}
+	if err := (Store{}).Publish(context.Background(), compiler.Report{}, "", "actor", "", true); err != ErrReasonRequired {
+		t.Fatalf("expected reason error, got %v", err)
 	}
 }
