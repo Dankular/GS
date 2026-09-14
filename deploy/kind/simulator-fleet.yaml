@@ -89,5 +89,5 @@ spec:
     type: Buffer
     buffer:
       bufferSize: 1
-      minReplicas: 1
+      minReplicas: 2
       maxReplicas: 2
