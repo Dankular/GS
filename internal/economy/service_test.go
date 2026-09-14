@@ -72,6 +72,9 @@ func TestUnimplementedOperationIsRejected(t *testing.T) {
 	if result.Status != "rejected" || result.Error == nil || result.Error.Code != "UNSUPPORTED_OPERATION" {
 		t.Fatalf("unexpected result: %#v", result)
 	}
+	if result.Error.Message != "profile operations are owned by Nakama and must be submitted through the Control API" {
+		t.Fatalf("expected explicit Nakama routing boundary, got %q", result.Error.Message)
+	}
 }
 
 func TestBusinessValidationErrorsBecomeDurableRejections(t *testing.T) {

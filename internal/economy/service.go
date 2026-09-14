@@ -70,7 +70,7 @@ func (Service) Handle(ctx context.Context, tx pgx.Tx, e commands.Envelope) (resu
 	case "reward.claim":
 		return rewardClaim(ctx, tx, player, args, e)
 	default:
-		return commands.Result{RequestID: e.Metadata.RequestID, CorrelationID: e.Metadata.CorrelationID, Operation: e.Spec.Operation, Status: "rejected", Error: &commands.CommandError{Code: "UNSUPPORTED_OPERATION", Message: "operation is registered but not implemented", Retryable: false}}, nil
+		return commands.Result{RequestID: e.Metadata.RequestID, CorrelationID: e.Metadata.CorrelationID, Operation: e.Spec.Operation, Status: "rejected", Error: &commands.CommandError{Code: "UNSUPPORTED_OPERATION", Message: "profile operations are owned by Nakama and must be submitted through the Control API", Retryable: false}}, nil
 	}
 }
 
