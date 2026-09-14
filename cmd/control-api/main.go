@@ -10,6 +10,7 @@ import (
 
 	"github.com/Dankular/GameService/internal/commands"
 	"github.com/Dankular/GameService/internal/commandstore"
+	"github.com/Dankular/GameService/internal/economy"
 )
 
 func main() {
@@ -23,6 +24,7 @@ func main() {
 		os.Exit(1)
 	}
 	defer repository.Close()
+	economyService := economy.Service{}
 	mux := http.NewServeMux()
 	mux.HandleFunc("GET /health/live", func(w http.ResponseWriter, _ *http.Request) { w.WriteHeader(http.StatusOK) })
 	mux.HandleFunc("GET /health/ready", func(w http.ResponseWriter, _ *http.Request) { w.WriteHeader(http.StatusOK) })
@@ -45,7 +47,7 @@ func main() {
 			http.Error(w, err.Error(), http.StatusBadRequest)
 			return
 		}
-		result, duplicate, err := repository.Submit(r.Context(), e)
+		result, duplicate, err := repository.SubmitWith(r.Context(), e, economyService.Handle)
 		if err != nil {
 			slog.Error("command submission failed", "requestId", e.Metadata.RequestID, "correlationId", e.Metadata.CorrelationID, "error", err)
 			http.Error(w, "command could not be stored", http.StatusServiceUnavailable)
