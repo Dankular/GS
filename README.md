@@ -26,6 +26,9 @@ go run ./cmd/control-api
 The API listens on `:8080` by default. Health endpoints are available at
 `/health/live` and `/health/ready`; commands are posted to `/v1/commands`.
 
+The Compose TURN relay publishes a bounded 100-port UDP allocation range;
+increase it only after measuring concurrent relay demand and host capacity.
+
 Pinned candidate images are recorded in `deploy/compose/compose.yaml` and must
 be resolved to immutable digests by the compatibility smoke test before a
 production baseline is declared.
