@@ -19,4 +19,3 @@ short-lived session objects, not GameService database records. The client
 party flow is: `createParty`, `joinParty`, `leaveParty`, then
 `partyMatchmakerAdd` for matchmaking. The Control API remains responsible for
 the resulting ticket, match, claims, and result lifecycle.
-
