@@ -47,7 +47,7 @@ Pinned candidate images are recorded in `deploy/compose/compose.yaml` and must
 be resolved to immutable digests by the compatibility smoke test before a
 production baseline is declared.
 
-The compose stack includes PostgreSQL migrations and the continuously running
+The compose stack includes an OpenTelemetry Collector, PostgreSQL migrations and the continuously running
 transactional outbox worker, plus coturn for GNS.NET relay fallback. The
 Nakama leaderboard consumer is available through the `leaderboards` Compose
 profile and consumes `match.result.accepted.v1` with a per-consumer checkpoint;

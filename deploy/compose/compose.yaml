@@ -1,4 +1,9 @@
 services:
+  otel-collector:
+    image: otel/opentelemetry-collector-contrib@sha256:799dc6cf12c96192af37b5bdba804da8c10b3bc563b43cb90c3f3c58d9572ad6
+    command: ["--config=/etc/otelcol-contrib/config.yaml"]
+    volumes: [../../deploy/observability/otel-collector.yaml:/etc/otelcol-contrib/config.yaml:ro]
+    ports: ["4317:4317", "4318:4318", "9464:9464"]
   postgres:
     image: postgres@sha256:21f6013073bc6b92830a2129570e2f5ec42a6c734b5a985a41e83aa58f54c3c1
     environment:
