@@ -21,7 +21,7 @@ spec:
           securityContext:
 {{ toYaml .Values.pod.containerSecurityContext | nindent 12 }}
           command: ["sh", "-ec"]
-          args: ["for migration in /migrations/*.sql; do case \"$migration\" in *.down.sql) continue ;; esac; psql \"$DATABASE_URL\" -v ON_ERROR_STOP=1 -f \"$migration\"; done"]
+          args: ["set -eu; for migration in /migrations/*.sql; do case \"$migration\" in *.down.sql) continue ;; esac; psql \"$DATABASE_URL\" -v ON_ERROR_STOP=1 -f \"$migration\"; done"]
           env:
             - name: DATABASE_URL
               valueFrom: { secretKeyRef: { name: {{ .Values.database.secretName }}, key: {{ .Values.database.urlKey }} } }
