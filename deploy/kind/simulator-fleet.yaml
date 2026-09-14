@@ -65,5 +65,8 @@ metadata:
 spec:
   fleetName: arena-deathmatch
   policy:
+    type: Buffer
     buffer:
-      bufferSize: 2
+      bufferSize: 1
+      minReplicas: 1
+      maxReplicas: 2
