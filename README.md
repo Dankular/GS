@@ -97,7 +97,7 @@ port-forward to the allocated simulator control port:
 
 ```text
 GAMESERVICE_E2E_API_URL=http://127.0.0.1:8080 \
-GAMESERVICE_E2E_SESSION_SIGNING_KEY=... \
+GAMESERVICE_E2E_SESSION_SIGNING_KEY_FILE=/protected/path/session-key \
 GAMESERVICE_E2E_PLAYER_A=e2e-a \
 GAMESERVICE_E2E_PLAYER_B=e2e-b \
 GAMESERVICE_E2E_SERVER_URL=http://127.0.0.1:17001 \
@@ -115,7 +115,9 @@ The test creates two real tickets, waits for their shared match and Ready
 server, obtains player join claims, joins both players, submits a result, and
 verifies the durable Completed state and matched ticket association. Set
 `GAMESERVICE_E2E_SERVER_TOKEN` as well to verify duplicate result acknowledgement
-through the server-result endpoint; do not print or commit that token. For a
+through the server-result endpoint; do not print or commit that token. Prefer
+`GAMESERVICE_E2E_SESSION_SIGNING_KEY_FILE` over passing the session key as an
+environment variable. For a
 dynamic Agones allocation, set `GAMESERVICE_E2E_SERVER_TOKEN_FILE` to a local
 file that the deployment wrapper fills with the match-scoped token after
 allocation. Alternatively, `GAMESERVICE_E2E_SERVER_CLAIM_PRIVATE_KEY_FILE`

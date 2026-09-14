@@ -26,6 +26,7 @@ import (
 type testConfig struct {
 	APIURL                    string
 	SigningKey                string
+	SigningKeyFile            string
 	PlayerA                   string
 	PlayerB                   string
 	GameID                    string
@@ -60,7 +61,7 @@ type match struct {
 func TestSyntheticMatchLifecycle(t *testing.T) {
 	cfg, ok := loadConfig()
 	if !ok {
-		t.Skip("set GAMESERVICE_E2E_API_URL, GAMESERVICE_E2E_SESSION_SIGNING_KEY, GAMESERVICE_E2E_PLAYER_A, and GAMESERVICE_E2E_PLAYER_B to run the deployed Agones E2E")
+		t.Skip("set GAMESERVICE_E2E_API_URL, a session signing key or GAMESERVICE_E2E_SESSION_SIGNING_KEY_FILE, GAMESERVICE_E2E_PLAYER_A, and GAMESERVICE_E2E_PLAYER_B to run the deployed Agones E2E")
 	}
 	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Minute)
 	defer cancel()
@@ -156,11 +157,17 @@ func TestSyntheticMatchLifecycle(t *testing.T) {
 
 func loadConfig() (testConfig, bool) {
 	c := testConfig{
-		APIURL: os.Getenv("GAMESERVICE_E2E_API_URL"), SigningKey: os.Getenv("GAMESERVICE_E2E_SESSION_SIGNING_KEY"),
+		APIURL: os.Getenv("GAMESERVICE_E2E_API_URL"), SigningKey: os.Getenv("GAMESERVICE_E2E_SESSION_SIGNING_KEY"), SigningKeyFile: os.Getenv("GAMESERVICE_E2E_SESSION_SIGNING_KEY_FILE"),
 		PlayerA: os.Getenv("GAMESERVICE_E2E_PLAYER_A"), PlayerB: os.Getenv("GAMESERVICE_E2E_PLAYER_B"),
 		GameID: envOr("GAMESERVICE_E2E_GAME_ID", "arena"), Environment: envOr("GAMESERVICE_E2E_ENVIRONMENT", "dev"),
 		ModeID: envOr("GAMESERVICE_E2E_MODE_ID", "deathmatch"), Build: envOr("GAMESERVICE_E2E_BUILD", "sha256:0000000000000000000000000000000000000000000000000000000000000000"),
 		Region: envOr("GAMESERVICE_E2E_REGION", "eu-west"), ServerURL: os.Getenv("GAMESERVICE_E2E_SERVER_URL"), ServerToken: os.Getenv("GAMESERVICE_E2E_SERVER_TOKEN"), ServerTokenFile: os.Getenv("GAMESERVICE_E2E_SERVER_TOKEN_FILE"), ServerClaimPrivateKeyFile: os.Getenv("GAMESERVICE_E2E_SERVER_CLAIM_PRIVATE_KEY_FILE"),
+	}
+	if c.SigningKey == "" && c.SigningKeyFile != "" {
+		data, err := os.ReadFile(c.SigningKeyFile)
+		if err == nil {
+			c.SigningKey = strings.TrimSpace(string(data))
+		}
 	}
 	return c, c.APIURL != "" && c.SigningKey != "" && c.PlayerA != "" && c.PlayerB != "" && c.PlayerA != c.PlayerB
 }
