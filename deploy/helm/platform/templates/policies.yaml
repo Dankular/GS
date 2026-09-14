@@ -3,6 +3,14 @@ kind: PodDisruptionBudget
 metadata: { name: gameservice-control-api, namespace: {{ .Values.namespace.app }} }
 spec: { minAvailable: 1, selector: { matchLabels: { app: gameservice-control-api } } }
 ---
+{{- range $worker := list "outbox" "leaderboard" "matchmaking" }}
+apiVersion: policy/v1
+kind: PodDisruptionBudget
+metadata: { name: gameservice-{{ $worker }}-worker, namespace: {{ $.Values.namespace.app }} }
+spec: { minAvailable: 1, selector: { matchLabels: { app: gameservice-{{ $worker }}-worker } } }
+---
+{{- end }}
+---
 {{- if .Values.autoscaling.enabled }}
 apiVersion: autoscaling/v2
 kind: HorizontalPodAutoscaler

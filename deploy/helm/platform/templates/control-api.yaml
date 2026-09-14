@@ -27,6 +27,7 @@ spec:
           env:
             - { name: CONTROL_API_ADDR, value: ":8080" }
             - { name: DATABASE_URL, valueFrom: { secretKeyRef: { name: {{ .Values.database.secretName }}, key: {{ .Values.database.urlKey }} } } }
+            - { name: NAKAMA_URL, value: {{ .Values.nakama.url | quote }} }
             - { name: NAKAMA_SESSION_SIGNING_KEY, valueFrom: { secretKeyRef: { name: {{ .Values.nakama.secretName }}, key: {{ .Values.nakama.signingKeyKey }} } } }
             - { name: OTEL_EXPORTER_OTLP_ENDPOINT, value: {{ .Values.otel.endpoint | quote }} }
             - name: SERVER_CLAIM_PUBLIC_KEYS
