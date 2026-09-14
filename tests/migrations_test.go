@@ -8,7 +8,7 @@ import (
 )
 
 func TestComposeAndHelmMigrationsStayInSync(t *testing.T) {
-	for _, name := range []string{"001_control.sql", "002_match_ticket_link.sql"} {
+	for _, name := range []string{"001_control.sql", "002_match_ticket_link.sql", "003_privacy.sql", "004_audit_chain.sql"} {
 		compose, err := os.ReadFile(filepath.Join("..", "migrations", "control", name))
 		if err != nil {
 			t.Fatal(err)
@@ -19,6 +19,19 @@ func TestComposeAndHelmMigrationsStayInSync(t *testing.T) {
 		}
 		if string(compose) != string(helm) {
 			t.Fatalf("migration %s differs between Compose and Helm", name)
+		}
+	}
+}
+
+func TestAuditMigrationIsAppendOnlyAndHasHashChain(t *testing.T) {
+	data, err := os.ReadFile(filepath.Join("..", "migrations", "control", "004_audit_chain.sql"))
+	if err != nil {
+		t.Fatal(err)
+	}
+	text := string(data)
+	for _, required := range []string{"record_hash", "previous_hash", "audit_log_immutable", "BEFORE UPDATE OR DELETE", "audit_log_hash_chain", "pg_advisory_xact_lock"} {
+		if !strings.Contains(text, required) {
+			t.Errorf("audit migration missing %q", required)
 		}
 	}
 }

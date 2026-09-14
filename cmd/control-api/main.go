@@ -223,7 +223,7 @@ func main() {
 			http.Error(w, "account deletion unavailable", 503)
 			return
 		}
-		for _, query := range []string{`UPDATE economy.ledger_entries SET player_id=$1 WHERE player_id=$2`, `DELETE FROM economy.wallet_accounts WHERE player_id=$1`, `DELETE FROM economy.inventory_stacks WHERE player_id=$1`, `DELETE FROM economy.entitlements WHERE player_id=$1`, `DELETE FROM progression.player_progress WHERE player_id=$1`, `DELETE FROM progression.objective_completions WHERE player_id=$1`, `DELETE FROM economy.reward_claims WHERE player_id=$1`, `DELETE FROM platform.player_restrictions WHERE player_id=$1`, `DELETE FROM match.join_claims WHERE player_id=$1`, `DELETE FROM match.ticket_members WHERE player_id=$1`, `UPDATE platform.command_requests SET actor_id=$1 WHERE actor_id=$2`, `UPDATE ops.audit_log SET actor_id=$1 WHERE actor_id=$2`} {
+		for _, query := range []string{`UPDATE economy.ledger_entries SET player_id=$1 WHERE player_id=$2`, `DELETE FROM economy.wallet_accounts WHERE player_id=$1`, `DELETE FROM economy.inventory_stacks WHERE player_id=$1`, `DELETE FROM economy.entitlements WHERE player_id=$1`, `DELETE FROM progression.player_progress WHERE player_id=$1`, `DELETE FROM progression.objective_completions WHERE player_id=$1`, `DELETE FROM economy.reward_claims WHERE player_id=$1`, `DELETE FROM platform.player_restrictions WHERE player_id=$1`, `DELETE FROM match.join_claims WHERE player_id=$1`, `DELETE FROM match.ticket_members WHERE player_id=$1`, `UPDATE platform.command_requests SET actor_id=$1 WHERE actor_id=$2`} {
 			if strings.HasPrefix(query, "UPDATE") {
 				_, err = tx.Exec(r.Context(), query, "deleted:"+hashID, claims.UserID)
 			} else {

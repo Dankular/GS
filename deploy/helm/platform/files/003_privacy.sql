@@ -7,6 +7,7 @@ CREATE TABLE IF NOT EXISTS platform.account_privacy_requests (
   created_at timestamptz NOT NULL DEFAULT now(),
   completed_at timestamptz NOT NULL DEFAULT now()
 );
+
 CREATE TABLE IF NOT EXISTS platform.deleted_account_tombstones (
   player_id_hash text PRIMARY KEY,
   deleted_at timestamptz NOT NULL DEFAULT now(),
