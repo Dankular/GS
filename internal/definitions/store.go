@@ -20,6 +20,18 @@ var (
 
 type Store struct{ Pool *pgxpool.Pool }
 
+type AuditRecord struct {
+	AuditID       string          `json:"auditId"`
+	ActorType     string          `json:"actorType"`
+	ActorID       string          `json:"actorId"`
+	Action        string          `json:"action"`
+	ResourceType  string          `json:"resourceType"`
+	ResourceID    string          `json:"resourceId"`
+	CorrelationID string          `json:"correlationId"`
+	Details       json.RawMessage `json:"details"`
+	CreatedAt     string          `json:"createdAt"`
+}
+
 func (s Store) Publish(ctx context.Context, report compiler.Report, source, actorID, reason string, authorized bool) error {
 	if !authorized {
 		return ErrUnauthorized
@@ -66,6 +78,14 @@ func (s Store) Publish(ctx context.Context, report compiler.Report, source, acto
 }
 
 func (s Store) Activate(ctx context.Context, gameID, environment string, revision int64, actorID, reason string, authorized bool) error {
+	return s.setActive(ctx, gameID, environment, revision, actorID, reason, authorized, "definition.activate")
+}
+
+func (s Store) Rollback(ctx context.Context, gameID, environment string, revision int64, actorID, reason string, authorized bool) error {
+	return s.setActive(ctx, gameID, environment, revision, actorID, reason, authorized, "definition.rollback")
+}
+
+func (s Store) setActive(ctx context.Context, gameID, environment string, revision int64, actorID, reason string, authorized bool, action string) error {
 	if !authorized {
 		return ErrUnauthorized
 	}
@@ -99,10 +119,33 @@ func (s Store) Activate(ctx context.Context, gameID, environment string, revisio
 	if _, err := tx.Exec(ctx, `INSERT INTO platform.definition_activations(game_id,environment,revision,activated_by) VALUES($1,$2,$3,$4) ON CONFLICT(game_id,environment) DO UPDATE SET revision=EXCLUDED.revision,activated_by=EXCLUDED.activated_by,activated_at=now()`, gameID, environment, revision, actorID); err != nil {
 		return err
 	}
-	if _, err := tx.Exec(ctx, `INSERT INTO ops.audit_log(actor_type,actor_id,action,resource_type,resource_id,correlation_id,details) VALUES('admin',$1,'definition.activate','definition',$2,$3,$4::jsonb)`, actorID, fmt.Sprintf("%s:%d", gameID, revision), found, mustJSON(map[string]string{"reason": reason, "environment": environment})); err != nil {
+	if _, err := tx.Exec(ctx, `INSERT INTO ops.audit_log(actor_type,actor_id,action,resource_type,resource_id,correlation_id,details) VALUES('admin',$1,$2,'definition',$3,$4,$5::jsonb)`, actorID, action, fmt.Sprintf("%s:%d", gameID, revision), found, mustJSON(map[string]string{"reason": reason, "environment": environment})); err != nil {
 		return err
 	}
 	return tx.Commit(ctx)
+}
+
+func (s Store) Audit(ctx context.Context, limit int) ([]AuditRecord, error) {
+	if s.Pool == nil {
+		return nil, errors.New("definition store is not configured")
+	}
+	if limit < 1 || limit > 200 {
+		limit = 50
+	}
+	rows, err := s.Pool.Query(ctx, `SELECT audit_id::text,actor_type,actor_id,action,resource_type,resource_id,correlation_id,details,created_at::text FROM ops.audit_log ORDER BY created_at DESC LIMIT $1`, limit)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	var records []AuditRecord
+	for rows.Next() {
+		var record AuditRecord
+		if err := rows.Scan(&record.AuditID, &record.ActorType, &record.ActorID, &record.Action, &record.ResourceType, &record.ResourceID, &record.CorrelationID, &record.Details, &record.CreatedAt); err != nil {
+			return nil, err
+		}
+		records = append(records, record)
+	}
+	return records, rows.Err()
 }
 
 func mustJSON(value any) []byte { data, _ := json.Marshal(value); return data }

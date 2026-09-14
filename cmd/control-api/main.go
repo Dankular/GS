@@ -66,6 +66,10 @@ func main() {
 		}
 		w.WriteHeader(http.StatusOK)
 	})
+	mux.HandleFunc("GET /metrics", func(w http.ResponseWriter, _ *http.Request) {
+		w.Header().Set("Content-Type", "text/plain; version=0.0.4; charset=utf-8")
+		_, _ = io.WriteString(w, "# HELP gameservice_control_api_up Control API process availability.\n# TYPE gameservice_control_api_up gauge\ngameservice_control_api_up 1\n")
+	})
 	mux.HandleFunc("GET /v1/players/me/snapshot", func(w http.ResponseWriter, r *http.Request) {
 		claims, ok := requireScope(w, r, authenticate, "player:read")
 		if !ok {
@@ -399,6 +403,41 @@ func main() {
 			return
 		}
 		w.WriteHeader(http.StatusNoContent)
+	})
+	mux.HandleFunc("POST /v1/admin/definitions/{revision}/rollback", func(w http.ResponseWriter, r *http.Request) {
+		claims, ok := requireScope(w, r, authenticate, "definition:activate")
+		if !ok {
+			return
+		}
+		revision, err := strconv.ParseInt(r.PathValue("revision"), 10, 64)
+		if err != nil {
+			http.Error(w, "revision must be an integer", http.StatusBadRequest)
+			return
+		}
+		gameID := strings.TrimSpace(r.URL.Query().Get("gameId"))
+		environment := strings.TrimSpace(r.URL.Query().Get("environment"))
+		reason := strings.TrimSpace(r.Header.Get("X-Reason"))
+		if gameID == "" || environment == "" || reason == "" {
+			http.Error(w, "gameId, environment, and X-Reason are required", http.StatusBadRequest)
+			return
+		}
+		if err := definitionStore.Rollback(r.Context(), gameID, environment, revision, claims.UserID, reason, true); err != nil {
+			http.Error(w, err.Error(), http.StatusConflict)
+			return
+		}
+		w.WriteHeader(http.StatusNoContent)
+	})
+	mux.HandleFunc("GET /v1/admin/audit", func(w http.ResponseWriter, r *http.Request) {
+		if _, ok := requireScope(w, r, authenticate, "admin:read"); !ok {
+			return
+		}
+		limit, _ := strconv.Atoi(r.URL.Query().Get("limit"))
+		records, err := definitionStore.Audit(r.Context(), limit)
+		if err != nil {
+			http.Error(w, "audit unavailable", http.StatusServiceUnavailable)
+			return
+		}
+		writeJSON(w, map[string]any{"records": records})
 	})
 	slog.Info("control API listening", "addr", addr)
 	if err := http.ListenAndServe(addr, mux); err != nil {
