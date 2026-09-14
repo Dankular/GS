@@ -3,7 +3,16 @@ set -eu
 AGONES_VERSION="1.60.0"
 command -v kind >/dev/null || { echo 'kind is required' >&2; exit 1; }
 command -v helm >/dev/null || { echo 'helm is required' >&2; exit 1; }
-kind create cluster --name gameservice
+command -v kubectl >/dev/null || { echo 'kubectl is required' >&2; exit 1; }
+command -v docker >/dev/null || { echo 'docker is required' >&2; exit 1; }
+if ! kind get clusters | grep -qx gameservice; then
+  kind create cluster --name gameservice
+fi
 helm repo add agones https://agones.dev/chart/stable
 helm repo update
 helm upgrade --install agones agones/agones --namespace agones-system --create-namespace --version "$AGONES_VERSION" --wait
+docker build -f deploy/compose/simulator-server.Dockerfile -t gameservice-simulator:dev .
+kind load docker-image gameservice-simulator:dev --name gameservice
+kubectl apply -f deploy/kind/simulator-fleet.yaml
+kubectl rollout status deployment/agones-controller -n agones-system --timeout=180s
+kubectl wait --for=condition=Ready pod -l agones.dev/fleet-name=arena-deathmatch -n platform-gameservers-eu-west --timeout=180s

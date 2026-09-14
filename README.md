@@ -22,11 +22,18 @@ on the configured VPS; the workstation is not the target runtime.
 ```text
 go test ./...
 go run ./cmd/definition-compiler --file definitions/examples/arena.yaml
+make dev-core
+make dev-full
 ```
 
 The API listens on `:8080` by default. Health endpoints are available at
 `/health/live` and `/health/ready`; commands are posted to `/v1/commands` and
 stored results can be read at `/v1/commands/{requestId}`.
+
+`make dev-full` creates a Kind cluster, installs the pinned Agones chart,
+builds/loads the local simulator image, and deploys the smoke Fleet and
+FleetAutoscaler. The Kind manifest uses development-only credentials and is
+not a production deployment manifest.
 
 The Compose TURN relay publishes a bounded 100-port UDP allocation range;
 increase it only after measuring concurrent relay demand and host capacity.
