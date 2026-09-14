@@ -10,7 +10,7 @@ services:
   nakama:
     image: heroiclabs/nakama:3.40.0
     depends_on: { postgres: { condition: service_healthy } }
-    command: ["--database.address", "postgres://gameservice:${POSTGRES_PASSWORD}@postgres:5432/gameservice?sslmode=disable", "--logger.level", "INFO"]
+    entrypoint: ["/bin/sh", "-ec"]`r`n    command: ["/nakama/nakama migrate up --database.address postgres:${POSTGRES_PASSWORD}@postgres:5432/gameservice && exec /nakama/nakama --database.address postgres:${POSTGRES_PASSWORD}@postgres:5432/gameservice --logger.level INFO"]
     ports: ["7350:7350", "7351:7351"]
   control-api:
     build: { context: ../.., dockerfile: deploy/compose/control-api.Dockerfile }
