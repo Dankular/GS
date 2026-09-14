@@ -28,6 +28,23 @@ func TestHelmPoliciesAllowInClusterPostgreSQL(t *testing.T) {
 	}
 }
 
+func TestHelmProductionWorkersHaveBoundedAllocationAndRedundantReconciliation(t *testing.T) {
+	values, err := os.ReadFile("../deploy/helm/platform/values.yaml")
+	if err != nil {
+		t.Fatal(err)
+	}
+	if !strings.Contains(string(values), "maxAllocationAttempts: 3") {
+		t.Fatal("Helm values must configure bounded allocation attempts")
+	}
+	worker, err := os.ReadFile("../deploy/helm/platform/templates/reconciliation-worker.yaml")
+	if err != nil {
+		t.Fatal(err)
+	}
+	if !strings.Contains(string(worker), "replicas: {{ .Values.replicaCount }}") {
+		t.Fatal("reconciliation worker must follow the production replica count")
+	}
+}
+
 func TestHelmMatchmakingWorkerLoadsClaimKeyFromSecretFile(t *testing.T) {
 	data, err := os.ReadFile("../deploy/helm/platform/templates/matchmaking-worker.yaml")
 	if err != nil {

@@ -74,6 +74,7 @@ matchmaking:
   teams: 2
   ratingWindow: 0
   protocol: udp
+  maxAllocationAttempts: 3
   intervalSeconds: 2
 reconciliation:
   intervalSeconds: 300

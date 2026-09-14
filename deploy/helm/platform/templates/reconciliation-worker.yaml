@@ -6,7 +6,7 @@ metadata:
   labels:
 {{ include "gameservice.labels" . | nindent 4 }}
 spec:
-  replicas: 1
+  replicas: {{ .Values.replicaCount }}
   selector: { matchLabels: { app: gameservice-reconciliation-worker } }
   template:
     metadata: { labels: { app: gameservice-reconciliation-worker } }
