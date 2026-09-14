@@ -40,3 +40,17 @@ func TestCompileRejectsBadBuildDigest(t *testing.T) {
 		t.Fatal("expected digest validation")
 	}
 }
+
+func TestCompileAcceptsResultAndRatingPolicies(t *testing.T) {
+	definition := strings.Replace(valid, "serverBuild: sha256:0123456789abcdef0123456789abcdef0123456789abcdef0123456789abcdef", "serverBuild: sha256:0123456789abcdef0123456789abcdef0123456789abcdef0123456789abcdef, resultPolicy: {schema: deathmatch-result-v1, maxDuration: 20m}, rating: {leaderboardId: deathmatch_rating, strategy: authoritative}", 1)
+	if _, err := Compile(strings.NewReader(definition)); err != nil {
+		t.Fatalf("policy-bearing definition rejected: %v", err)
+	}
+}
+
+func TestCompileRejectsInvalidResultDuration(t *testing.T) {
+	definition := strings.Replace(valid, "serverBuild: sha256:0123456789abcdef0123456789abcdef0123456789abcdef0123456789abcdef", "serverBuild: sha256:0123456789abcdef0123456789abcdef0123456789abcdef0123456789abcdef, resultPolicy: {schema: result, maxDuration: forever}", 1)
+	if _, err := Compile(strings.NewReader(definition)); err == nil {
+		t.Fatal("accepted invalid result duration")
+	}
+}

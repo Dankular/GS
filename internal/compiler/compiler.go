@@ -9,6 +9,7 @@ import (
 	"io"
 	"regexp"
 	"sort"
+	"time"
 
 	"gopkg.in/yaml.v3"
 )
@@ -60,14 +61,26 @@ type Grant struct {
 	Amount   int64  `yaml:"amount,omitempty" json:"amount,omitempty"`
 }
 type MatchMode struct {
-	ID            string   `yaml:"id" json:"id"`
-	MinPlayers    int64    `yaml:"minPlayers" json:"minPlayers"`
-	MaxPlayers    int64    `yaml:"maxPlayers" json:"maxPlayers"`
-	TeamSize      int64    `yaml:"teamSize" json:"teamSize"`
-	TicketTimeout string   `yaml:"ticketTimeout" json:"ticketTimeout"`
-	Regions       []string `yaml:"regions" json:"regions"`
-	FleetRef      string   `yaml:"fleetRef" json:"fleetRef"`
-	ServerBuild   string   `yaml:"serverBuild" json:"serverBuild"`
+	ID            string       `yaml:"id" json:"id"`
+	MinPlayers    int64        `yaml:"minPlayers" json:"minPlayers"`
+	MaxPlayers    int64        `yaml:"maxPlayers" json:"maxPlayers"`
+	TeamSize      int64        `yaml:"teamSize" json:"teamSize"`
+	TicketTimeout string       `yaml:"ticketTimeout" json:"ticketTimeout"`
+	Regions       []string     `yaml:"regions" json:"regions"`
+	FleetRef      string       `yaml:"fleetRef" json:"fleetRef"`
+	ServerBuild   string       `yaml:"serverBuild" json:"serverBuild"`
+	ResultPolicy  ResultPolicy `yaml:"resultPolicy,omitempty" json:"resultPolicy,omitempty"`
+	Rating        RatingPolicy `yaml:"rating,omitempty" json:"rating,omitempty"`
+}
+
+type ResultPolicy struct {
+	Schema      string `yaml:"schema" json:"schema"`
+	MaxDuration string `yaml:"maxDuration" json:"maxDuration"`
+}
+
+type RatingPolicy struct {
+	LeaderboardID string `yaml:"leaderboardId" json:"leaderboardId"`
+	Strategy      string `yaml:"strategy" json:"strategy"`
 }
 
 type Report struct {
@@ -145,6 +158,14 @@ func validate(d Definition) error {
 		}
 		if len(m.Regions) == 0 {
 			return fmt.Errorf("match mode %q requires a region", m.ID)
+		}
+		if m.ResultPolicy.MaxDuration != "" {
+			if duration, err := time.ParseDuration(m.ResultPolicy.MaxDuration); err != nil || duration <= 0 {
+				return fmt.Errorf("match mode %q has invalid result maxDuration", m.ID)
+			}
+		}
+		if m.Rating.LeaderboardID != "" && m.Rating.Strategy != "authoritative" {
+			return fmt.Errorf("match mode %q has unsupported rating strategy", m.ID)
 		}
 	}
 	return nil
