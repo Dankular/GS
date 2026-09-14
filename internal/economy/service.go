@@ -36,7 +36,7 @@ func (Service) Handle(ctx context.Context, tx pgx.Tx, e commands.Envelope) (comm
 	case "inventory.consume":
 		return inventoryChange(ctx, tx, player, args, e, false)
 	default:
-		return commands.Result{RequestID: e.Metadata.RequestID, CorrelationID: e.Metadata.CorrelationID, Operation: e.Spec.Operation, Status: "succeeded", Result: map[string]any{"accepted": true}}, nil
+		return commands.Result{RequestID: e.Metadata.RequestID, CorrelationID: e.Metadata.CorrelationID, Operation: e.Spec.Operation, Status: "rejected", Error: &commands.CommandError{Code: "UNSUPPORTED_OPERATION", Message: "operation is registered but not implemented", Retryable: false}}, nil
 	}
 }
 
