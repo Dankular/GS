@@ -1,0 +1,20 @@
+# Data ownership
+
+GameService and Nakama may share the VPS PostgreSQL cluster, but they do not
+share undocumented tables. The control plane writes only the schemas listed
+below; Nakama data is accessed through Nakama APIs or runtime contracts.
+
+| Data | Authoritative owner | Access contract |
+| --- | --- | --- |
+| Identity, sessions, usernames, profile, friends, groups, parties, chat, notifications | Nakama | Nakama client APIs and the `gameservice.profile` runtime RPC |
+| Nakama storage objects and Nakama leaderboards | Nakama | Nakama APIs; the leaderboard worker uses the supported server API |
+| Definitions, revisions, activation history | GameService | Control API and `platform` schema |
+| Commands, idempotency results, audit records, outbox | GameService | Control API and `platform`/`ops` schemas |
+| Wallets, currency ledger, inventory, entitlements, progression, rewards | GameService | Typed command handlers and `economy`/`progression` schemas |
+| Tickets, matches, rosters, allocations, claims, results | GameService | Matchmaking/allocation adapters and `match` schema |
+| Game-server process lifecycle and capacity | Agones/Kubernetes | Allocator API and Kubernetes/Agones APIs; never domain writes |
+
+Cross-owner data is exchanged through authenticated APIs or versioned outbox
+events. A service must not query another owner’s private tables, infer current
+definition state during command execution, or expose its credentials to a
+client or dedicated server.
