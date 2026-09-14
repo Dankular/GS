@@ -15,6 +15,7 @@ import (
 	"github.com/Dankular/GameService/internal/commands"
 	"github.com/Dankular/GameService/internal/commandstore"
 	"github.com/Dankular/GameService/internal/economy"
+	"github.com/Dankular/GameService/internal/matchmaking"
 	"github.com/jackc/pgx/v5"
 )
 
@@ -30,6 +31,7 @@ func main() {
 	}
 	defer repository.Close()
 	economyService := economy.Service{}
+	matchmakingStore := matchmaking.Store{Pool: repository.Pool()}
 	sessionSigningKey := os.Getenv("NAKAMA_SESSION_SIGNING_KEY")
 	if sessionSigningKey == "" {
 		slog.Error("NAKAMA_SESSION_SIGNING_KEY is required")
@@ -104,6 +106,63 @@ func main() {
 			w.Header().Set("X-Idempotency-Replay", "true")
 		}
 		writeJSON(w, result)
+	})
+	mux.HandleFunc("POST /v1/matchmaking/tickets", func(w http.ResponseWriter, r *http.Request) {
+		claims, err := authenticate(r)
+		if err != nil {
+			http.Error(w, "authentication required", http.StatusUnauthorized)
+			return
+		}
+		if r.Header.Get("Content-Type") != "application/json" {
+			http.Error(w, "content type must be application/json", http.StatusUnsupportedMediaType)
+			return
+		}
+		var request matchmaking.TicketRequest
+		decoder := json.NewDecoder(io.LimitReader(r.Body, 1<<20))
+		decoder.DisallowUnknownFields()
+		if err := decoder.Decode(&request); err != nil {
+			http.Error(w, "invalid ticket request", http.StatusBadRequest)
+			return
+		}
+		ticket, err := matchmakingStore.Create(r.Context(), request, claims.UserID, time.Now())
+		if err != nil {
+			http.Error(w, err.Error(), http.StatusUnprocessableEntity)
+			return
+		}
+		w.WriteHeader(http.StatusAccepted)
+		writeJSON(w, ticket)
+	})
+	mux.HandleFunc("GET /v1/matchmaking/tickets/{ticketId}", func(w http.ResponseWriter, r *http.Request) {
+		claims, err := authenticate(r)
+		if err != nil {
+			http.Error(w, "authentication required", http.StatusUnauthorized)
+			return
+		}
+		ticket, err := matchmakingStore.Get(r.Context(), r.PathValue("ticketId"), claims.UserID)
+		if errors.Is(err, pgx.ErrNoRows) {
+			http.Error(w, "ticket not found", http.StatusNotFound)
+			return
+		}
+		if err != nil {
+			http.Error(w, "ticket could not be loaded", http.StatusServiceUnavailable)
+			return
+		}
+		writeJSON(w, ticket)
+	})
+	mux.HandleFunc("DELETE /v1/matchmaking/tickets/{ticketId}", func(w http.ResponseWriter, r *http.Request) {
+		claims, err := authenticate(r)
+		if err != nil {
+			http.Error(w, "authentication required", http.StatusUnauthorized)
+			return
+		}
+		if err := matchmakingStore.Cancel(r.Context(), r.PathValue("ticketId"), claims.UserID); errors.Is(err, pgx.ErrNoRows) {
+			http.Error(w, "ticket not found or not cancellable", http.StatusNotFound)
+			return
+		} else if err != nil {
+			http.Error(w, "ticket could not be cancelled", http.StatusServiceUnavailable)
+			return
+		}
+		w.WriteHeader(http.StatusNoContent)
 	})
 	slog.Info("control API listening", "addr", addr)
 	if err := http.ListenAndServe(addr, mux); err != nil {

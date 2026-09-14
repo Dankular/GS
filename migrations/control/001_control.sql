@@ -65,11 +65,17 @@ CREATE TABLE IF NOT EXISTS match.tickets (
   environment text NOT NULL,
   mode_id text NOT NULL,
   definition_revision bigint NOT NULL CHECK (definition_revision > 0),
+  build text NOT NULL,
+  region text NOT NULL,
+  capacity integer NOT NULL CHECK (capacity > 0),
   status text NOT NULL CHECK (status IN ('queued','matched','cancelled','expired')),
   properties jsonb NOT NULL,
   created_at timestamptz NOT NULL DEFAULT now(),
   expires_at timestamptz NOT NULL
 );
+ALTER TABLE match.tickets ADD COLUMN IF NOT EXISTS build text NOT NULL DEFAULT 'unknown';
+ALTER TABLE match.tickets ADD COLUMN IF NOT EXISTS region text NOT NULL DEFAULT 'unknown';
+ALTER TABLE match.tickets ADD COLUMN IF NOT EXISTS capacity integer NOT NULL DEFAULT 1;
 CREATE TABLE IF NOT EXISTS match.ticket_members (
   ticket_id text NOT NULL REFERENCES match.tickets(ticket_id) ON DELETE CASCADE,
   player_id text NOT NULL,
