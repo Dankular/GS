@@ -1,6 +1,6 @@
 SHELL := sh
 
-.PHONY: bootstrap generate lint test test-integration test-e2e dev-core dev-full down migrate-up migrate-down-one seed definition-validate load-smoke
+.PHONY: bootstrap generate lint test test-integration test-e2e dev-core dev-full down migrate-up migrate-down-one seed definition-validate load-smoke backup verify-restore
 
 bootstrap:
 	@go version
@@ -51,3 +51,9 @@ load-smoke:
 
 simulator-build:
 	docker compose -f deploy/compose/compose.yaml --profile simulator build simulator-server
+
+backup:
+	./deploy/backup/backup-postgres.sh
+
+verify-restore:
+	./deploy/backup/verify-restore.sh $(FILE)
