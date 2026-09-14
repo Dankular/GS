@@ -6,6 +6,7 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
+	"io"
 	"net/http"
 	"strings"
 	"sync"
@@ -177,7 +178,8 @@ func (s *Server) Handler() http.Handler {
 	})
 	mux.HandleFunc("POST /result", func(w http.ResponseWriter, r *http.Request) {
 		var request ResultRequest
-		if err := json.NewDecoder(r.Body).Decode(&request); err != nil {
+		r.Body = http.MaxBytesReader(w, r.Body, 1<<20)
+		if err := decodeJSONStrict(r.Body, &request); err != nil {
 			http.Error(w, "invalid result", http.StatusBadRequest)
 			return
 		}
@@ -188,6 +190,19 @@ func (s *Server) Handler() http.Handler {
 		write(w, map[string]any{"accepted": true})
 	})
 	return mux
+}
+
+func decodeJSONStrict(reader io.Reader, destination any) error {
+	decoder := json.NewDecoder(reader)
+	decoder.DisallowUnknownFields()
+	if err := decoder.Decode(destination); err != nil {
+		return err
+	}
+	var trailing any
+	if err := decoder.Decode(&trailing); err != io.EOF {
+		return errors.New("trailing JSON data")
+	}
+	return nil
 }
 
 func write(w http.ResponseWriter, value any) {

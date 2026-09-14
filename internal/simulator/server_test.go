@@ -6,6 +6,7 @@ import (
 	"crypto/rand"
 	"net/http"
 	"net/http/httptest"
+	"strings"
 	"testing"
 	"time"
 
@@ -144,5 +145,20 @@ func TestJoinStartsMatchAfterClaimAuthorization(t *testing.T) {
 	server.Handler().ServeHTTP(response, request)
 	if response.Code != http.StatusOK || starter.starts != 1 {
 		t.Fatalf("join did not start match: status=%d starts=%d", response.Code, starter.starts)
+	}
+}
+
+func TestResultEndpointRejectsUnknownAndTrailingJSON(t *testing.T) {
+	server, _, _, _ := newSimulator(t)
+	for _, body := range []string{
+		`{"sequence":1,"payload":{"score":4},"unexpected":true}`,
+		`{"sequence":1,"payload":{"score":4}} {"sequence":2}`,
+	} {
+		request := httptest.NewRequest(http.MethodPost, "/result", strings.NewReader(body))
+		response := httptest.NewRecorder()
+		server.Handler().ServeHTTP(response, request)
+		if response.Code != http.StatusBadRequest {
+			t.Fatalf("result body %q returned status %d, want %d", body, response.Code, http.StatusBadRequest)
+		}
 	}
 }
