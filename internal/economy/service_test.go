@@ -22,6 +22,15 @@ func TestIntArgRejectsFractionsAndZero(t *testing.T) {
 	}
 }
 
+func TestResolvePlayerBindsPlayerActor(t *testing.T) {
+	if _, err := resolvePlayer(map[string]any{"playerId": "other"}, commands.Actor{Type: "player", ID: "self"}); err == nil {
+		t.Fatal("expected player target mismatch to be rejected")
+	}
+	if got, err := resolvePlayer(map[string]any{"playerId": "target"}, commands.Actor{Type: "admin", ID: "operator"}); err != nil || got != "target" {
+		t.Fatalf("admin target was not preserved: got=%q err=%v", got, err)
+	}
+}
+
 func TestBalancedLedgerEntriesOffsetPlayerDelta(t *testing.T) {
 	for _, amount := range []int64{-25, 100} {
 		entries := balancedLedgerEntries("player", amount)

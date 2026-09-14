@@ -35,7 +35,13 @@ func (s CommandService) Handle(ctx context.Context, tx pgx.Tx, e commands.Envelo
 		if !ok {
 			return reject(e, "INVALID_ARGUMENT", "playerIds must be an array of strings"), nil
 		}
-		record, err := s.Store.CreateTx(ctx, tx, TicketRequest{GameID: stringArg(args, "gameId"), Environment: stringArg(args, "environment"), ModeID: stringArg(args, "modeId"), DefinitionRevision: int64Arg(args, "definitionRevision"), Build: stringArg(args, "build"), Region: stringArg(args, "region"), Capacity: intArg(args, "capacity"), PlayerIDs: players, Properties: mapArg(args["properties"]), ExpiresAt: expires}, e.Actor.ID, time.Now())
+		request := TicketRequest{GameID: stringArg(args, "gameId"), Environment: stringArg(args, "environment"), ModeID: stringArg(args, "modeId"), DefinitionRevision: int64Arg(args, "definitionRevision"), Build: stringArg(args, "build"), Region: stringArg(args, "region"), Capacity: intArg(args, "capacity"), PlayerIDs: players, Properties: mapArg(args["properties"]), ExpiresAt: expires}
+		if e.Actor.Type == "player" {
+			if err := request.ValidatePlayerTicket(e.Actor.ID, time.Now()); err != nil {
+				return reject(e, "INVALID_TICKET", err.Error()), nil
+			}
+		}
+		record, err := s.Store.CreateTx(ctx, tx, request, e.Actor.ID, time.Now())
 		if err != nil {
 			if errors.Is(err, ErrActiveTicket) {
 				return reject(e, "ACTIVE_TICKET", err.Error()), nil

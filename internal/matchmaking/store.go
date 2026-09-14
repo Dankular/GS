@@ -81,6 +81,16 @@ func (r TicketRequest) Validate(actorID string, now time.Time) error {
 	return nil
 }
 
+// ValidatePlayerTicket is the public-player boundary. Party membership must
+// be established by a trusted Nakama adapter before a multi-player ticket can
+// be submitted; a client session cannot assert other player IDs in its payload.
+func (r TicketRequest) ValidatePlayerTicket(actorID string, now time.Time) error {
+	if len(r.PlayerIDs) != 1 || r.PlayerIDs[0] != actorID {
+		return fmt.Errorf("%w: player sessions may only submit a solo ticket for themselves", ErrInvalidTicket)
+	}
+	return r.Validate(actorID, now)
+}
+
 type Store struct{ Pool *pgxpool.Pool }
 
 func (s Store) CreateTx(ctx context.Context, tx pgx.Tx, request TicketRequest, actorID string, now time.Time) (TicketRecord, error) {
@@ -159,7 +169,7 @@ func (s Store) Create(ctx context.Context, request TicketRequest, actorID string
 	if s.Pool == nil {
 		return TicketRecord{}, errors.New("matchmaking store is not configured")
 	}
-	if err := request.Validate(actorID, now); err != nil {
+	if err := request.ValidatePlayerTicket(actorID, now); err != nil {
 		return TicketRecord{}, err
 	}
 	id, err := ticketID()

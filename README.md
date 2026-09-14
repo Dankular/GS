@@ -195,6 +195,11 @@ go test -tags=chaos ./tests/chaos -run TestRestartServiceRecovers -count=1 -v
 These profiles produce an execution result but do not constitute a capacity
 claim; record the exact configuration and host saturation with each run.
 
+Public player matchmaking submissions are intentionally solo-only: the
+authenticated player must be the sole `playerIds` member. Multi-player party
+tickets require a future trusted Nakama adapter that proves party membership;
+the control plane never treats client-supplied member IDs as proof.
+
 The Nakama tournament integration contract can be rerun with a disposable
 tournament ID and a valid Nakama UUID owner:
 

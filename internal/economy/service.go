@@ -32,7 +32,7 @@ func (Service) Handle(ctx context.Context, tx pgx.Tx, e commands.Envelope) (resu
 		err = nil
 	}()
 	args := e.Spec.Arguments
-	player, err := stringArg(args, "playerId", e.Actor.ID)
+	player, err := resolvePlayer(args, e.Actor)
 	if err != nil {
 		return commands.Result{}, err
 	}
@@ -72,6 +72,17 @@ func (Service) Handle(ctx context.Context, tx pgx.Tx, e commands.Envelope) (resu
 	default:
 		return commands.Result{RequestID: e.Metadata.RequestID, CorrelationID: e.Metadata.CorrelationID, Operation: e.Spec.Operation, Status: "rejected", Error: &commands.CommandError{Code: "UNSUPPORTED_OPERATION", Message: "operation is registered but not implemented", Retryable: false}}, nil
 	}
+}
+
+func resolvePlayer(args map[string]any, actor commands.Actor) (string, error) {
+	requested, err := stringArg(args, "playerId", actor.ID)
+	if err != nil {
+		return "", err
+	}
+	if actor.Type == "player" && requested != actor.ID {
+		return "", fmt.Errorf("%w: playerId must match the authenticated actor", ErrInvalidArgument)
+	}
+	return requested, nil
 }
 
 func businessErrorCode(err error) (string, bool) {

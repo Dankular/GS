@@ -207,6 +207,7 @@ components:
         operation: { type: string }
     TicketRequest:
       type: object
+      description: Public player sessions submit one-player tickets. Multi-player party tickets require a trusted Nakama adapter and are not accepted directly from a player session.
       additionalProperties: false
       required: [gameId, environment, modeId, definitionRevision, build, region, capacity, playerIds, expiresAt]
       properties:
