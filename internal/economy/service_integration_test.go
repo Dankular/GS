@@ -6,6 +6,7 @@ import (
 	"context"
 	"encoding/json"
 	"os"
+	"sync"
 	"testing"
 	"time"
 
@@ -88,5 +89,57 @@ func TestServiceRewardClaimIsAtomicAndOncePerPlayer(t *testing.T) {
 	}
 	if ledgerEntries != 2 || ledgerSum != 0 {
 		t.Fatalf("reward ledger is not balanced: entries=%d sum=%d", ledgerEntries, ledgerSum)
+	}
+
+	concurrentPlayerID := playerID + "-concurrent"
+	concurrentEnvelope := func(requestID, sourceID string) commands.Envelope {
+		return commands.Envelope{Metadata: commands.Metadata{RequestID: requestID, CorrelationID: requestID, GameID: gameID, Environment: "test", DefinitionRevision: 1}, Actor: commands.Actor{ID: concurrentPlayerID}, Spec: commands.Spec{Operation: "reward.claim", Arguments: map[string]any{"rewardId": "welcome", "sourceId": sourceID}}}
+	}
+	results := make(chan commands.Result, 2)
+	errorsCh := make(chan error, 2)
+	var group sync.WaitGroup
+	for index := 0; index < 2; index++ {
+		group.Add(1)
+		go func(index int) {
+			defer group.Done()
+			tx, err := pool.Begin(ctx)
+			if err != nil {
+				errorsCh <- err
+				return
+			}
+			result, err := (Service{}).Handle(ctx, tx, concurrentEnvelope("concurrent-"+suffix+"-"+string(rune('1'+index)), "concurrent-source-"+string(rune('1'+index))))
+			if err == nil {
+				err = tx.Commit(ctx)
+			} else {
+				_ = tx.Rollback(ctx)
+			}
+			if err != nil {
+				errorsCh <- err
+				return
+			}
+			results <- result
+		}(index)
+	}
+	group.Wait()
+	close(results)
+	close(errorsCh)
+	for err := range errorsCh {
+		t.Fatal(err)
+	}
+	duplicates := 0
+	for result := range results {
+		if result.Result["duplicate"] == true {
+			duplicates++
+		}
+	}
+	if duplicates != 1 {
+		t.Fatalf("concurrent once-per-player claims produced %d duplicates", duplicates)
+	}
+	var concurrentClaims int
+	if err := pool.QueryRow(ctx, `SELECT count(*) FROM economy.reward_claims WHERE player_id=$1 AND reward_id='welcome'`, concurrentPlayerID).Scan(&concurrentClaims); err != nil {
+		t.Fatal(err)
+	}
+	if concurrentClaims != 1 {
+		t.Fatalf("concurrent reward claims persisted %d claims", concurrentClaims)
 	}
 }

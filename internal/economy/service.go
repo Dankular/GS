@@ -551,6 +551,9 @@ func rewardClaim(ctx context.Context, tx pgx.Tx, player string, args map[string]
 		return commands.Result{}, err
 	}
 	if reward.OncePerPlayer {
+		if _, err := tx.Exec(ctx, `SELECT pg_advisory_xact_lock(hashtextextended($1, 0))`, player+"\x00"+reward.ID); err != nil {
+			return commands.Result{}, err
+		}
 		var claimed bool
 		if err := tx.QueryRow(ctx, `SELECT EXISTS(SELECT 1 FROM economy.reward_claims WHERE player_id=$1 AND reward_id=$2)`, player, reward.ID).Scan(&claimed); err != nil {
 			return commands.Result{}, err
