@@ -176,9 +176,14 @@ func TestProductionHelmIncludesAgonesFleetWhenEnabled(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	for _, required := range []string{"postgresql.cnpg.io/v1", "kind: Cluster", "instances:", "imageName:", "primaryUpdateStrategy: unsupervised", "storage:", "bootstrap:", "imageDigest must be an immutable sha256 digest"} {
+	for _, required := range []string{"postgresql.cnpg.io/v1", "kind: Cluster", "instances:", "imageName:", "primaryUpdateStrategy: unsupervised", "storage:", "affinity:", "topologyKey:", "backup:", "barmanObjectStore:", "retentionPolicy:", "imageDigest must be an immutable sha256 digest"} {
 		if !strings.Contains(string(postgresCluster), required) {
 			t.Errorf("CloudNativePG cluster template missing %q", required)
+		}
+	}
+	for _, required := range []string{"destinationPath:", "s3CredentialsSecretName:", "accessKeyIdKey:", "secretAccessKeyKey:", "walCompression:", "walEncryption:"} {
+		if !strings.Contains(string(values), required) {
+			t.Errorf("CloudNativePG backup values missing %q", required)
 		}
 	}
 	if !strings.Contains(string(values), "postgresCluster:\n  # Optional CloudNativePG-managed PostgreSQL cluster") && !strings.Contains(string(values), "postgresCluster:\r\n  # Optional CloudNativePG-managed PostgreSQL cluster") {

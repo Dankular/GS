@@ -16,6 +16,29 @@ spec:
   primaryUpdateStrategy: unsupervised
   storage:
     size: {{ .Values.postgresCluster.storageSize }}
+  affinity:
+    enablePodAntiAffinity: {{ .Values.postgresCluster.affinity.enablePodAntiAffinity }}
+    topologyKey: {{ .Values.postgresCluster.affinity.topologyKey | quote }}
+    podAntiAffinityType: {{ .Values.postgresCluster.affinity.podAntiAffinityType | quote }}
+{{- if .Values.postgresCluster.backup.enabled }}
+{{- if not .Values.postgresCluster.backup.destinationPath }}
+{{- fail "postgresCluster.backup.destinationPath is required when backups are enabled" }}
+{{- end }}
+  backup:
+    barmanObjectStore:
+      destinationPath: {{ .Values.postgresCluster.backup.destinationPath | quote }}
+      s3Credentials:
+        accessKeyId:
+          name: {{ .Values.postgresCluster.backup.s3CredentialsSecretName }}
+          key: {{ .Values.postgresCluster.backup.accessKeyIdKey }}
+        secretAccessKey:
+          name: {{ .Values.postgresCluster.backup.s3CredentialsSecretName }}
+          key: {{ .Values.postgresCluster.backup.secretAccessKeyKey }}
+      wal:
+        compression: {{ .Values.postgresCluster.backup.walCompression | quote }}
+        encryption: {{ .Values.postgresCluster.backup.walEncryption | quote }}
+    retentionPolicy: {{ .Values.postgresCluster.backup.retentionPolicy | quote }}
+{{- end }}
   bootstrap:
     initdb:
       database: {{ .Values.postgresCluster.database | quote }}

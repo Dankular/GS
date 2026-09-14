@@ -38,6 +38,20 @@ postgresCluster:
   storageSize: 20Gi
   database: gameservice
   owner: gameservice
+  affinity:
+    enablePodAntiAffinity: true
+    topologyKey: topology.kubernetes.io/zone
+    podAntiAffinityType: required
+  backup:
+    # Enable only after the object store and credential Secret are provisioned.
+    enabled: false
+    destinationPath: ""
+    retentionPolicy: 30d
+    s3CredentialsSecretName: gameservice-postgres-backup
+    accessKeyIdKey: ACCESS_KEY_ID
+    secretAccessKeyKey: ACCESS_SECRET_KEY
+    walCompression: gzip
+    walEncryption: AES256
 externalSecrets:
   enabled: false
   secretStoreRef:

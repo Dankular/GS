@@ -14,6 +14,12 @@ Use at least three instances and failure-domain-aware storage in a real
 multi-node cluster; the single-node Kind/VPS environment is only suitable for
 rendering and operator smoke tests, not an HA claim.
 
+When `postgresCluster.backup.enabled=true`, the chart configures CloudNativePG
+Barman object-store WAL archiving, AES-256 object-store encryption, a recovery
+window retention policy, and zone anti-affinity. Supply the destination and
+credential Secret through the release system; the default is disabled and
+fails closed if no destination is provided.
+
 Every application image digest is required at render time. Example:
 
 ```sh
