@@ -96,6 +96,16 @@ production HA topology: Agones/Kubernetes, multiple API replicas, external
 managed PostgreSQL HA/PITR, ingress/WAF, NetworkPolicies, and the remaining
 workers are still required before production readiness.
 
+### Authentication boundary
+
+Mutation and command-result endpoints require a Nakama session JWT in the
+`Authorization: Bearer <token>` header. The Control API verifies the HS256
+signature, expiry, not-before time, optional issuer/audience, and session token
+type. It derives the actor ID from the verified Nakama `uid` (or `sub`) claim
+and rejects a command whose body claims a different actor. Configure
+`NAKAMA_SESSION_SIGNING_KEY` from the deployment secret; the Compose example
+falls back to `NAKAMA_SESSION_ENCRYPTION_KEY` for the current Nakama setup.
+
 ### Planned Kubernetes topology
 
 Production follows the contract's trust zones and namespaces: `platform-edge`,
