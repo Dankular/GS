@@ -31,6 +31,7 @@ func main() {
 		}
 	}
 	var lifecycle simulator.Lifecycle
+	var readyReporter simulator.Lifecycle
 	var sdk *agonessdk.SDK
 	if os.Getenv("AGONES_ENABLED") == "true" {
 		var sdkErr error
@@ -44,18 +45,19 @@ func main() {
 	dynamic := os.Getenv("AGONES_DYNAMIC_ASSIGNMENT") == "true"
 	assignedMatchID := os.Getenv("MATCH_ID")
 	if os.Getenv("CONTROL_API_URL") != "" && os.Getenv("SERVER_RESULT_TOKEN") != "" {
-		lifecycle = combinedLifecycle{agones: lifecycle, ready: simulator.HTTPReadyLifecycle{ControlURL: os.Getenv("CONTROL_API_URL"), Token: os.Getenv("SERVER_RESULT_TOKEN"), MatchID: func() string { return assignedMatchID }}}
+		readyReporter = simulator.HTTPReadyLifecycle{ControlURL: os.Getenv("CONTROL_API_URL"), Token: os.Getenv("SERVER_RESULT_TOKEN"), MatchID: func() string { return assignedMatchID }}
 	}
 	server, err := simulator.New(simulator.Config{MatchID: os.Getenv("MATCH_ID"), AllocationID: os.Getenv("ALLOCATION_ID"), Build: os.Getenv("SERVER_BUILD"), Roster: roster, PublicKey: ed25519.PublicKey(key), Lifecycle: lifecycle, ResultSink: simulator.HTTPResultSink{ControlURL: os.Getenv("CONTROL_API_URL"), Token: os.Getenv("SERVER_RESULT_TOKEN")}, DynamicAssignment: dynamic})
 	if err != nil {
 		slog.Error("simulator configuration failed", "error", err)
 		os.Exit(1)
 	}
-	if dynamic {
-		go watchAssignment(sdk, server, &assignedMatchID)
-	} else if err := server.Bootstrap(); err != nil {
+	if err := server.Bootstrap(); err != nil {
 		slog.Error("simulator bootstrap failed", "error", err)
 		os.Exit(1)
+	}
+	if dynamic {
+		go watchAssignment(sdk, server, readyReporter, &assignedMatchID)
 	}
 	addr := os.Getenv("SIMULATOR_ADDR")
 	if addr == "" {
@@ -68,7 +70,7 @@ func main() {
 	}
 }
 
-func watchAssignment(sdk *agonessdk.SDK, server *simulator.Server, assignedMatchID *string) {
+func watchAssignment(sdk *agonessdk.SDK, server *simulator.Server, readyReporter simulator.Lifecycle, assignedMatchID *string) {
 	ticker := time.NewTicker(500 * time.Millisecond)
 	defer ticker.Stop()
 	for range ticker.C {
@@ -83,9 +85,11 @@ func watchAssignment(sdk *agonessdk.SDK, server *simulator.Server, assignedMatch
 		roster := parseRoster(annotations["gameservice.io/match-roster"])
 		if err := server.Assign(matchID, allocationID, build, roster); err == nil {
 			*assignedMatchID = matchID
-			if err := server.Bootstrap(); err != nil {
-				slog.Error("simulator bootstrap failed", "error", err)
-				continue
+			if readyReporter != nil {
+				if err := readyReporter.Ready(); err != nil {
+					slog.Error("control plane ready report failed", "error", err)
+					continue
+				}
 			}
 			return
 		}
@@ -113,32 +117,6 @@ type agonesLifecycle struct {
 		Health() error
 		Shutdown() error
 	}
-}
-
-type combinedLifecycle struct {
-	agones simulator.Lifecycle
-	ready  simulator.Lifecycle
-}
-
-func (c combinedLifecycle) Ready() error {
-	if c.agones != nil {
-		if err := c.agones.Ready(); err != nil {
-			return err
-		}
-	}
-	return c.ready.Ready()
-}
-func (c combinedLifecycle) Health() error {
-	if c.agones != nil {
-		return c.agones.Health()
-	}
-	return nil
-}
-func (c combinedLifecycle) Shutdown() error {
-	if c.agones != nil {
-		return c.agones.Shutdown()
-	}
-	return nil
 }
 
 func (a agonesLifecycle) Ready() error    { return a.sdk.Ready() }
