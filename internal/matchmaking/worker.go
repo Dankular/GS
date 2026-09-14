@@ -2,6 +2,7 @@ package matchmaking
 
 import (
 	"context"
+	"crypto/ed25519"
 	"crypto/rand"
 	"encoding/hex"
 	"encoding/json"
@@ -9,6 +10,7 @@ import (
 	"fmt"
 	"sort"
 	"strings"
+	"time"
 
 	"github.com/Dankular/GameService/internal/allocation"
 	"github.com/Dankular/GameService/internal/matches"
@@ -16,12 +18,14 @@ import (
 )
 
 type Worker struct {
-	Pool       *pgxpool.Pool
-	Allocator  allocation.Allocator
-	MatchStore matches.Store
-	Policy     Policy
-	Protocol   string
-	BatchSize  int
+	Pool                  *pgxpool.Pool
+	Allocator             allocation.Allocator
+	MatchStore            matches.Store
+	Policy                Policy
+	Protocol              string
+	BatchSize             int
+	ServerClaimPrivateKey ed25519.PrivateKey
+	ServerClaimTTL        time.Duration
 }
 
 // RunOnce claims one compatible batch, allocates a server, and records the
@@ -84,6 +88,14 @@ func (w Worker) RunOnce(ctx context.Context) (bool, error) {
 			"gameservice.io/match-roster":  strings.Join(rosterParts, ","),
 		},
 	}
+	if len(w.ServerClaimPrivateKey) == ed25519.PrivateKeySize {
+		serverToken, err := w.serverClaimToken(matchID, allocationID, seed.Build)
+		if err != nil {
+			_ = w.setTicketStatus(ctx, ids, "queued")
+			return false, fmt.Errorf("sign server claim: %w", err)
+		}
+		selector.Metadata["gameservice.io/server-token"] = serverToken
+	}
 	if err := selector.Validate(); err != nil {
 		_ = w.setTicketStatus(ctx, ids, "queued")
 		return false, err
@@ -109,6 +121,20 @@ func (w Worker) RunOnce(ctx context.Context) (bool, error) {
 		return false, fmt.Errorf("match ticket finalization changed: expected %d, updated %d", len(ids), result.RowsAffected())
 	}
 	return true, nil
+}
+
+func (w Worker) serverClaimToken(matchID, allocationID, build string) (string, error) {
+	ttl := w.ServerClaimTTL
+	if ttl <= 0 {
+		ttl = 10 * time.Minute
+	}
+	now := time.Now().UTC()
+	return matches.SignClaim(matches.JoinClaim{
+		Issuer: "control-plane", Audience: "control-plane", Subject: "game-server",
+		MatchID: matchID, AllocationID: allocationID, ServerBuild: build,
+		IssuedAt: now.Unix(), NotBefore: now.Unix(), ExpiresAt: now.Add(ttl).Unix(),
+		JTI: matchID + ":" + allocationID,
+	}, w.ServerClaimPrivateKey)
 }
 
 func (w Worker) claim(ctx context.Context, ids []string) (bool, error) {

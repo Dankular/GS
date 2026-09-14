@@ -27,6 +27,10 @@ fi
   --wait
 docker build -f deploy/compose/simulator-server.Dockerfile -t gameservice-simulator:dev .
 kind load docker-image gameservice-simulator:dev --name gameservice
-kubectl apply -f deploy/kind/simulator-fleet.yaml
+NODE_IP="$(docker inspect -f '{{(index .NetworkSettings.Networks \"kind\").IPAddress}}' gameservice-control-plane)"
+PUBLIC_KEY="${SERVER_CLAIM_PUBLIC_KEY:-AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA}"
+kubectl create secret generic gameservice-server-claims --namespace platform-gameservers-eu-west \
+  --from-literal="public-key=$PUBLIC_KEY" --dry-run=client -o yaml | kubectl apply -f -
+sed "s|__CONTROL_API_URL__|http://${NODE_IP}:8080|g" deploy/kind/simulator-fleet.yaml | kubectl apply -f -
 kubectl rollout status deployment/agones-controller -n agones-system --timeout=180s
 kubectl wait --for=jsonpath='{.status.state}'=Ready gameserver -l agones.dev/fleet=arena-deathmatch -n platform-gameservers-eu-west --timeout=180s

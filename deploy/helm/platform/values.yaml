@@ -61,6 +61,9 @@ pod:
 serverClaims:
   publicKeysSecretName: gameservice-secrets
   publicKeysSecretKey: server-claim-public-keys
+  privateKeySecretName: gameservice-secrets
+  privateKeySecretKey: server-claim-private-key
+  ttlSeconds: 600
 autoscaling:
   enabled: true
   minReplicas: 2

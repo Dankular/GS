@@ -18,6 +18,8 @@ type HTTPResultSink struct {
 	Client     *http.Client
 }
 
+func (s *HTTPResultSink) SetToken(token string) { s.Token = token }
+
 func (s HTTPResultSink) Submit(ctx context.Context, submission matches.ResultSubmission) error {
 	if strings.TrimSpace(s.ControlURL) == "" || strings.TrimSpace(s.Token) == "" {
 		return fmt.Errorf("control API result sink is not configured")

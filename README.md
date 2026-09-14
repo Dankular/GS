@@ -146,6 +146,12 @@ production HA topology: Agones/Kubernetes, multiple API replicas, external
 managed PostgreSQL HA/PITR, ingress/WAF, NetworkPolicies, and the remaining
 workers are still required before production readiness.
 
+The matchmaking worker signs a short-lived server claim for each allocation.
+The claim is delivered as Agones allocation metadata and is bound to the match,
+allocation, and server build. Configure the matching private/public key pair as
+`SERVER_CLAIM_PRIVATE_KEY` for the worker and `SERVER_CLAIM_PUBLIC_KEYS` for
+the Control API; never put the private key in the Fleet manifest.
+
 ### Authentication boundary
 
 Mutation and command-result endpoints require a Nakama session JWT in the

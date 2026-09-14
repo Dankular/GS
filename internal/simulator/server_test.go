@@ -16,12 +16,16 @@ func (f *fakeLifecycle) Ready() error    { f.ready = true; return nil }
 func (f *fakeLifecycle) Health() error   { return nil }
 func (f *fakeLifecycle) Shutdown() error { f.shutdown = true; return nil }
 
-type fakeSink struct{ submission matches.ResultSubmission }
+type fakeSink struct {
+	submission matches.ResultSubmission
+	token      string
+}
 
 func (f *fakeSink) Submit(_ context.Context, submission matches.ResultSubmission) error {
 	f.submission = submission
 	return nil
 }
+func (f *fakeSink) SetToken(token string) { f.token = token }
 
 func newSimulator(t *testing.T) (*Server, ed25519.PrivateKey, *fakeLifecycle, *fakeSink) {
 	t.Helper()
@@ -89,5 +93,23 @@ func TestDynamicAssignmentUpdatesJoinAuthorization(t *testing.T) {
 	}
 	if player, slot, err := server.AuthorizeJoin(token, time.Unix(10, 0)); err != nil || player != "player" || slot != 1 {
 		t.Fatalf("dynamic assignment did not authorize player: %q %d %v", player, slot, err)
+	}
+}
+
+func TestDynamicAssignmentUpdatesServerToken(t *testing.T) {
+	public, _, err := ed25519.GenerateKey(rand.Reader)
+	if err != nil {
+		t.Fatal(err)
+	}
+	sink := &fakeSink{}
+	server, err := New(Config{PublicKey: public, Lifecycle: &fakeLifecycle{}, ResultSink: sink, DynamicAssignment: true})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if err := server.AssignWithServerToken("m", "a", "b", map[string]int{"p": 0}, "token"); err != nil {
+		t.Fatal(err)
+	}
+	if sink.token != "token" {
+		t.Fatalf("expected dynamic server token, got %q", sink.token)
 	}
 }

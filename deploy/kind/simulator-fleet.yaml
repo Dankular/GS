@@ -54,11 +54,14 @@ spec:
                 - name: AGONES_DYNAMIC_ASSIGNMENT
                   value: "true"
                 - name: SERVER_CLAIM_PUBLIC_KEY
-                  value: AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA
+                  valueFrom:
+                    secretKeyRef:
+                      name: gameservice-server-claims
+                      key: public-key
                 - name: AGONES_ENABLED
                   value: "true"
                 - name: CONTROL_API_URL
-                  value: http://control-api:8080
+                  value: __CONTROL_API_URL__
               securityContext:
                 runAsNonRoot: true
                 runAsUser: 65532

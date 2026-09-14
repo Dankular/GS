@@ -2,6 +2,8 @@ package main
 
 import (
 	"context"
+	"crypto/ed25519"
+	"encoding/base64"
 	"log/slog"
 	"os"
 	"strconv"
@@ -44,6 +46,15 @@ func main() {
 	}
 	defer allocatorClient.Close()
 	worker := matchmaking.Worker{Pool: repo.Pool(), Allocator: allocatorClient, MatchStore: matches.Store{Pool: repo.Pool()}, Policy: matchmaking.Policy{TeamSize: envInt("MATCH_TEAM_SIZE", 1), Teams: envInt("MATCH_TEAMS", 2), RatingWindow: int64(envInt("MATCH_RATING_WINDOW", 0))}, Protocol: env("MATCH_PROTOCOL", "udp")}
+	if encoded := strings.TrimSpace(os.Getenv("SERVER_CLAIM_PRIVATE_KEY")); encoded != "" {
+		key, decodeErr := base64.RawStdEncoding.DecodeString(encoded)
+		if decodeErr != nil || len(key) != ed25519.PrivateKeySize {
+			slog.Error("SERVER_CLAIM_PRIVATE_KEY must be base64 Ed25519 private key")
+			os.Exit(1)
+		}
+		worker.ServerClaimPrivateKey = ed25519.PrivateKey(key)
+	}
+	worker.ServerClaimTTL = time.Duration(envInt("SERVER_CLAIM_TTL_SECONDS", 600)) * time.Second
 	interval := time.Duration(envInt("MATCHMAKING_INTERVAL_SECONDS", 2)) * time.Second
 	for {
 		if matched, err := worker.RunOnce(ctx); err != nil {

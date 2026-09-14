@@ -13,14 +13,19 @@ import (
 // MatchID is evaluated at Ready time because dynamic Agones assignment happens
 // immediately before bootstrap.
 type HTTPReadyLifecycle struct {
-	ControlURL string
-	Token      string
-	MatchID    func() string
-	Client     *http.Client
+	ControlURL  string
+	Token       string
+	TokenSource func() string
+	MatchID     func() string
+	Client      *http.Client
 }
 
 func (s HTTPReadyLifecycle) Ready() error {
-	if strings.TrimSpace(s.ControlURL) == "" || strings.TrimSpace(s.Token) == "" || s.MatchID == nil || strings.TrimSpace(s.MatchID()) == "" {
+	token := s.Token
+	if s.TokenSource != nil {
+		token = s.TokenSource()
+	}
+	if strings.TrimSpace(s.ControlURL) == "" || strings.TrimSpace(token) == "" || s.MatchID == nil || strings.TrimSpace(s.MatchID()) == "" {
 		return fmt.Errorf("control API ready lifecycle is not configured")
 	}
 	client := s.Client
@@ -31,7 +36,7 @@ func (s HTTPReadyLifecycle) Ready() error {
 	if err != nil {
 		return err
 	}
-	request.Header.Set("Authorization", "Bearer "+s.Token)
+	request.Header.Set("Authorization", "Bearer "+token)
 	response, err := client.Do(request)
 	if err != nil {
 		return err

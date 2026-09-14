@@ -62,6 +62,16 @@ func New(config Config) (*Server, error) {
 // Assign applies the match-specific bootstrap delivered through Agones
 // allocation metadata. It is safe to call after the server has reported Ready.
 func (s *Server) Assign(matchID, allocationID, build string, roster map[string]int) error {
+	return s.assign(matchID, allocationID, build, roster, "")
+}
+
+// AssignWithServerToken applies dynamic allocation metadata and updates the
+// match-scoped credential used for lifecycle and result calls.
+func (s *Server) AssignWithServerToken(matchID, allocationID, build string, roster map[string]int, token string) error {
+	return s.assign(matchID, allocationID, build, roster, token)
+}
+
+func (s *Server) assign(matchID, allocationID, build string, roster map[string]int, token string) error {
 	if strings.TrimSpace(matchID) == "" || strings.TrimSpace(allocationID) == "" || strings.TrimSpace(build) == "" || len(roster) == 0 {
 		return errors.New("dynamic simulator assignment is incomplete")
 	}
@@ -71,6 +81,11 @@ func (s *Server) Assign(matchID, allocationID, build string, roster map[string]i
 	s.config.AllocationID = allocationID
 	s.config.Build = build
 	s.config.Roster = cloneRoster(roster)
+	if token != "" {
+		if sink, ok := s.config.ResultSink.(interface{ SetToken(string) }); ok {
+			sink.SetToken(token)
+		}
+	}
 	return nil
 }
 

@@ -44,10 +44,11 @@ func main() {
 	}
 	dynamic := os.Getenv("AGONES_DYNAMIC_ASSIGNMENT") == "true"
 	assignedMatchID := os.Getenv("MATCH_ID")
-	if os.Getenv("CONTROL_API_URL") != "" && os.Getenv("SERVER_RESULT_TOKEN") != "" {
-		readyReporter = simulator.HTTPReadyLifecycle{ControlURL: os.Getenv("CONTROL_API_URL"), Token: os.Getenv("SERVER_RESULT_TOKEN"), MatchID: func() string { return assignedMatchID }}
+	assignedServerToken := os.Getenv("SERVER_RESULT_TOKEN")
+	if os.Getenv("CONTROL_API_URL") != "" {
+		readyReporter = simulator.HTTPReadyLifecycle{ControlURL: os.Getenv("CONTROL_API_URL"), TokenSource: func() string { return assignedServerToken }, MatchID: func() string { return assignedMatchID }}
 	}
-	server, err := simulator.New(simulator.Config{MatchID: os.Getenv("MATCH_ID"), AllocationID: os.Getenv("ALLOCATION_ID"), Build: os.Getenv("SERVER_BUILD"), Roster: roster, PublicKey: ed25519.PublicKey(key), Lifecycle: lifecycle, ResultSink: simulator.HTTPResultSink{ControlURL: os.Getenv("CONTROL_API_URL"), Token: os.Getenv("SERVER_RESULT_TOKEN")}, DynamicAssignment: dynamic})
+	server, err := simulator.New(simulator.Config{MatchID: os.Getenv("MATCH_ID"), AllocationID: os.Getenv("ALLOCATION_ID"), Build: os.Getenv("SERVER_BUILD"), Roster: roster, PublicKey: ed25519.PublicKey(key), Lifecycle: lifecycle, ResultSink: &simulator.HTTPResultSink{ControlURL: os.Getenv("CONTROL_API_URL"), Token: os.Getenv("SERVER_RESULT_TOKEN")}, DynamicAssignment: dynamic})
 	if err != nil {
 		slog.Error("simulator configuration failed", "error", err)
 		os.Exit(1)
@@ -57,7 +58,7 @@ func main() {
 		os.Exit(1)
 	}
 	if dynamic {
-		go watchAssignment(sdk, server, readyReporter, &assignedMatchID)
+		go watchAssignment(sdk, server, readyReporter, &assignedMatchID, &assignedServerToken)
 	}
 	addr := os.Getenv("SIMULATOR_ADDR")
 	if addr == "" {
@@ -70,7 +71,7 @@ func main() {
 	}
 }
 
-func watchAssignment(sdk *agonessdk.SDK, server *simulator.Server, readyReporter simulator.Lifecycle, assignedMatchID *string) {
+func watchAssignment(sdk *agonessdk.SDK, server *simulator.Server, readyReporter simulator.Lifecycle, assignedMatchID, assignedServerToken *string) {
 	ticker := time.NewTicker(500 * time.Millisecond)
 	defer ticker.Stop()
 	for range ticker.C {
@@ -83,8 +84,10 @@ func watchAssignment(sdk *agonessdk.SDK, server *simulator.Server, readyReporter
 		allocationID := annotations["gameservice.io/allocation-id"]
 		build := annotations["gameservice.io/server-build"]
 		roster := parseRoster(annotations["gameservice.io/match-roster"])
-		if err := server.Assign(matchID, allocationID, build, roster); err == nil {
+		serverToken := annotations["gameservice.io/server-token"]
+		if err := server.AssignWithServerToken(matchID, allocationID, build, roster, serverToken); err == nil {
 			*assignedMatchID = matchID
+			*assignedServerToken = serverToken
 			if readyReporter != nil {
 				if err := readyReporter.Ready(); err != nil {
 					slog.Error("control plane ready report failed", "error", err)
