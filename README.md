@@ -78,6 +78,11 @@ worker sends match/allocation/build/roster metadata through Agones allocation,
 and the simulator consumes it through the Agones SDK. Join authorization still
 requires a Control API-signed claim.
 
+The configured VPS Kind cluster also has External Secrets Operator `2.10.0`
+installed for validating the opt-in `ExternalSecret` chart resources. Its
+provider and workload identity are deployment-specific; see
+`docs/runbooks/kubernetes-addons.md` before enabling external secret sync.
+
 The real Agones E2E harness is `tests/e2e/match_test.go`. It is deliberately
 environment-gated so a normal unit run cannot pretend that Kubernetes exists.
 After deploying the Kind smoke stack, run it with two test identities and a
