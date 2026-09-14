@@ -1,0 +1,5 @@
+{
+  "$schema":"https://json-schema.org/draft/2020-12/schema", "$id":"https://gameservice.dev/schemas/match-result-accepted.schema.json",
+  "type":"object", "additionalProperties":false, "required":["matchId","sequence","payloadDigest"],
+  "properties":{"matchId":{"type":"string","minLength":1},"sequence":{"type":"integer","minimum":1},"payloadDigest":{"type":"string","pattern":"^sha256:[0-9a-fA-F]{64}$"}}
+}

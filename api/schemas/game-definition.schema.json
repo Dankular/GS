@@ -1,0 +1,14 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://gameservice.dev/schemas/game-definition.schema.json",
+  "type": "object", "additionalProperties": false,
+  "required": ["apiVersion", "kind", "metadata", "spec"],
+  "properties": {
+    "apiVersion": {"const": "game.platform/v1alpha1"}, "kind": {"const": "GameDefinition"},
+    "metadata": {"$ref": "#/$defs/metadata"}, "spec": {"$ref": "#/$defs/spec"}
+  },
+  "$defs": {
+    "metadata": {"type":"object","additionalProperties":false,"required":["gameId","revision"],"properties":{"gameId":{"type":"string","minLength":1},"revision":{"type":"integer","minimum":1},"labels":{"type":"object","additionalProperties":{"type":"string"}}}},
+    "spec": {"type":"object","additionalProperties":false,"required":["catalog"],"properties":{"catalog":{"$ref":"catalog.schema.json"},"progression":{},"rewards":{"type":"array","items":{"$ref":"reward-table.schema.json"}},"matchModes":{"type":"array","items":{"$ref":"match-mode.schema.json"}}}}
+  }
+}

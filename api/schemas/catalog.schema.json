@@ -1,0 +1,7 @@
+{
+  "$schema":"https://json-schema.org/draft/2020-12/schema", "$id":"https://gameservice.dev/schemas/catalog.schema.json",
+  "type":"object", "additionalProperties":false, "properties":{
+    "currencies":{"type":"array","items":{"type":"object","additionalProperties":false,"required":["id","precision","minBalance","maxBalance"],"properties":{"id":{"type":"string","minLength":1},"precision":{"type":"integer","minimum":0,"maximum":18},"minBalance":{"type":"integer","minimum":0},"maxBalance":{"type":"integer"}}}},
+    "items":{"type":"array","items":{"type":"object","additionalProperties":false,"required":["id","stackLimit","tradeable"],"properties":{"id":{"type":"string","minLength":1},"stackLimit":{"type":"integer","minimum":1},"tags":{"type":"array","items":{"type":"string"}},"tradeable":{"type":"boolean"}}}}
+  }
+}

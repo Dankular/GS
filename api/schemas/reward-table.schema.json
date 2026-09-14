@@ -1,0 +1,5 @@
+{
+  "$schema":"https://json-schema.org/draft/2020-12/schema", "$id":"https://gameservice.dev/schemas/reward-table.schema.json",
+  "type":"object", "additionalProperties":false, "required":["id","oncePerPlayer"],
+  "properties":{"id":{"type":"string","minLength":1},"oncePerPlayer":{"type":"boolean"},"grants":{"type":"array","items":{"type":"object","additionalProperties":false,"minProperties":1,"properties":{"item":{"type":"string","minLength":1},"quantity":{"type":"integer","minimum":0},"currency":{"type":"string","minLength":1},"amount":{"type":"integer","minimum":0}}}}}
+}

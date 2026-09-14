@@ -1,0 +1,5 @@
+{
+  "$schema":"https://json-schema.org/draft/2020-12/schema", "$id":"https://gameservice.dev/schemas/match-mode.schema.json",
+  "type":"object", "additionalProperties":false, "required":["id","minPlayers","maxPlayers","teamSize","ticketTimeout","regions","fleetRef","serverBuild"],
+  "properties":{"id":{"type":"string","minLength":1},"minPlayers":{"type":"integer","minimum":1},"maxPlayers":{"type":"integer","minimum":1},"teamSize":{"type":"integer","minimum":1},"ticketTimeout":{"type":"string","minLength":1},"regions":{"type":"array","minItems":1,"items":{"type":"string","minLength":1}},"fleetRef":{"type":"string","minLength":1},"serverBuild":{"type":"string","pattern":"^sha256:[0-9a-fA-F]{64}$"}}
+}

@@ -1,7 +1,7 @@
 asyncapi: 3.0.0
 info:
   title: GameService Events
-  version: 0.1.0
+  version: 1.0.0
 channels:
   commandAccepted:
     address: command.accepted.v1
@@ -13,3 +13,22 @@ channels:
           properties:
             requestId: { type: string }
             correlationId: { type: string }
+  matchResultAccepted:
+    address: match.result.accepted.v1
+    messages:
+      matchResultAccepted:
+        payload:
+          $ref: './schemas/match-result-accepted.schema.json'
+  leaderboardDelivery:
+    address: nakama.leaderboard.delivery.v1
+    messages:
+      leaderboardDelivery:
+        payload:
+          type: object
+          required: [matchId, leaderboardId, playerId, score]
+          properties:
+            matchId: { type: string }
+            leaderboardId: { type: string }
+            playerId: { type: string }
+            score: { type: integer }
+            subscore: { type: integer }

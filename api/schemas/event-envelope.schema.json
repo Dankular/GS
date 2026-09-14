@@ -1,0 +1,5 @@
+{
+  "$schema":"https://json-schema.org/draft/2020-12/schema", "$id":"https://gameservice.dev/schemas/event-envelope.schema.json",
+  "type":"object", "additionalProperties":false, "required":["eventType","aggregateId","correlationId","payload"],
+  "properties":{"eventType":{"type":"string","pattern":"^[a-z0-9]+(\\.[a-z0-9-]+)+\\.v[0-9]+$"},"aggregateId":{"type":"string","minLength":1},"correlationId":{"type":"string","minLength":1},"payload":{"type":"object"}}
+}
