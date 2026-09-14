@@ -157,6 +157,17 @@ go test -tags=chaos ./tests/chaos -run TestRestartServiceRecovers -count=1 -v
 These profiles produce an execution result but do not constitute a capacity
 claim; record the exact configuration and host saturation with each run.
 
+The Nakama tournament integration contract can be rerun with a disposable
+tournament ID and a valid Nakama UUID owner:
+
+```text
+GAMESERVICE_INTEGRATION_NAKAMA_URL=http://127.0.0.1:7350 \
+GAMESERVICE_INTEGRATION_NAKAMA_RUNTIME_HTTP_KEY=... \
+GAMESERVICE_INTEGRATION_TOURNAMENT_ID=... \
+GAMESERVICE_INTEGRATION_OWNER_ID=... \
+go test -tags=integration ./tests/integration -run TestNakamaAuthoritativeTournamentWriteIsIdempotent -count=1 -v
+```
+
 ## Topology
 
 The target runtime boundary is the configured VPS. Docker Compose runs the
