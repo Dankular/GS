@@ -1,0 +1,28 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: gameservice-reconciliation-worker
+  namespace: {{ .Values.namespace.app }}
+  labels:
+{{ include "gameservice.labels" . | nindent 4 }}
+spec:
+  replicas: 1
+  selector: { matchLabels: { app: gameservice-reconciliation-worker } }
+  template:
+    metadata: { labels: { app: gameservice-reconciliation-worker } }
+    spec:
+      serviceAccountName: gameservice
+      automountServiceAccountToken: false
+      terminationGracePeriodSeconds: {{ .Values.pod.terminationGracePeriodSeconds }}
+      securityContext:
+{{ toYaml .Values.pod.securityContext | nindent 8 }}
+      containers:
+        - name: reconciliation-worker
+          image: {{ include "gameservice.image" (dict "Values" .Values "name" "reconciliationWorker") | quote }}
+          securityContext:
+{{ toYaml .Values.pod.containerSecurityContext | nindent 12 }}
+          env:
+            - { name: DATABASE_URL, valueFrom: { secretKeyRef: { name: {{ .Values.database.secretName }}, key: {{ .Values.database.urlKey }} } } }
+            - { name: RECONCILIATION_INTERVAL_SECONDS, value: {{ .Values.reconciliation.intervalSeconds | quote }} }
+          resources:
+{{ toYaml .Values.resources | nindent 12 }}

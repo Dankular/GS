@@ -61,7 +61,14 @@ production baseline is declared.
 
 The compose stack includes an OpenTelemetry Collector, PostgreSQL migrations and the continuously running
 transactional outbox worker, plus coturn for GNS.NET relay fallback. The
-Nakama leaderboard consumer is available through the `leaderboards` Compose
+The optional reconciliation worker compares wallet projections with immutable ledger
+entries and reports mismatches without editing financial history:
+
+```text
+docker compose --env-file .env -f deploy/compose/compose.yaml --profile reconciliation up -d --build reconciliation-worker
+```
+
+The Nakama leaderboard consumer is available through the `leaderboards` Compose
 profile and consumes `match.result.accepted.v1` with a per-consumer checkpoint;
 it expects authoritative result payloads in the form
 `{"players":[{"playerId":"...","score":123,"subscore":0}]}`. The

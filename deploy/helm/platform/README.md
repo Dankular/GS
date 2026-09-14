@@ -1,7 +1,7 @@
 # Production Helm chart
 
 This chart deploys the GameService control API, durable outbox, leaderboard,
-and Agones allocator/matchmaking workers, a migration hook, HA policies, HPA,
+Agones allocator/matchmaking, and reconciliation workers, a migration hook, HA policies, HPA,
 and default-deny network policy into `platform-app`. PostgreSQL and Nakama are external
 dependencies; provide their URLs and credentials through the referenced Secret.
 
@@ -14,6 +14,7 @@ helm upgrade --install gameservice ./deploy/helm/platform \
   --set images.outboxWorker.digest=sha256:... \
   --set images.leaderboardWorker.digest=sha256:... \
   --set images.matchmakingWorker.digest=sha256:... \
+  --set images.reconciliationWorker.digest=sha256:... \
   --set images.migrations.digest=sha256:...
 ```
 

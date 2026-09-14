@@ -63,6 +63,15 @@ services:
     depends_on:
       postgres: { condition: service_healthy }
       migrations: { condition: service_completed_successfully }
+  reconciliation-worker:
+    profiles: [reconciliation]
+    build: { context: ../.., dockerfile: deploy/compose/reconciliation-worker.Dockerfile }
+    environment:
+      DATABASE_URL: postgres://gameservice:${POSTGRES_PASSWORD}@postgres:5432/gameservice?sslmode=disable
+      RECONCILIATION_INTERVAL_SECONDS: ${RECONCILIATION_INTERVAL_SECONDS:-300}
+    depends_on:
+      postgres: { condition: service_healthy }
+      migrations: { condition: service_completed_successfully }
   leaderboard-worker:
     profiles: [leaderboards]
     build: { context: ../.., dockerfile: deploy/compose/leaderboard-worker.Dockerfile }

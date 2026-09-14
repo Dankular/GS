@@ -4,6 +4,7 @@ images:
   outboxWorker: { repository: ghcr.io/dankular/gameservice-outbox-worker, digest: "" }
   leaderboardWorker: { repository: ghcr.io/dankular/gameservice-leaderboard-worker, digest: "" }
   matchmakingWorker: { repository: ghcr.io/dankular/gameservice-matchmaking-worker, digest: "" }
+  reconciliationWorker: { repository: ghcr.io/dankular/gameservice-reconciliation-worker, digest: "" }
   migrations: { repository: postgres, digest: "" }
 replicaCount: 2
 namespace:
@@ -39,6 +40,8 @@ matchmaking:
   ratingWindow: 0
   protocol: udp
   intervalSeconds: 2
+reconciliation:
+  intervalSeconds: 300
 pod:
   terminationGracePeriodSeconds: 30
   securityContext:
