@@ -1,6 +1,7 @@
 package main
 
 import (
+	"context"
 	"crypto/ed25519"
 	"encoding/base64"
 	"log/slog"
@@ -62,7 +63,7 @@ func main() {
 	}
 	if !dynamic {
 		if heartbeat, ok := readyReporter.(interface{ Heartbeat() error }); ok {
-			go maintainMatchHeartbeat(heartbeat)
+			go maintainMatchHeartbeat(context.Background(), heartbeat)
 		}
 	}
 	if dynamic {
@@ -93,13 +94,21 @@ func maintainHealth(sdk interface{ Health() error }) {
 	}
 }
 
-func maintainMatchHeartbeat(heartbeat interface{ Heartbeat() error }) {
-	ticker := time.NewTicker(10 * time.Second)
+func maintainMatchHeartbeat(ctx context.Context, heartbeat interface{ Heartbeat() error }) {
+	maintainMatchHeartbeatInterval(ctx, heartbeat, 10*time.Second)
+}
+
+func maintainMatchHeartbeatInterval(ctx context.Context, heartbeat interface{ Heartbeat() error }, interval time.Duration) {
+	ticker := time.NewTicker(interval)
 	defer ticker.Stop()
-	for range ticker.C {
+	for {
+		select {
+		case <-ctx.Done():
+			return
+		case <-ticker.C:
+		}
 		if err := heartbeat.Heartbeat(); err != nil {
 			slog.Error("Control API match heartbeat failed", "error", err)
-			return
 		}
 	}
 }
@@ -136,7 +145,7 @@ func watchAssignment(sdk *agonessdk.SDK, server *simulator.Server, readyReporter
 				}
 			}
 			if heartbeat, ok := readyReporter.(interface{ Heartbeat() error }); ok {
-				go maintainMatchHeartbeat(heartbeat)
+				go maintainMatchHeartbeat(context.Background(), heartbeat)
 			}
 			return
 		}
