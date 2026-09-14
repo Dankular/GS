@@ -41,7 +41,7 @@ func TestServiceRewardClaimIsAtomicAndOncePerPlayer(t *testing.T) {
 		return commands.Envelope{Metadata: commands.Metadata{RequestID: requestID, CorrelationID: requestID, GameID: gameID, Environment: "test", DefinitionRevision: 1}, Actor: commands.Actor{ID: playerID}, Spec: commands.Spec{Operation: "reward.claim", Arguments: map[string]any{"rewardId": "welcome", "sourceId": sourceID}}}
 	}
 	service := Service{}
-	inputs := []commands.Envelope{envelope("reward-request-1", "source-1"), envelope("reward-request-2", "source-2")}
+	inputs := []commands.Envelope{envelope("reward-request-1-"+suffix, "source-1"), envelope("reward-request-2-"+suffix, "source-2")}
 	for index, input := range inputs {
 		tx, err := pool.Begin(ctx)
 		if err != nil {
@@ -67,7 +67,7 @@ func TestServiceRewardClaimIsAtomicAndOncePerPlayer(t *testing.T) {
 				t.Fatalf("first reward claim was not persisted: %d", claims)
 			}
 		}
-		if input.Metadata.RequestID == "reward-request-2" && (result.Status != "succeeded" || result.Result["duplicate"] != true) {
+		if index == 1 && (result.Status != "succeeded" || result.Result["duplicate"] != true) {
 			t.Fatalf("expected duplicate reward result, got %#v", result)
 		}
 	}
