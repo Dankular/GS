@@ -31,6 +31,53 @@ jobs:
       - name: Generated client drift
         run: make generate
 
+  integration:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-go@v5
+        with:
+          go-version-file: go.mod
+          cache: true
+      - name: Create disposable Compose credentials
+        shell: bash
+        run: |
+          cat > .env.ci <<'EOF'
+          GAMESERVICE_ADMIN_PASSWORD=ci-admin-password
+          POSTGRES_PASSWORD=ci-gameservice-password
+          NAKAMA_DATABASE_PASSWORD=ci-nakama-password
+          NAKAMA_CONSOLE_USERNAME=admin
+          NAKAMA_CONSOLE_PASSWORD=ci-console-password
+          NAKAMA_CONSOLE_SIGNING_KEY=ci-console-signing-key
+          NAKAMA_SOCKET_SERVER_KEY=ci-socket-server-key
+          NAKAMA_SESSION_ENCRYPTION_KEY=ci-session-encryption-key
+          NAKAMA_SESSION_REFRESH_ENCRYPTION_KEY=ci-session-refresh-key
+          NAKAMA_SESSION_SIGNING_KEY=ci-session-encryption-key
+          NAKAMA_RUNTIME_HTTP_KEY=ci-runtime-http-key
+          TURN_REALM=ci.example.invalid
+          TURN_SECRET=ci-turn-secret
+          TURN_EXTERNAL_IP=127.0.0.1
+          EOF
+      - name: Start real integration services
+        shell: bash
+        run: |
+          set -eu
+          trap 'docker compose --env-file .env.ci -f deploy/compose/compose.yaml down -v' EXIT
+          docker compose --env-file .env.ci -f deploy/compose/compose.yaml \
+            up -d postgres database-admin-bootstrap nakama-role-bootstrap migrations nakama control-api
+          for attempt in {1..60}; do
+            curl --fail --silent http://127.0.0.1:7350/healthcheck >/dev/null && break
+            sleep 2
+          done
+          curl --fail --silent http://127.0.0.1:7350/healthcheck >/dev/null
+          for attempt in {1..60}; do
+            curl --fail --silent http://127.0.0.1:8080/health/ready >/dev/null && break
+            sleep 2
+          done
+          curl --fail --silent http://127.0.0.1:8080/health/ready >/dev/null
+          DATABASE_URL='postgres://gameservice:ci-gameservice-password@127.0.0.1:5432/gameservice?sslmode=disable' \
+            go test -tags=integration ./...
+
   helm:
     runs-on: ubuntu-latest
     steps:
