@@ -30,8 +30,15 @@ CONTROL_API_CONTAINER="${CONTROL_API_CONTAINER:-compose-control-api-1}"
 docker network connect kind "$CONTROL_API_CONTAINER" 2>/dev/null || true
 # Kubernetes pods cannot route to an individual application container's address
 # on Docker's `kind` bridge. The Compose port is published on the Docker host,
-# so use the bridge gateway, which is reachable from the Kind pod network.
-CONTROL_API_HOST="${CONTROL_API_HOST:-$(docker network inspect -f '{{(index .IPAM.Config 0).Gateway}}' kind)}"
+# so use the IPv4 bridge gateway, which is reachable from the Kind pod network.
+if [ -z "${CONTROL_API_HOST:-}" ]; then
+  for gateway in $(docker network inspect -f '{{range .IPAM.Config}}{{.Gateway}} {{end}}' kind); do
+    case "$gateway" in
+      172.*) CONTROL_API_HOST="$gateway"; break ;;
+    esac
+  done
+fi
+test -n "${CONTROL_API_HOST:-}" || { echo 'an IPv4 Docker bridge gateway is required' >&2; exit 1; }
 # The chart's development certificate does not include the Kind node IP, while
 # the Docker Compose worker reaches the NodePort through that IP. Re-issue only
 # the dev allocator server certificate with the exact SAN used by the worker;

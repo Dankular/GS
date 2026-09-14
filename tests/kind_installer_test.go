@@ -12,7 +12,7 @@ func TestKindInstallerUsesReachableDockerHostForControlAPI(t *testing.T) {
 		t.Fatal(err)
 	}
 	script := string(data)
-	if !strings.Contains(script, "docker network inspect -f '{{(index .IPAM.Config 0).Gateway}}' kind") {
+	if !strings.Contains(script, "docker network inspect -f '{{range .IPAM.Config}}{{.Gateway}} {{end}}' kind") {
 		t.Fatal("Kind installer must resolve the Docker bridge gateway for pod-to-Compose traffic")
 	}
 	if !strings.Contains(script, "http://${CONTROL_API_HOST}:8080") {
