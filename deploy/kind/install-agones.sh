@@ -29,4 +29,4 @@ docker build -f deploy/compose/simulator-server.Dockerfile -t gameservice-simula
 kind load docker-image gameservice-simulator:dev --name gameservice
 kubectl apply -f deploy/kind/simulator-fleet.yaml
 kubectl rollout status deployment/agones-controller -n agones-system --timeout=180s
-kubectl wait --for=condition=Ready pod -l agones.dev/fleet-name=arena-deathmatch -n platform-gameservers-eu-west --timeout=180s
+kubectl wait --for=jsonpath='{.status.state}'=Ready gameserver -l agones.dev/fleet=arena-deathmatch -n platform-gameservers-eu-west --timeout=180s
