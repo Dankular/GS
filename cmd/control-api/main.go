@@ -48,6 +48,7 @@ func main() {
 	defer repository.Close()
 	economyService := economy.Service{}
 	matchmakingStore := matchmaking.Store{Pool: repository.Pool()}
+	matchmakingCommandService := matchmaking.CommandService{Store: matchmakingStore}
 	definitionStore := definitions.Store{Pool: repository.Pool()}
 	joinPrivateKeyBytes, _ := base64.RawStdEncoding.DecodeString(os.Getenv("JOIN_CLAIM_PRIVATE_KEY"))
 	var joinPrivateKey ed25519.PrivateKey
@@ -206,6 +207,9 @@ func main() {
 		commandHandler := func(ctx context.Context, tx pgx.Tx, envelope commands.Envelope) (commands.Result, error) {
 			if strings.HasPrefix(envelope.Spec.Operation, "match.") {
 				return matchCommandService.Handle(ctx, tx, envelope)
+			}
+			if strings.HasPrefix(envelope.Spec.Operation, "matchmaking.") {
+				return matchmakingCommandService.Handle(ctx, tx, envelope)
 			}
 			return economyService.Handle(ctx, tx, envelope)
 		}
