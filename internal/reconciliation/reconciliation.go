@@ -88,6 +88,9 @@ func RecoverStaleRunningMatches(ctx context.Context, pool *pgxpool.Pool, cutoff 
 	}
 	rows.Close()
 	for _, matchID := range matchIDs {
+		if _, err := tx.Exec(ctx, `UPDATE match.tickets SET status='expired' WHERE match_id=$1 AND status='matched'`, matchID); err != nil {
+			return 0, err
+		}
 		payload, err := json.Marshal(map[string]any{"matchId": matchID, "reason": "heartbeat_timeout"})
 		if err != nil {
 			return 0, err
