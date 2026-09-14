@@ -24,6 +24,12 @@ services:
         WHERE EXISTS (SELECT 1 FROM pg_roles WHERE rolname = 'nakama') \gexec
         GRANT CONNECT ON DATABASE gameservice TO nakama;
         GRANT USAGE, CREATE ON SCHEMA public TO nakama;
+        SELECT format('ALTER TABLE public.%I OWNER TO nakama', tablename)
+        FROM pg_tables WHERE schemaname = 'public' AND tableowner = current_user \gexec
+        SELECT format('ALTER SEQUENCE public.%I OWNER TO nakama', sequencename)
+        FROM pg_sequences WHERE schemaname = 'public' AND sequenceowner = current_user \gexec
+        ALTER DEFAULT PRIVILEGES IN SCHEMA public GRANT ALL ON TABLES TO nakama;
+        ALTER DEFAULT PRIVILEGES IN SCHEMA public GRANT ALL ON SEQUENCES TO nakama;
         REVOKE ALL ON SCHEMA platform, economy, progression, match, ops FROM nakama;
         REVOKE ALL ON SCHEMA platform, economy, progression, match, ops FROM PUBLIC;
         SQL
