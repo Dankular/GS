@@ -41,7 +41,8 @@ func TestServiceRewardClaimIsAtomicAndOncePerPlayer(t *testing.T) {
 		return commands.Envelope{Metadata: commands.Metadata{RequestID: requestID, CorrelationID: requestID, GameID: gameID, Environment: "test", DefinitionRevision: 1}, Actor: commands.Actor{ID: playerID}, Spec: commands.Spec{Operation: "reward.claim", Arguments: map[string]any{"rewardId": "welcome", "sourceId": sourceID}}}
 	}
 	service := Service{}
-	for _, input := range []commands.Envelope{envelope("reward-request-1", "source-1"), envelope("reward-request-2", "source-2")} {
+	inputs := []commands.Envelope{envelope("reward-request-1", "source-1"), envelope("reward-request-2", "source-2")}
+	for index, input := range inputs {
 		tx, err := pool.Begin(ctx)
 		if err != nil {
 			t.Fatal(err)
@@ -53,6 +54,18 @@ func TestServiceRewardClaimIsAtomicAndOncePerPlayer(t *testing.T) {
 		}
 		if err := tx.Commit(ctx); err != nil {
 			t.Fatal(err)
+		}
+		if index == 0 {
+			if result.Status != "succeeded" || result.Result["duplicate"] == true {
+				t.Fatalf("first reward claim did not succeed: %#v", result)
+			}
+			var claims int
+			if err := pool.QueryRow(ctx, `SELECT count(*) FROM economy.reward_claims WHERE player_id=$1 AND reward_id='welcome'`, playerID).Scan(&claims); err != nil {
+				t.Fatal(err)
+			}
+			if claims != 1 {
+				t.Fatalf("first reward claim was not persisted: %d", claims)
+			}
 		}
 		if input.Metadata.RequestID == "reward-request-2" && (result.Status != "succeeded" || result.Result["duplicate"] != true) {
 			t.Fatalf("expected duplicate reward result, got %#v", result)
