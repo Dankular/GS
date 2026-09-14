@@ -39,6 +39,21 @@ func TestGeneratedRequestEditorCanAttachBearerToken(t *testing.T) {
 	}
 }
 
+func TestGeneratedDryRunDefinitionRequestEncodesImpactQuery(t *testing.T) {
+	gameID := "arena"
+	revision := 4
+	req, err := NewDryRunDefinitionRequest("https://gameservice.example", &DryRunDefinitionParams{GameId: &gameID, Revision: &revision})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if req.Method != http.MethodPost {
+		t.Fatalf("method = %q", req.Method)
+	}
+	if got, want := req.URL.String(), "https://gameservice.example/v1/admin/definitions/dry-run?gameId=arena&revision=4"; got != want {
+		t.Fatalf("URL = %q, want %q", got, want)
+	}
+}
+
 type roundTripFunc func(*http.Request) (*http.Response, error)
 
 func (f roundTripFunc) Do(req *http.Request) (*http.Response, error) { return f(req) }
