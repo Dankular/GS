@@ -9,6 +9,7 @@ import (
 	"github.com/Dankular/GameService/internal/nakama"
 	"github.com/Dankular/GameService/internal/outbox"
 	"github.com/jackc/pgx/v5/pgxpool"
+	"time"
 )
 
 type ResultPlayer struct {
@@ -56,8 +57,8 @@ func (p Publisher) Publish(ctx context.Context, event outbox.Event) error {
 	if err := json.Unmarshal(canonical, &definition); err != nil {
 		return fmt.Errorf("decode match definition: %w", err)
 	}
-	leaderboardID := configuredLeaderboard(definition, modeID)
-	if leaderboardID == "" {
+	rating := configuredRating(definition, modeID)
+	if rating.LeaderboardID == "" && rating.Tournament == nil {
 		return nil
 	}
 	result, err := DecodeResultPayload(payload)
@@ -65,18 +66,38 @@ func (p Publisher) Publish(ctx context.Context, event outbox.Event) error {
 		return err
 	}
 	for _, player := range result.Players {
-		if err := p.Nakama.WriteLeaderboardRecord(ctx, leaderboardID, nakama.LeaderboardRecord{UserID: player.PlayerID, Score: player.Score, Subscore: player.Subscore}); err != nil {
-			return err
+		record := nakama.LeaderboardRecord{UserID: player.PlayerID, Score: player.Score, Subscore: player.Subscore}
+		if rating.LeaderboardID != "" {
+			if err := p.Nakama.WriteLeaderboardRecord(ctx, rating.LeaderboardID, record); err != nil {
+				return err
+			}
+		}
+		if rating.Tournament != nil {
+			duration, err := time.ParseDuration(rating.Tournament.Duration)
+			if err != nil {
+				return fmt.Errorf("parse tournament duration: %w", err)
+			}
+			if err := p.Nakama.WriteTournamentRecord(ctx, nakama.TournamentConfig{
+				ID: rating.Tournament.ID, DurationSeconds: int64(duration / time.Second),
+				ResetSchedule: rating.Tournament.ResetSchedule, JoinRequired: rating.Tournament.JoinRequired,
+				MaxScoreAttempts: rating.Tournament.MaxScoreAttempts,
+			}, record); err != nil {
+				return err
+			}
 		}
 	}
 	return nil
 }
 
 func configuredLeaderboard(definition compiler.Definition, modeID string) string {
+	return configuredRating(definition, modeID).LeaderboardID
+}
+
+func configuredRating(definition compiler.Definition, modeID string) compiler.RatingPolicy {
 	for _, mode := range definition.Spec.MatchModes {
 		if mode.ID == modeID {
-			return mode.Rating.LeaderboardID
+			return mode.Rating
 		}
 	}
-	return ""
+	return compiler.RatingPolicy{}
 }

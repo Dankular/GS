@@ -29,6 +29,7 @@ spec:
             {{- if eq $worker.name "leaderboard" }}
             - { name: NAKAMA_URL, value: {{ $.Values.nakama.url | quote }} }
             - { name: NAKAMA_SOCKET_SERVER_KEY, valueFrom: { secretKeyRef: { name: {{ $.Values.nakama.secretName }}, key: {{ $.Values.nakama.serverKeySecretKey }} } } }
+            - { name: NAKAMA_RUNTIME_HTTP_KEY, valueFrom: { secretKeyRef: { name: {{ $.Values.nakama.secretName }}, key: {{ $.Values.nakama.runtimeHTTPKeySecretKey }} } } }
             {{- end }}
           resources: {{- toYaml $.Values.resources | nindent 12 }}
       volumes: [{ name: tmp, emptyDir: {} }]

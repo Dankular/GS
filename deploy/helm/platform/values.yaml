@@ -26,6 +26,7 @@ nakama:
   signingKeyKey: nakama-session-signing-key
   url: http://nakama.platform-app.svc.cluster.local:7350
   serverKeySecretKey: nakama-server-key
+  runtimeHTTPKeySecretKey: nakama-runtime-http-key
 otel:
   endpoint: otel-collector.platform-observability.svc.cluster.local:4318
   namespace: platform-observability

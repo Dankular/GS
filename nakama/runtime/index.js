@@ -178,9 +178,70 @@ function gameserviceSocial(ctx, logger, nk, payload) {
   return JSON.stringify({ operation: operation, result: result || {} });
 }
 
+function tournamentRequiredString(value, field, maxLength) {
+  if (typeof value !== "string" || value.length === 0 || value.length > maxLength) {
+    throw { message: field + " must be a non-empty string of at most " + maxLength + " characters", code: 3 };
+  }
+  return value;
+}
+
+function gameserviceTournamentRecord(ctx, logger, nk, payload) {
+  // This RPC is intentionally server-to-server only. Nakama's runtime is the
+  // supported authority for creating tournaments and writing authoritative
+  // tournament records; no client session may call it directly.
+  if (ctx.userId) {
+    throw { message: "tournament record RPC is server-to-server only", code: 7 };
+  }
+  var request = {};
+  try {
+    request = payload ? JSON.parse(payload) : {};
+  } catch (error) {
+    throw { message: "tournament payload must be valid JSON", code: 3 };
+  }
+  var tournamentId = tournamentRequiredString(request.tournamentId, "tournamentId", 128);
+  var ownerId = tournamentRequiredString(request.ownerId, "ownerId", 128);
+  var username = request.username || "";
+  if (typeof username !== "string" || username.length > 128) {
+    throw { message: "username must be a string of at most 128 characters", code: 3 };
+  }
+  if (typeof request.score !== "number" || !isFinite(request.score) || Math.floor(request.score) !== request.score) {
+    throw { message: "score must be an integer", code: 3 };
+  }
+  var subscore = request.subscore === undefined ? 0 : request.subscore;
+  if (typeof subscore !== "number" || !isFinite(subscore) || Math.floor(subscore) !== subscore) {
+    throw { message: "subscore must be an integer", code: 3 };
+  }
+  var duration = request.durationSeconds;
+  if (typeof duration !== "number" || duration < 1 || duration > 31536000 || Math.floor(duration) !== duration) {
+    throw { message: "durationSeconds must be an integer from 1 to 31536000", code: 3 };
+  }
+  var resetSchedule = request.resetSchedule || "";
+  if (typeof resetSchedule !== "string" || resetSchedule.length > 128) {
+    throw { message: "resetSchedule must be a string of at most 128 characters", code: 3 };
+  }
+  var metadata = request.metadata || {};
+  if (typeof metadata !== "object" || Array.isArray(metadata) || JSON.stringify(metadata).length > 2048) {
+    throw { message: "metadata must be an object of at most 2048 characters", code: 3 };
+  }
+  var existing = nk.tournamentsGetId([tournamentId]);
+  if (!existing || existing.length === 0) {
+    var attempts = request.maxScoreAttempts || 1000000;
+    if (typeof attempts !== "number" || attempts < 1 || attempts > 1000000 || Math.floor(attempts) !== attempts) {
+      throw { message: "maxScoreAttempts must be an integer from 1 to 1000000", code: 3 };
+    }
+    nk.tournamentCreate(tournamentId, true, "desc", "best", duration, resetSchedule, metadata, tournamentId, "", 0, 0, 0, 0, attempts, request.joinRequired === true, true);
+  }
+  if (request.joinRequired === true) {
+    nk.tournamentJoin(tournamentId, ownerId, username);
+  }
+  var record = nk.tournamentRecordWrite(tournamentId, ownerId, username, request.score, subscore, metadata, 0);
+  return JSON.stringify({ tournamentId: tournamentId, ownerId: ownerId, record: record || {} });
+}
+
 function InitModule(ctx, logger, nk, initializer) {
   initializer.registerRpc("gameservice.health", gameserviceHealth);
   initializer.registerRpc("gameservice.profile", gameserviceProfile);
   initializer.registerRpc("gameservice.social", gameserviceSocial);
+  initializer.registerRpc("gameservice.tournament_record", gameserviceTournamentRecord);
   logger.info("GameService Nakama bridge loaded.");
 }

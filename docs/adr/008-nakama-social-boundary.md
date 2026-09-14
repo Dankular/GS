@@ -10,9 +10,11 @@ arbitrary method names.
 
 ## Consequences
 
-Nakama remains the authoritative owner of social state and permission checks.
+Nakama remains the authoritative owner of social state, leaderboards, and
+tournaments, as well as permission checks.
 GameService clients can use a stable operation envelope without receiving
 Nakama server credentials. Supported operations include `friends.*`,
-`group.*`, `groups.mine`, `notifications.list`, and `chat.send`. Parties and
-tournaments remain native Nakama client capabilities; moderation policy hooks
-and generated client SDK examples remain follow-up work.
+`group.*`, `groups.mine`, `notifications.list`, and `chat.send`. Parties remain
+native Nakama client capabilities. Tournament creation and authoritative record
+delivery use the separate, server-only `gameservice.tournament_record` runtime
+RPC; moderation policy hooks remain a follow-up capability.

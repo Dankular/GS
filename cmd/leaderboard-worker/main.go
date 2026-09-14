@@ -20,7 +20,7 @@ func main() {
 		os.Exit(1)
 	}
 	defer repo.Close()
-	worker := outbox.Worker{Pool: repo.Pool(), Consumer: "nakama-leaderboard", EventType: "match.result.accepted.v1", Publisher: leaderboards.Publisher{Pool: repo.Pool(), Nakama: nakama.Client{BaseURL: env("NAKAMA_URL", "http://nakama:7350"), ServerKey: os.Getenv("NAKAMA_SOCKET_SERVER_KEY"), HTTP: &http.Client{Timeout: 5 * time.Second}}}}
+	worker := outbox.Worker{Pool: repo.Pool(), Consumer: "nakama-leaderboard", EventType: "match.result.accepted.v1", Publisher: leaderboards.Publisher{Pool: repo.Pool(), Nakama: nakama.Client{BaseURL: env("NAKAMA_URL", "http://nakama:7350"), ServerKey: os.Getenv("NAKAMA_SOCKET_SERVER_KEY"), RuntimeHTTPKey: os.Getenv("NAKAMA_RUNTIME_HTTP_KEY"), HTTP: &http.Client{Timeout: 5 * time.Second}}}}
 	for {
 		if _, err := worker.RunOnce(ctx); err != nil {
 			slog.Error("leaderboard cycle failed", "error", err)

@@ -54,3 +54,18 @@ func TestCompileRejectsInvalidResultDuration(t *testing.T) {
 		t.Fatal("accepted invalid result duration")
 	}
 }
+
+func TestCompileAcceptsTournamentPolicy(t *testing.T) {
+	definition := strings.Replace(valid, "serverBuild: sha256:0123456789abcdef0123456789abcdef0123456789abcdef0123456789abcdef", "serverBuild: sha256:0123456789abcdef0123456789abcdef0123456789abcdef0123456789abcdef, rating: {tournament: {id: weekly_arena, duration: 24h, maxScoreAttempts: 3}, strategy: authoritative}", 1)
+	report, err := Compile(strings.NewReader(definition))
+	if err != nil || report.Definition.Spec.MatchModes[0].Rating.Tournament.ID != "weekly_arena" {
+		t.Fatalf("tournament policy rejected: report=%+v err=%v", report, err)
+	}
+}
+
+func TestCompileRejectsInvalidTournamentPolicy(t *testing.T) {
+	definition := strings.Replace(valid, "serverBuild: sha256:0123456789abcdef0123456789abcdef0123456789abcdef0123456789abcdef", "serverBuild: sha256:0123456789abcdef0123456789abcdef0123456789abcdef0123456789abcdef, rating: {tournament: {id: weekly_arena, duration: 0s}, strategy: authoritative}", 1)
+	if _, err := Compile(strings.NewReader(definition)); err == nil {
+		t.Fatal("accepted invalid tournament duration")
+	}
+}

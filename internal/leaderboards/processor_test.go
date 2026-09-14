@@ -23,3 +23,11 @@ func TestConfiguredLeaderboardUsesDefinitionPolicy(t *testing.T) {
 		t.Fatalf("unknown mode returned leaderboard %q", got)
 	}
 }
+
+func TestConfiguredRatingIncludesTournamentPolicy(t *testing.T) {
+	definition := compiler.Definition{Spec: compiler.Spec{MatchModes: []compiler.MatchMode{{ID: "deathmatch", Rating: compiler.RatingPolicy{Strategy: "authoritative", Tournament: &compiler.TournamentPolicy{ID: "weekly", Duration: "1h"}}}}}}
+	rating := configuredRating(definition, "deathmatch")
+	if rating.Tournament == nil || rating.Tournament.ID != "weekly" {
+		t.Fatalf("rating tournament policy = %+v", rating)
+	}
+}

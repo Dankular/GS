@@ -25,3 +25,8 @@ the configured CA and client certificate/key; it never receives Kubernetes API
 credentials. All application containers run non-root with a RuntimeDefault
 seccomp profile, dropped capabilities, read-only root filesystems, and a
 temporary filesystem only where needed.
+
+The referenced Secret must also contain `nakama-runtime-http-key` when a
+definition enables tournament delivery. The leaderboard worker uses that key
+only for the narrow server-to-server `gameservice.tournament_record` runtime
+RPC; it never exposes the key to clients.

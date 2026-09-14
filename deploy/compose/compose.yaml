@@ -93,6 +93,7 @@ services:
       DATABASE_URL: postgres://gameservice:${POSTGRES_PASSWORD}@postgres:5432/gameservice?sslmode=disable
       NAKAMA_URL: ${NAKAMA_URL:-http://nakama:7350}
       NAKAMA_SOCKET_SERVER_KEY: ${NAKAMA_SOCKET_SERVER_KEY:?set NAKAMA_SOCKET_SERVER_KEY}
+      NAKAMA_RUNTIME_HTTP_KEY: ${NAKAMA_RUNTIME_HTTP_KEY:?set NAKAMA_RUNTIME_HTTP_KEY}
     depends_on:
       postgres: { condition: service_healthy }
       nakama: { condition: service_started }

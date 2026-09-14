@@ -111,6 +111,12 @@ The Nakama leaderboard consumer is available through the `leaderboards` Compose
 profile and consumes `match.result.accepted.v1` with a per-consumer checkpoint;
 it expects authoritative result payloads in the form
 `{"players":[{"playerId":"...","score":123,"subscore":0}]}`. The
+published match-mode rating policy may also include an authoritative Nakama
+tournament (`rating.tournament`). The worker creates the tournament through
+the server-only runtime RPC and writes each accepted player result there; the
+Nakama runtime HTTP key is required only by that worker and never reaches a
+client. Tournament IDs and durations are immutable definition inputs, so
+changing them requires a new published revision.
 Agones-backed matchmaking worker is available through the `matchmaking` Compose
 profile and requires mounted allocator mTLS material. Set `TURN_REALM`
 and a long random `TURN_SECRET` only in the deployment environment; never commit

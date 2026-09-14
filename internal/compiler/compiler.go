@@ -80,8 +80,17 @@ type ResultPolicy struct {
 }
 
 type RatingPolicy struct {
-	LeaderboardID string `yaml:"leaderboardId" json:"leaderboardId"`
-	Strategy      string `yaml:"strategy" json:"strategy"`
+	LeaderboardID string            `yaml:"leaderboardId" json:"leaderboardId"`
+	Strategy      string            `yaml:"strategy" json:"strategy"`
+	Tournament    *TournamentPolicy `yaml:"tournament,omitempty" json:"tournament,omitempty"`
+}
+
+type TournamentPolicy struct {
+	ID               string `yaml:"id" json:"id"`
+	Duration         string `yaml:"duration" json:"duration"`
+	ResetSchedule    string `yaml:"resetSchedule,omitempty" json:"resetSchedule,omitempty"`
+	JoinRequired     bool   `yaml:"joinRequired,omitempty" json:"joinRequired,omitempty"`
+	MaxScoreAttempts int64  `yaml:"maxScoreAttempts,omitempty" json:"maxScoreAttempts,omitempty"`
 }
 
 type Report struct {
@@ -168,11 +177,24 @@ func validate(d Definition) error {
 				return fmt.Errorf("match mode %q has invalid result maxDuration", m.ID)
 			}
 		}
-		if (m.Rating.LeaderboardID == "") != (m.Rating.Strategy == "") {
-			return fmt.Errorf("match mode %q rating leaderboardId and strategy must be provided together", m.ID)
+		hasTournament := m.Rating.Tournament != nil
+		if (m.Rating.LeaderboardID == "" && !hasTournament) != (m.Rating.Strategy == "") {
+			return fmt.Errorf("match mode %q rating target and strategy must be provided together", m.ID)
 		}
 		if m.Rating.LeaderboardID != "" && m.Rating.Strategy != "authoritative" {
 			return fmt.Errorf("match mode %q has unsupported rating strategy", m.ID)
+		}
+		if m.Rating.Tournament != nil {
+			if m.Rating.Tournament.ID == "" || m.Rating.Tournament.Duration == "" {
+				return fmt.Errorf("match mode %q tournament id and duration are required", m.ID)
+			}
+			duration, err := time.ParseDuration(m.Rating.Tournament.Duration)
+			if err != nil || duration < time.Second {
+				return fmt.Errorf("match mode %q has invalid tournament duration", m.ID)
+			}
+			if m.Rating.Tournament.MaxScoreAttempts < 0 {
+				return fmt.Errorf("match mode %q tournament maxScoreAttempts cannot be negative", m.ID)
+			}
 		}
 	}
 	return nil
