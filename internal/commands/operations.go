@@ -12,6 +12,7 @@ type OperationDefinition struct {
 	InputSchema     string
 	OutputSchema    string
 	Isolation       string
+	LockStrategy    string
 	Idempotency     string
 	RateLimitBucket string
 	Event           string
@@ -59,34 +60,34 @@ var operationDefinitions = map[string]OperationDefinition{
 }
 
 func playerRead(bucket, output, event, audit string) OperationDefinition {
-	return definition("player", "player:read", bucket, output, event, audit, false)
+	return definition("player", "player:read", bucket, output, event, audit, "none", false)
 }
 
 func playerWrite(bucket, output, event, audit string) OperationDefinition {
-	return definition("player", "player:write", bucket, output, event, audit, false)
+	return definition("player", "player:write", bucket, output, event, audit, "ordered-resource-rows", false)
 }
 
 func serverWrite(bucket, output, event, audit string) OperationDefinition {
-	return definition("server", "server:write", bucket, output, event, audit, false)
+	return definition("server", "server:write", bucket, output, event, audit, "match-row-and-result-sequence", false)
 }
 
 func adminRead(bucket, output, event, audit string, dryRun bool) OperationDefinition {
-	return definition("admin", "admin:read", bucket, output, event, audit, dryRun)
+	return definition("admin", "admin:read", bucket, output, event, audit, "none", dryRun)
 }
 
 func adminWrite(bucket, output, event, audit string, dryRun bool) OperationDefinition {
-	return definition("admin", "admin:write", bucket, output, event, audit, dryRun)
+	return definition("admin", "admin:write", bucket, output, event, audit, "target-row-and-audit", dryRun)
 }
 
 func scopedDefinition(scope, bucket, output, event, audit string, dryRun bool) OperationDefinition {
-	result := definition("admin", scope, bucket, output, event, audit, dryRun)
+	result := definition("admin", scope, bucket, output, event, audit, "none", dryRun)
 	return result
 }
 
-func definition(actor, scope, bucket, output, event, audit string, dryRun bool) OperationDefinition {
+func definition(actor, scope, bucket, output, event, audit, lockStrategy string, dryRun bool) OperationDefinition {
 	return OperationDefinition{
 		ActorType: actor, Scope: scope, InputSchema: "command-envelope.v1", OutputSchema: output,
-		Isolation: "read-committed", Idempotency: "request-id", RateLimitBucket: bucket,
+		Isolation: "read-committed", LockStrategy: lockStrategy, Idempotency: "request-id", RateLimitBucket: bucket,
 		Event: event, AuditPolicy: audit, MaxExecution: 5 * time.Second, DryRun: dryRun,
 	}
 }

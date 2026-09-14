@@ -12,7 +12,7 @@ func TestEveryRegisteredOperationHasACompleteDefinition(t *testing.T) {
 			t.Errorf("operation %q has no definition", operation)
 			continue
 		}
-		if definition.ActorType == "" || definition.Scope == "" || definition.InputSchema == "" || definition.OutputSchema == "" || definition.Isolation == "" || definition.Idempotency == "" || definition.RateLimitBucket == "" || definition.Event == "" || definition.AuditPolicy == "" || definition.MaxExecution <= 0 {
+		if definition.ActorType == "" || definition.Scope == "" || definition.InputSchema == "" || definition.OutputSchema == "" || definition.Isolation == "" || definition.LockStrategy == "" || definition.Idempotency == "" || definition.RateLimitBucket == "" || definition.Event == "" || definition.AuditPolicy == "" || definition.MaxExecution <= 0 {
 			t.Errorf("operation %q has incomplete definition: %#v", operation, definition)
 		}
 	}
