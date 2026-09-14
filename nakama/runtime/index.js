@@ -80,8 +80,88 @@ function unauthenticatedCode() {
   return 16;
 }
 
+function socialString(value, field, required) {
+  if (value === null || value === undefined || value === "") {
+    if (required) {
+      throw { message: field + " is required", code: 3 };
+    }
+    return "";
+  }
+  if (typeof value !== "string" || value.length > 256) {
+    throw { message: field + " must be a string of at most 256 characters", code: 3 };
+  }
+  return value;
+}
+
+function socialLimit(value) {
+  if (value === undefined || value === null) {
+    return 100;
+  }
+  if (typeof value !== "number" || value < 1 || value > 100 || Math.floor(value) !== value) {
+    throw { message: "limit must be an integer from 1 to 100", code: 3 };
+  }
+  return value;
+}
+
+function gameserviceSocial(ctx, logger, nk, payload) {
+  if (!ctx.userId) {
+    throw { message: "social RPC requires an authenticated user", code: unauthenticatedCode() };
+  }
+  var request = {};
+  try {
+    request = payload ? JSON.parse(payload) : {};
+  } catch (error) {
+    throw { message: "social payload must be valid JSON", code: 3 };
+  }
+  var operation = socialString(request.operation, "operation", true);
+  var userAccount = nk.accountGetId(ctx.userId);
+  var username = userAccount.user.username || "";
+  var target = socialString(request.userId, "userId", false);
+  if (target === ctx.userId && (operation === "friends.add" || operation === "friends.delete")) {
+    throw { message: "a user cannot target themselves", code: 3 };
+  }
+  var result;
+  if (operation === "friends.list") {
+    result = nk.friendsList(ctx.userId, socialLimit(request.limit), request.state, socialString(request.cursor, "cursor", false));
+  } else if (operation === "friends.add") {
+    target = socialString(request.userId, "userId", true);
+    result = nk.friendsAdd(ctx.userId, username, [target], [socialString(request.username, "username", true)]);
+    result = { added: true, userId: target };
+  } else if (operation === "friends.delete") {
+    target = socialString(request.userId, "userId", true);
+    nk.friendsDelete(ctx.userId, username, [target], [socialString(request.username, "username", true)]);
+    result = { deleted: true, userId: target };
+  } else if (operation === "group.create") {
+    var name = socialString(request.name, "name", true);
+    result = nk.groupCreate(ctx.userId, name, ctx.userId, socialString(request.langTag, "langTag", false), socialString(request.description, "description", false), socialString(request.avatarUrl, "avatarUrl", false), request.open === true, request.metadata || {}, request.maxCount || 100);
+  } else if (operation === "group.join") {
+    var groupId = socialString(request.groupId, "groupId", true);
+    nk.groupUserJoin(groupId, ctx.userId, username);
+    result = { joined: true, groupId: groupId };
+  } else if (operation === "group.leave") {
+    var leaveGroupId = socialString(request.groupId, "groupId", true);
+    nk.groupUserLeave(leaveGroupId, ctx.userId, username);
+    result = { left: true, groupId: leaveGroupId };
+  } else if (operation === "group.users") {
+    result = nk.groupUsersList(socialString(request.groupId, "groupId", true), socialLimit(request.limit), request.state, socialString(request.cursor, "cursor", false));
+  } else if (operation === "notifications.list") {
+    result = nk.notificationsList(ctx.userId, socialLimit(request.limit), socialString(request.cursor, "cursor", false));
+  } else if (operation === "chat.send") {
+    var channelId = socialString(request.channelId, "channelId", true);
+    var content = request.content;
+    if (!content || typeof content !== "object" || Array.isArray(content)) {
+      throw { message: "content must be an object", code: 3 };
+    }
+    result = nk.channelMessageSend(channelId, content, ctx.userId, username, request.persist !== false);
+  } else {
+    throw { message: "unsupported social operation", code: 3 };
+  }
+  return JSON.stringify({ operation: operation, result: result || {} });
+}
+
 function InitModule(ctx, logger, nk, initializer) {
   initializer.registerRpc("gameservice.health", gameserviceHealth);
   initializer.registerRpc("gameservice.profile", gameserviceProfile);
+  initializer.registerRpc("gameservice.social", gameserviceSocial);
   logger.info("GameService Nakama bridge loaded.");
 }
