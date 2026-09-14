@@ -29,8 +29,8 @@ func TestPrometheusRulesHaveRunbooks(t *testing.T) {
 	if err := yaml.Unmarshal(data, &document); err != nil {
 		t.Fatalf("parse Prometheus rules: %v", err)
 	}
-	if len(document.Groups) != 1 || len(document.Groups[0].Rules) < 4 {
-		t.Fatalf("expected availability, error-rate, traffic, and latency alerts: %#v", document)
+	if len(document.Groups) != 1 || len(document.Groups[0].Rules) < 6 {
+		t.Fatalf("expected API and outbox SLO alerts: %#v", document)
 	}
 	for _, rule := range document.Groups[0].Rules {
 		if strings.TrimSpace(rule.Alert) == "" || strings.TrimSpace(rule.Annotations["runbook"]) == "" {
@@ -40,6 +40,11 @@ func TestPrometheusRulesHaveRunbooks(t *testing.T) {
 	rulesText := string(data)
 	if !strings.Contains(rulesText, "histogram_quantile") || !strings.Contains(rulesText, "gameservice_http_request_duration_seconds_bucket") {
 		t.Fatal("latency SLO alert is missing the bounded request histogram")
+	}
+	for _, required := range []string{"gameservice_outbox_oldest_age_seconds", "gameservice_outbox_dead_letters", "docs/runbooks/outbox.md"} {
+		if !strings.Contains(rulesText, required) {
+			t.Errorf("outbox alert configuration missing %q", required)
+		}
 	}
 }
 
@@ -62,14 +67,20 @@ func TestObservabilityDashboardUsesOnlyBoundedMetrics(t *testing.T) {
 	if err := json.Unmarshal(data, &dashboard); err != nil {
 		t.Fatalf("parse dashboard: %v", err)
 	}
-	if len(dashboard.Panels) < 4 {
-		t.Fatalf("expected availability, traffic, error, and uptime panels")
+	if len(dashboard.Panels) < 7 {
+		t.Fatalf("expected API and outbox panels")
 	}
 	for _, panel := range dashboard.Panels {
 		for _, target := range panel.Targets {
 			if strings.Contains(target.Expr, "player") || strings.Contains(target.Expr, "match") || strings.Contains(target.Expr, "request_id") {
 				t.Fatalf("dashboard panel %q contains an unbounded identifier: %q", panel.Title, target.Expr)
 			}
+		}
+	}
+	dashboardText := string(data)
+	for _, required := range []string{"gameservice_outbox_backlog_depth", "gameservice_outbox_oldest_age_seconds", "gameservice_outbox_dead_letters"} {
+		if !strings.Contains(dashboardText, required) {
+			t.Errorf("dashboard missing %q", required)
 		}
 	}
 }

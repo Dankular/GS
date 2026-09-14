@@ -47,6 +47,26 @@
       "targets": [{ "expr": "histogram_quantile(0.95, sum(rate(gameservice_http_request_duration_seconds_bucket[5m])) by (le))", "legendFormat": "p95 seconds" }],
       "fieldConfig": { "defaults": { "unit": "s", "thresholds": { "steps": [{ "color": "green", "value": null }, { "color": "red", "value": 0.25 }] } } },
       "gridPos": { "h": 8, "w": 24, "x": 0, "y": 16 }
+    },
+    {
+      "id": 6,
+      "type": "timeseries",
+      "title": "Outbox backlog and oldest age",
+      "datasource": { "type": "prometheus", "uid": "gameservice-prometheus" },
+      "targets": [
+        { "expr": "max(gameservice_outbox_backlog_depth)", "legendFormat": "pending events" },
+        { "expr": "max(gameservice_outbox_oldest_age_seconds)", "legendFormat": "oldest age seconds" }
+      ],
+      "gridPos": { "h": 8, "w": 12, "x": 0, "y": 24 }
+    },
+    {
+      "id": 7,
+      "type": "stat",
+      "title": "Outbox dead letters",
+      "datasource": { "type": "prometheus", "uid": "gameservice-prometheus" },
+      "targets": [{ "expr": "max(gameservice_outbox_dead_letters)", "legendFormat": "dead letters" }],
+      "fieldConfig": { "defaults": { "thresholds": { "steps": [{ "color": "green", "value": null }, { "color": "red", "value": 1 }] } } },
+      "gridPos": { "h": 8, "w": 12, "x": 12, "y": 24 }
     }
   ]
 }

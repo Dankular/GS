@@ -42,3 +42,21 @@ groups:
         annotations:
           summary: Control API p95 latency exceeds the 250ms SLO hypothesis
           runbook: docs/runbooks/control-api.md
+      - alert: GameServiceOutboxBacklogOld
+        expr: gameservice_outbox_oldest_age_seconds > 30
+        for: 5m
+        labels:
+          severity: warning
+          service: gameservice-outbox
+        annotations:
+          summary: GameService outbox oldest pending event exceeds 30 seconds
+          runbook: docs/runbooks/outbox.md
+      - alert: GameServiceOutboxDeadLettersPresent
+        expr: gameservice_outbox_dead_letters > 0
+        for: 5m
+        labels:
+          severity: critical
+          service: gameservice-outbox
+        annotations:
+          summary: GameService outbox contains dead-lettered events
+          runbook: docs/runbooks/outbox.md
