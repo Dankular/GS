@@ -70,6 +70,19 @@ var registry = map[string]struct{}{
 	"admin.player_snapshot": {}, "admin.execute_command": {}, "admin.audit_search": {}, "admin.player_restrict": {}, "admin.player_unrestrict": {},
 }
 
+var allowedArgumentKeys = map[string]map[string]struct{}{
+	"profile.get": {}, "profile.patch_public_fields": {"fields": {}},
+	"inventory.list": {"playerId": {}}, "inventory.grant": {"playerId": {}, "itemId": {}, "quantity": {}}, "inventory.consume": {"playerId": {}, "itemId": {}, "quantity": {}}, "inventory.transfer": {"playerId": {}, "targetPlayerId": {}, "itemId": {}, "quantity": {}},
+	"wallet.get": {"playerId": {}, "currency": {}}, "wallet.credit": {"playerId": {}, "currency": {}, "amount": {}}, "wallet.debit": {"playerId": {}, "currency": {}, "amount": {}}, "wallet.transfer": {"playerId": {}, "targetPlayerId": {}, "currency": {}, "amount": {}},
+	"entitlement.list": {"playerId": {}}, "entitlement.grant": {"playerId": {}, "entitlementId": {}}, "entitlement.revoke": {"playerId": {}, "entitlementId": {}},
+	"progression.get": {"playerId": {}, "trackId": {}}, "progression.add_xp": {"playerId": {}, "trackId": {}, "amount": {}}, "progression.complete_objective": {"playerId": {}, "objectiveId": {}, "sourceId": {}},
+	"reward.preview": {"playerId": {}, "rewardId": {}}, "reward.claim": {"playerId": {}, "rewardId": {}, "sourceId": {}},
+	"matchmaking.enqueue": {"gameId": {}, "environment": {}, "modeId": {}, "definitionRevision": {}, "build": {}, "region": {}, "capacity": {}, "playerIds": {}, "properties": {}, "expiresAt": {}}, "matchmaking.status": {"ticketId": {}}, "matchmaking.cancel": {"ticketId": {}},
+	"match.get": {"matchId": {}}, "match.issue_join_claim": {"matchId": {}}, "match.submit_result": {"matchId": {}, "sequence": {}, "payload": {}, "payloadDigest": {}}, "match.abandon": {"matchId": {}},
+	"definition.validate": {"source": {}}, "definition.diff": {"source": {}, "gameId": {}, "revision": {}}, "definition.publish": {"source": {}, "reason": {}}, "definition.activate": {"gameId": {}, "environment": {}, "revision": {}, "reason": {}}, "definition.rollback": {"gameId": {}, "environment": {}, "revision": {}, "reason": {}},
+	"admin.player_snapshot": {"playerId": {}}, "admin.execute_command": {"operation": {}, "targetPlayerId": {}, "arguments": {}, "reason": {}}, "admin.audit_search": {"action": {}, "limit": {}}, "admin.player_restrict": {"playerId": {}, "kind": {}, "reason": {}, "expiresAt": {}}, "admin.player_unrestrict": {"playerId": {}},
+}
+
 const (
 	maxArgumentDepth      = 8
 	maxArgumentStringSize = 4096
@@ -94,6 +107,13 @@ func (e Envelope) Validate() error {
 	}
 	if _, ok := registry[e.Spec.Operation]; !ok {
 		return fmt.Errorf("%w: %s", ErrUnknownOperation, e.Spec.Operation)
+	}
+	if allowed, ok := allowedArgumentKeys[e.Spec.Operation]; ok {
+		for key := range e.Spec.Arguments {
+			if _, accepted := allowed[key]; !accepted {
+				return fmt.Errorf("%w: unknown argument %q for %s", ErrInvalidEnvelope, key, e.Spec.Operation)
+			}
+		}
 	}
 	if len(e.Spec.Arguments) > 64 {
 		return fmt.Errorf("%w: too many arguments", ErrInvalidEnvelope)

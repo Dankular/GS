@@ -13,7 +13,7 @@ increments are additionally capped at 1,000,000,000 per command.
 
 The bounds are enforced before dispatch, independently of the selected command
 handler. The command envelope remains strict about unknown top-level JSON
-fields and rejects trailing JSON data. Operation handlers retain their own
+fields, operation argument keys, and trailing JSON data. Operation handlers retain their own
 semantic validation and definition-specific limits.
 
 ## Context

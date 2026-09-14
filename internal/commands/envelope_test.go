@@ -43,6 +43,14 @@ func TestDecodeStrictRejectsTrailingJSON(t *testing.T) {
 	}
 }
 
+func TestEnvelopeRejectsUnknownOperationArguments(t *testing.T) {
+	e := validEnvelope()
+	e.Spec.Arguments = map[string]any{"currency": "coins", "unexpected": true}
+	if err := e.Validate(); err == nil {
+		t.Fatal("expected unknown operation argument to be rejected")
+	}
+}
+
 func TestEnvelopeRejectsOversizedArguments(t *testing.T) {
 	cases := []struct {
 		name string
