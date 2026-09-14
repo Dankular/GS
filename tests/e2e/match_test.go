@@ -15,22 +15,24 @@ import (
 	"net/http"
 	"os"
 	"strconv"
+	"strings"
 	"testing"
 	"time"
 )
 
 type testConfig struct {
-	APIURL      string
-	SigningKey  string
-	PlayerA     string
-	PlayerB     string
-	GameID      string
-	Environment string
-	ModeID      string
-	Build       string
-	Region      string
-	ServerURL   string
-	ServerToken string
+	APIURL          string
+	SigningKey      string
+	PlayerA         string
+	PlayerB         string
+	GameID          string
+	Environment     string
+	ModeID          string
+	Build           string
+	Region          string
+	ServerURL       string
+	ServerToken     string
+	ServerTokenFile string
 }
 
 type ticket struct {
@@ -104,11 +106,17 @@ func TestSyntheticMatchLifecycle(t *testing.T) {
 		t.Fatalf("ticket was not durably associated with completed match: %+v", completed)
 	}
 
-	if cfg.ServerToken != "" {
+	serverToken := cfg.ServerToken
+	if serverToken == "" && cfg.ServerTokenFile != "" {
+		if data, err := os.ReadFile(cfg.ServerTokenFile); err == nil {
+			serverToken = strings.TrimSpace(string(data))
+		}
+	}
+	if serverToken != "" {
 		// The optional token allows the harness to verify duplicate result
 		// acceptance through the authoritative server endpoint as well.
 		result := map[string]any{"sequence": 1, "payload": json.RawMessage(payload)}
-		body := postJSON(t, ctx, client, cfg.APIURL+"/v1/server/matches/"+a.MatchID+"/results", cfg.ServerToken, result)
+		body := postJSON(t, ctx, client, cfg.APIURL+"/v1/server/matches/"+a.MatchID+"/results", serverToken, result)
 		if duplicate, _ := body["duplicate"].(bool); !duplicate {
 			t.Fatalf("duplicate result was not acknowledged: %v", body)
 		}
@@ -121,7 +129,7 @@ func loadConfig() (testConfig, bool) {
 		PlayerA: os.Getenv("GAMESERVICE_E2E_PLAYER_A"), PlayerB: os.Getenv("GAMESERVICE_E2E_PLAYER_B"),
 		GameID: envOr("GAMESERVICE_E2E_GAME_ID", "arena"), Environment: envOr("GAMESERVICE_E2E_ENVIRONMENT", "dev"),
 		ModeID: envOr("GAMESERVICE_E2E_MODE_ID", "deathmatch"), Build: envOr("GAMESERVICE_E2E_BUILD", "sha256:0000000000000000000000000000000000000000000000000000000000000000"),
-		Region: envOr("GAMESERVICE_E2E_REGION", "eu-west"), ServerURL: os.Getenv("GAMESERVICE_E2E_SERVER_URL"), ServerToken: os.Getenv("GAMESERVICE_E2E_SERVER_TOKEN"),
+		Region: envOr("GAMESERVICE_E2E_REGION", "eu-west"), ServerURL: os.Getenv("GAMESERVICE_E2E_SERVER_URL"), ServerToken: os.Getenv("GAMESERVICE_E2E_SERVER_TOKEN"), ServerTokenFile: os.Getenv("GAMESERVICE_E2E_SERVER_TOKEN_FILE"),
 	}
 	return c, c.APIURL != "" && c.SigningKey != "" && c.PlayerA != "" && c.PlayerB != "" && c.PlayerA != c.PlayerB
 }

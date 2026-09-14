@@ -115,7 +115,10 @@ The test creates two real tickets, waits for their shared match and Ready
 server, obtains player join claims, joins both players, submits a result, and
 verifies the durable Completed state and matched ticket association. Set
 `GAMESERVICE_E2E_SERVER_TOKEN` as well to verify duplicate result acknowledgement
-through the server-result endpoint; do not print or commit that token.
+through the server-result endpoint; do not print or commit that token. For a
+dynamic Agones allocation, set `GAMESERVICE_E2E_SERVER_TOKEN_FILE` to a local
+file that the deployment wrapper fills with the match-scoped token after
+allocation.
 
 Nakama also loads the JavaScript bridge in `nakama/runtime/index.js`. Its
 `gameservice.health` RPC performs a bounded health check against the Control
