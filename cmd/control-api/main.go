@@ -120,8 +120,8 @@ func main() {
 		}
 		w.WriteHeader(http.StatusOK)
 	})
-	mux.HandleFunc("GET /metrics", func(w http.ResponseWriter, _ *http.Request) {
-		metricRegistry.Write(w)
+	mux.HandleFunc("GET /metrics", func(w http.ResponseWriter, r *http.Request) {
+		metricRegistry.WriteWithOutbox(r.Context(), w, repository.Pool())
 	})
 	mux.HandleFunc("GET /v1/players/me/snapshot", func(w http.ResponseWriter, r *http.Request) {
 		claims, ok := requireScope(w, r, authenticate, "player:read")

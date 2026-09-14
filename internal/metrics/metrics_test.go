@@ -37,3 +37,23 @@ func TestRegistryTracksRequestsWithoutDynamicLabels(t *testing.T) {
 		t.Fatal("metrics exposed dynamic player labels")
 	}
 }
+
+func TestOutboxMetricsUseBoundedNamesAndLabels(t *testing.T) {
+	registry := New()
+	recorder := httptest.NewRecorder()
+	registry.write(recorder, OutboxSnapshot{BacklogDepth: 4, OldestAgeSeconds: 12.5, DeadLetters: 2, Attempts: 9, Available: true})
+	text := recorder.Body.String()
+	for _, expected := range []string{
+		"gameservice_outbox_backlog_depth 4",
+		"gameservice_outbox_oldest_age_seconds 12.500",
+		"gameservice_outbox_dead_letters 2",
+		"gameservice_outbox_attempts 9",
+	} {
+		if !strings.Contains(text, expected) {
+			t.Fatalf("metrics missing %q: %s", expected, text)
+		}
+	}
+	if strings.Contains(text, "event_type") || strings.Contains(text, "aggregate_id") || strings.Contains(text, "player") {
+		t.Fatal("outbox metrics contain unbounded labels")
+	}
+}

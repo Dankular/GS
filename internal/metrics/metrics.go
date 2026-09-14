@@ -1,10 +1,13 @@
 package metrics
 
 import (
+	"context"
 	"fmt"
 	"net/http"
 	"sync/atomic"
 	"time"
+
+	"github.com/jackc/pgx/v5/pgxpool"
 )
 
 type Registry struct {
@@ -50,6 +53,33 @@ func (r *Registry) observe(duration time.Duration) {
 }
 
 func (r *Registry) Write(w http.ResponseWriter) {
+	r.write(w, OutboxSnapshot{})
+}
+
+type OutboxSnapshot struct {
+	BacklogDepth     int64
+	OldestAgeSeconds float64
+	DeadLetters      int64
+	Attempts         int64
+	Available        bool
+}
+
+func (r *Registry) WriteWithOutbox(ctx context.Context, w http.ResponseWriter, pool *pgxpool.Pool) {
+	snapshot := OutboxSnapshot{}
+	if pool != nil {
+		err := pool.QueryRow(ctx, `
+SELECT
+  count(*) FILTER (WHERE published_at IS NULL AND dead_lettered_at IS NULL),
+  COALESCE(EXTRACT(EPOCH FROM (now() - min(created_at) FILTER (WHERE published_at IS NULL AND dead_lettered_at IS NULL))), 0),
+  count(*) FILTER (WHERE dead_lettered_at IS NOT NULL),
+  COALESCE(sum(attempts), 0)
+FROM ops.outbox_events`).Scan(&snapshot.BacklogDepth, &snapshot.OldestAgeSeconds, &snapshot.DeadLetters, &snapshot.Attempts)
+		snapshot.Available = err == nil
+	}
+	r.write(w, snapshot)
+}
+
+func (r *Registry) write(w http.ResponseWriter, outbox OutboxSnapshot) {
 	w.Header().Set("Content-Type", "text/plain; version=0.0.4; charset=utf-8")
 	uptime := time.Since(r.started).Seconds()
 	_, _ = fmt.Fprintf(w, "# HELP gameservice_control_api_up Control API process availability.\n# TYPE gameservice_control_api_up gauge\ngameservice_control_api_up 1\n")
@@ -69,6 +99,12 @@ func (r *Registry) Write(w http.ResponseWriter) {
 	_, _ = fmt.Fprintf(w, "gameservice_http_request_duration_seconds_sum %.9f\n", float64(r.durationNanos.Load())/float64(time.Second))
 	_, _ = fmt.Fprintf(w, "gameservice_http_request_duration_seconds_count %d\n", r.durationCount.Load())
 	_, _ = fmt.Fprintf(w, "# HELP gameservice_process_uptime_seconds Process uptime.\n# TYPE gameservice_process_uptime_seconds gauge\ngameservice_process_uptime_seconds %.3f\n", uptime)
+	if outbox.Available {
+		_, _ = fmt.Fprintf(w, "# HELP gameservice_outbox_backlog_depth Number of pending outbox events.\n# TYPE gameservice_outbox_backlog_depth gauge\ngameservice_outbox_backlog_depth %d\n", outbox.BacklogDepth)
+		_, _ = fmt.Fprintf(w, "# HELP gameservice_outbox_oldest_age_seconds Age of the oldest pending outbox event.\n# TYPE gameservice_outbox_oldest_age_seconds gauge\ngameservice_outbox_oldest_age_seconds %.3f\n", outbox.OldestAgeSeconds)
+		_, _ = fmt.Fprintf(w, "# HELP gameservice_outbox_dead_letters Number of dead-lettered outbox events.\n# TYPE gameservice_outbox_dead_letters gauge\ngameservice_outbox_dead_letters %d\n", outbox.DeadLetters)
+		_, _ = fmt.Fprintf(w, "# HELP gameservice_outbox_attempts Number of delivery attempts recorded for outbox events.\n# TYPE gameservice_outbox_attempts gauge\ngameservice_outbox_attempts %d\n", outbox.Attempts)
+	}
 }
 
 type responseWriter struct {

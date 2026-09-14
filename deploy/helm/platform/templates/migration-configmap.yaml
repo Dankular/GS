@@ -12,3 +12,5 @@ data:
 {{ .Files.Get "files/004_audit_chain.sql" | indent 4 }}
   005_definition_approvals.sql: |
 {{ .Files.Get "files/005_definition_approvals.sql" | indent 4 }}
+  006_outbox_observability.sql: |
+{{ .Files.Get "files/006_outbox_observability.sql" | indent 4 }}
