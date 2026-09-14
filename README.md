@@ -75,6 +75,11 @@ available it is selected automatically because the Agones chart currently
 requires Helm 3 CRD patch semantics; otherwise the configured `helm` binary is
 used.
 
+The Kind installer connects the allocator worker to the Docker `kind` network
+but points simulator pods at the network's reachable IPv4 bridge gateway, where
+the Compose Control API port is published. Set `CONTROL_API_HOST` only when a
+custom Docker networking setup requires an explicit gateway.
+
 Dedicated-server assignment is dynamic in the Kind smoke Fleet: the matchmaking
 worker sends match/allocation/build/roster metadata through Agones allocation,
 and the simulator consumes it through the Agones SDK. Join authorization still
@@ -96,7 +101,7 @@ GAMESERVICE_E2E_SESSION_SIGNING_KEY=... \
 GAMESERVICE_E2E_PLAYER_A=e2e-a \
 GAMESERVICE_E2E_PLAYER_B=e2e-b \
 GAMESERVICE_E2E_SERVER_URL=http://127.0.0.1:17001 \
-go test -tags=e2e ./tests/e2e -run TestSyntheticMatchLifecycle -count=1
+go test -tags=e2e -run TestSyntheticMatchLifecycle -count=1 ./tests/e2e
 ```
 
 For the Kind simulator, create the port-forward against the corresponding
@@ -175,7 +180,7 @@ GAMESERVICE_LOAD_SESSION_SIGNING_KEY=... \
 GAMESERVICE_LOAD_PLAYER=load-player \
 GAMESERVICE_LOAD_REQUESTS=100 \
 GAMESERVICE_LOAD_WORKERS=10 \
-go test -tags=load ./tests/load -run TestHTTPProfiles -count=1 -v
+go test -tags=load -run TestHTTPProfiles -count=1 -v ./tests/load
 ```
 
 `GAMESERVICE_LOAD_PROFILES` can narrow the run to `auth`, `snapshot`,
@@ -189,7 +194,7 @@ GAMESERVICE_CHAOS_SERVICE=outbox-worker \
 GAMESERVICE_CHAOS_DIR=/opt/gameservice \
 GAMESERVICE_CHAOS_COMPOSE_FILE=deploy/compose/compose.yaml \
 GAMESERVICE_CHAOS_HEALTH_URL=http://127.0.0.1:8080/health/ready \
-go test -tags=chaos ./tests/chaos -run TestRestartServiceRecovers -count=1 -v
+go test -tags=chaos -run TestRestartServiceRecovers -count=1 -v ./tests/chaos
 ```
 
 These profiles produce an execution result but do not constitute a capacity
@@ -208,7 +213,7 @@ GAMESERVICE_INTEGRATION_NAKAMA_URL=http://127.0.0.1:7350 \
 GAMESERVICE_INTEGRATION_NAKAMA_RUNTIME_HTTP_KEY=... \
 GAMESERVICE_INTEGRATION_TOURNAMENT_ID=... \
 GAMESERVICE_INTEGRATION_OWNER_ID=... \
-go test -tags=integration ./tests/integration -run TestNakamaAuthoritativeTournamentWriteIsIdempotent -count=1 -v
+go test -tags=integration -run TestNakamaAuthoritativeTournamentWriteIsIdempotent -count=1 -v ./tests/integration
 ```
 
 The opt-in moderation integration test additionally accepts
