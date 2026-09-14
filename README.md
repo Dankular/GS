@@ -12,9 +12,11 @@ economy operations (including atomic wallet/inventory transfers with balanced
 double-entry currency records), a deterministic definition compiler, persistent match
 lifecycle state, and an Agones allocator boundary. The control API stores
 command results in PostgreSQL and replays duplicate request IDs without
-appending another outbox event. The Nakama profile/social bridges and Kind/Agones
-validation deployment are implemented; production
-Kubernetes deployment, and full production hardening remain outstanding.
+appending another outbox event. Nakama owns profile and social operations through
+authenticated runtime RPCs; player profile commands are routed through that
+boundary without holding a GameService transaction across the network call. The
+Kind/Agones validation deployment is implemented; production Kubernetes deployment
+and full production hardening remain outstanding.
 
 ## Development
 
@@ -44,8 +46,11 @@ used.
 Nakama also loads the JavaScript bridge in `nakama/runtime/index.js`. Its
 `gameservice.health` RPC performs a bounded health check against the Control
 API, while `gameservice.profile` reads and patches only the authenticated
-Nakama account through supported runtime APIs. Domain mutations remain owned
-by GameService and Nakama-owned tables are not accessed by the bridge.
+Nakama account through supported runtime APIs. The Control API's
+`profile.get` and `profile.patch_public_fields` commands call that runtime
+boundary with the caller's verified session and persist an idempotent command
+result. Domain mutations remain owned by GameService and Nakama-owned tables
+are not accessed by the bridge.
 
 The Compose TURN relay publishes a bounded 100-port UDP allocation range;
 increase it only after measuring concurrent relay demand and host capacity.
@@ -88,7 +93,7 @@ flowchart TB
     Fleet --> Server[Dedicated authoritative server]
     Server --> Nakama
     Server --> API
-    Relay["coturn relay"] -.-> Client
+    Relay["coturn relay - GNS.NET fallback"] -.-> Client
 ```
 
 The coturn relay is the GNS.NET fallback path for client connectivity.
