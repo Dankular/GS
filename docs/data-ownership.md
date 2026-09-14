@@ -11,6 +11,7 @@ below; Nakama data is accessed through Nakama APIs or runtime contracts.
 | Definitions, revisions, activation history | GameService | Control API and `platform` schema |
 | Commands, idempotency results, audit records, outbox | GameService | Control API and `platform`/`ops` schemas |
 | Wallets, currency ledger, inventory, entitlements, progression, rewards | GameService | Typed command handlers and `economy`/`progression` schemas |
+| Player restrictions and admission policy records | GameService | Admin restriction commands and transactional queue/join checks |
 | Tickets, matches, rosters, allocations, claims, results | GameService | Matchmaking/allocation adapters and `match` schema |
 | Game-server process lifecycle and capacity | Agones/Kubernetes | Allocator API and Kubernetes/Agones APIs; never domain writes |
 

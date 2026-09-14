@@ -15,8 +15,9 @@ command results in PostgreSQL and replays duplicate request IDs without
 appending another outbox event. Nakama owns profile and social operations through
 authenticated runtime RPCs; player profile commands are routed through that
 boundary without holding a GameService transaction across the network call. The
-Kind/Agones validation deployment is implemented; production Kubernetes deployment
-and full production hardening remain outstanding.
+Kind/Agones validation deployment, auditable player restrictions, and independent
+economic reconciliation are implemented. Production Kubernetes rollout and full
+production hardening remain outstanding.
 
 ## Development
 
