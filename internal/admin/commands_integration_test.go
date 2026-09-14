@@ -48,6 +48,10 @@ func TestAdminCommandsReadSnapshotAndAudit(t *testing.T) {
 	if err != nil || result.Status != "succeeded" {
 		t.Fatalf("audit search failed: %#v %v", result, err)
 	}
+	result, err = service.Handle(ctx, tx, envelope("admin.execute_command", map[string]any{"operation": "wallet.get", "targetPlayerId": player, "arguments": map[string]any{}}))
+	if err != nil || result.Status != "rejected" || result.Error == nil || result.Error.Code != "NESTED_OPERATION_FORBIDDEN" {
+		t.Fatalf("nested operation boundary failed: %#v %v", result, err)
+	}
 	if err := tx.Commit(ctx); err != nil {
 		t.Fatal(err)
 	}

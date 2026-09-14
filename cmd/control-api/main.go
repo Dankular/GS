@@ -74,6 +74,22 @@ func main() {
 			serverPublicKeys = []ed25519.PublicKey{ed25519.PublicKey(key)}
 		}
 	}
+	commandHandler := func(ctx context.Context, tx pgx.Tx, envelope commands.Envelope) (commands.Result, error) {
+		if strings.HasPrefix(envelope.Spec.Operation, "match.") {
+			return matchCommandService.Handle(ctx, tx, envelope)
+		}
+		if strings.HasPrefix(envelope.Spec.Operation, "matchmaking.") {
+			return matchmakingCommandService.Handle(ctx, tx, envelope)
+		}
+		if strings.HasPrefix(envelope.Spec.Operation, "definition.") {
+			return definitionCommandService.Handle(ctx, tx, envelope)
+		}
+		if strings.HasPrefix(envelope.Spec.Operation, "admin.") {
+			return adminCommandService.Handle(ctx, tx, envelope)
+		}
+		return economyService.Handle(ctx, tx, envelope)
+	}
+	adminCommandService.Handler = admincommands.Handler(commandHandler)
 	metricRegistry := telemetry.New()
 	authenticate := func(r *http.Request) (auth.SessionClaims, error) {
 		return auth.VerifyNakamaSession(strings.TrimPrefix(r.Header.Get("Authorization"), "Bearer "), sessionSigningKey, issuer, audience, time.Now())
@@ -211,21 +227,6 @@ func main() {
 		if scope := commandScope(e.Spec.Operation); scope != "" && !claims.HasScope(scope) {
 			http.Error(w, "insufficient scope", http.StatusForbidden)
 			return
-		}
-		commandHandler := func(ctx context.Context, tx pgx.Tx, envelope commands.Envelope) (commands.Result, error) {
-			if strings.HasPrefix(envelope.Spec.Operation, "match.") {
-				return matchCommandService.Handle(ctx, tx, envelope)
-			}
-			if strings.HasPrefix(envelope.Spec.Operation, "matchmaking.") {
-				return matchmakingCommandService.Handle(ctx, tx, envelope)
-			}
-			if strings.HasPrefix(envelope.Spec.Operation, "definition.") {
-				return definitionCommandService.Handle(ctx, tx, envelope)
-			}
-			if strings.HasPrefix(envelope.Spec.Operation, "admin.") {
-				return adminCommandService.Handle(ctx, tx, envelope)
-			}
-			return economyService.Handle(ctx, tx, envelope)
 		}
 		result, duplicate, err := repository.SubmitWith(r.Context(), e, commandHandler)
 		if err != nil {
