@@ -153,11 +153,17 @@ func main() {
 		writeJSON(w, map[string]any{"matchId": r.PathValue("matchId"), "token": token})
 	})
 	mux.HandleFunc("GET /v1/commands/{requestId}", func(w http.ResponseWriter, r *http.Request) {
-		if _, err := authenticate(r); err != nil {
+		claims, err := authenticate(r)
+		if err != nil {
 			http.Error(w, "authentication required", http.StatusUnauthorized)
 			return
 		}
-		result, err := repository.Get(r.Context(), r.PathValue("requestId"))
+		var result commands.Result
+		if claims.HasScope("admin:read") {
+			result, err = repository.Get(r.Context(), r.PathValue("requestId"))
+		} else {
+			result, err = repository.GetForActor(r.Context(), r.PathValue("requestId"), claims.UserID)
+		}
 		if errors.Is(err, pgx.ErrNoRows) {
 			http.Error(w, "command not found", http.StatusNotFound)
 			return

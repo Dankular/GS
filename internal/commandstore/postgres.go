@@ -48,6 +48,21 @@ func (r *Repository) Get(ctx context.Context, requestID string) (commands.Result
 	return result, nil
 }
 
+// GetForActor returns a command result only when the authenticated actor owns
+// the request. Administrative callers should use Get after an explicit scope
+// check at the transport boundary.
+func (r *Repository) GetForActor(ctx context.Context, requestID, actorID string) (commands.Result, error) {
+	var payload []byte
+	if err := r.pool.QueryRow(ctx, `SELECT result FROM platform.command_requests WHERE request_id=$1 AND actor_id=$2`, requestID, actorID).Scan(&payload); err != nil {
+		return commands.Result{}, err
+	}
+	var result commands.Result
+	if err := json.Unmarshal(payload, &result); err != nil {
+		return commands.Result{}, fmt.Errorf("decode result: %w", err)
+	}
+	return result, nil
+}
+
 // Submit stores a command result and its outbox event atomically. A duplicate
 // request returns the original result and does not append another event.
 func (r *Repository) Submit(ctx context.Context, e commands.Envelope) (commands.Result, bool, error) {

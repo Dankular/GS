@@ -35,6 +35,13 @@ func TestSubmitAndGetPersistsIdempotentResult(t *testing.T) {
 	if loaded.RequestID != result.RequestID || loaded.Status != "succeeded" {
 		t.Fatalf("loaded result mismatch: %#v", loaded)
 	}
+	if _, err := repo.GetForActor(context.Background(), e.Metadata.RequestID, "different-player"); err == nil {
+		t.Fatal("different actor retrieved command result")
+	}
+	owned, err := repo.GetForActor(context.Background(), e.Metadata.RequestID, "player")
+	if err != nil || owned.RequestID != e.Metadata.RequestID {
+		t.Fatalf("owner could not retrieve command result: %#v, %v", owned, err)
+	}
 	_, replay, err = repo.Submit(context.Background(), e)
 	if err != nil {
 		t.Fatal(err)
