@@ -28,6 +28,12 @@ func main() {
 		} else if recovered > 0 {
 			slog.Warn("stale allocations failed", "count", recovered)
 		}
+		runningTimeout := time.Duration(envInt("MATCH_RUNNING_TIMEOUT_SECONDS", 180)) * time.Second
+		if abandoned, recoveryErr := reconciliation.RecoverStaleRunningMatches(ctx, repo.Pool(), time.Now().UTC().Add(-runningTimeout)); recoveryErr != nil {
+			slog.Error("stale running-match recovery failed", "error", recoveryErr)
+		} else if abandoned > 0 {
+			slog.Warn("stale running matches abandoned", "count", abandoned)
+		}
 		findings, scanErr := reconciliation.Scan(ctx, repo.Pool())
 		if scanErr != nil {
 			slog.Error("reconciliation scan failed", "error", scanErr)

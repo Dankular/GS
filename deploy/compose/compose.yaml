@@ -175,6 +175,7 @@ services:
       DATABASE_URL: postgres://gameservice:${POSTGRES_PASSWORD}@postgres:5432/gameservice?sslmode=disable
       RECONCILIATION_INTERVAL_SECONDS: ${RECONCILIATION_INTERVAL_SECONDS:-300}
       MATCH_ALLOCATION_TIMEOUT_SECONDS: ${MATCH_ALLOCATION_TIMEOUT_SECONDS:-120}
+      MATCH_RUNNING_TIMEOUT_SECONDS: ${MATCH_RUNNING_TIMEOUT_SECONDS:-180}
     depends_on:
       postgres: { condition: service_healthy }
       migrations: { condition: service_completed_successfully }

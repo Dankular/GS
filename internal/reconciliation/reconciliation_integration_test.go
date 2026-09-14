@@ -62,3 +62,42 @@ func TestRecoverStaleAllocationsFailsMatchAndTicket(t *testing.T) {
 		t.Fatalf("failure event count=%d, want 1", events)
 	}
 }
+
+func TestRecoverStaleRunningMatchesAbandonsMatch(t *testing.T) {
+	url := os.Getenv("DATABASE_URL")
+	if url == "" {
+		t.Skip("DATABASE_URL is required for integration tests")
+	}
+	pool, err := pgxpool.New(context.Background(), url)
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer pool.Close()
+	ctx := context.Background()
+	matchID := "stale-running-" + time.Now().UTC().Format("20060102150405.000000000")
+	if _, err := pool.Exec(ctx, `INSERT INTO match.matches(match_id,game_id,environment,mode_id,definition_revision,state,server_build,updated_at) VALUES($1,'game','test','dm',1,'Running','build',now()-interval '10 minutes')`, matchID); err != nil {
+		t.Fatal(err)
+	}
+	defer func() { _, _ = pool.Exec(ctx, `DELETE FROM match.matches WHERE match_id=$1`, matchID) }()
+	abandoned, err := RecoverStaleRunningMatches(ctx, pool, time.Now().UTC().Add(-5*time.Minute))
+	if err != nil {
+		t.Fatal(err)
+	}
+	if abandoned != 1 {
+		t.Fatalf("abandoned=%d, want 1", abandoned)
+	}
+	var state string
+	if err := pool.QueryRow(ctx, `SELECT state FROM match.matches WHERE match_id=$1`, matchID).Scan(&state); err != nil {
+		t.Fatal(err)
+	}
+	if state != "Abandoned" {
+		t.Fatalf("state=%s, want Abandoned", state)
+	}
+	var events int
+	if err := pool.QueryRow(ctx, `SELECT count(*) FROM ops.outbox_events WHERE aggregate_id=$1 AND event_type='match.abandoned.v1'`, matchID).Scan(&events); err != nil {
+		t.Fatal(err)
+	}
+	if events != 1 {
+		t.Fatalf("abandonment event count=%d, want 1", events)
+	}
+}

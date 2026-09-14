@@ -57,6 +57,51 @@ func RecoverStaleAllocations(ctx context.Context, pool *pgxpool.Pool, cutoff tim
 	return len(matchIDs), nil
 }
 
+// RecoverStaleRunningMatches applies the server-crash policy to matches whose
+// authenticated heartbeat has stopped. It only changes durable match state;
+// Agones remains responsible for the underlying GameServer lifecycle.
+func RecoverStaleRunningMatches(ctx context.Context, pool *pgxpool.Pool, cutoff time.Time) (int, error) {
+	if pool == nil {
+		return 0, nil
+	}
+	tx, err := pool.Begin(ctx)
+	if err != nil {
+		return 0, err
+	}
+	defer tx.Rollback(ctx)
+	rows, err := tx.Query(ctx, `UPDATE match.matches SET state='Abandoned',state_version=state_version+1,updated_at=now() WHERE state='Running' AND updated_at<$1 RETURNING match_id`, cutoff)
+	if err != nil {
+		return 0, err
+	}
+	var matchIDs []string
+	for rows.Next() {
+		var matchID string
+		if err := rows.Scan(&matchID); err != nil {
+			rows.Close()
+			return 0, err
+		}
+		matchIDs = append(matchIDs, matchID)
+	}
+	if err := rows.Err(); err != nil {
+		rows.Close()
+		return 0, err
+	}
+	rows.Close()
+	for _, matchID := range matchIDs {
+		payload, err := json.Marshal(map[string]any{"matchId": matchID, "reason": "heartbeat_timeout"})
+		if err != nil {
+			return 0, err
+		}
+		if _, err := tx.Exec(ctx, `INSERT INTO ops.outbox_events(aggregate_type,aggregate_id,event_type,correlation_id,payload) VALUES('match',$1,'match.abandoned.v1',$1,$2::jsonb)`, matchID, payload); err != nil {
+			return 0, err
+		}
+	}
+	if err := tx.Commit(ctx); err != nil {
+		return 0, err
+	}
+	return len(matchIDs), nil
+}
+
 // Finding is a projection mismatch. Reconciliation is deliberately read-only:
 // corrections must be compensating ledger transactions, never projection edits.
 type Finding struct {

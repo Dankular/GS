@@ -60,6 +60,11 @@ func main() {
 		slog.Error("simulator bootstrap failed", "error", err)
 		os.Exit(1)
 	}
+	if !dynamic {
+		if heartbeat, ok := readyReporter.(interface{ Heartbeat() error }); ok {
+			go maintainMatchHeartbeat(heartbeat)
+		}
+	}
 	if dynamic {
 		go watchAssignment(sdk, server, readyReporter, &assignedMatchID, &assignedServerToken)
 	}
@@ -88,6 +93,17 @@ func maintainHealth(sdk interface{ Health() error }) {
 	}
 }
 
+func maintainMatchHeartbeat(heartbeat interface{ Heartbeat() error }) {
+	ticker := time.NewTicker(10 * time.Second)
+	defer ticker.Stop()
+	for range ticker.C {
+		if err := heartbeat.Heartbeat(); err != nil {
+			slog.Error("Control API match heartbeat failed", "error", err)
+			return
+		}
+	}
+}
+
 func watchAssignment(sdk *agonessdk.SDK, server *simulator.Server, readyReporter simulator.Lifecycle, assignedMatchID, assignedServerToken *string) {
 	ticker := time.NewTicker(500 * time.Millisecond)
 	defer ticker.Stop()
@@ -110,6 +126,9 @@ func watchAssignment(sdk *agonessdk.SDK, server *simulator.Server, readyReporter
 					slog.Error("control plane ready report failed", "error", err)
 					continue
 				}
+			}
+			if heartbeat, ok := readyReporter.(interface{ Heartbeat() error }); ok {
+				go maintainMatchHeartbeat(heartbeat)
 			}
 			return
 		}

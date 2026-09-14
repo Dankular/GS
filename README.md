@@ -163,6 +163,9 @@ The same worker fails `Allocating` matches that remain stale for
 `MATCH_ALLOCATION_TIMEOUT_SECONDS` (120 seconds by default), expires their
 matched tickets, and emits `match.failed.v1`. Set that value in the deployment
 environment to match the server Ready timeout policy.
+It also abandons `Running` matches after `MATCH_RUNNING_TIMEOUT_SECONDS` (180
+seconds by default) when authenticated server heartbeats stop, emitting
+`match.abandoned.v1`. The simulator sends those heartbeats every 10 seconds.
 
 The Nakama leaderboard consumer is available through the `leaderboards` Compose
 profile and consumes `match.result.accepted.v1` with a per-consumer checkpoint;

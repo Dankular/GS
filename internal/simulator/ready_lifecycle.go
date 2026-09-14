@@ -28,6 +28,10 @@ func (s HTTPReadyLifecycle) Start() error {
 	return s.post("start")
 }
 
+func (s HTTPReadyLifecycle) Heartbeat() error {
+	return s.post("heartbeat")
+}
+
 func (s HTTPReadyLifecycle) post(operation string) error {
 	token := s.Token
 	if s.TokenSource != nil {
