@@ -162,8 +162,8 @@ func TestServiceRewardClaimIsAtomicAndOncePerPlayer(t *testing.T) {
 			t.Fatal(err)
 		}
 	}
-	transfer("wallet.transfer", map[string]any{"targetPlayerId": targetPlayerID, "currency": "coins", "amount": 10})
-	transfer("inventory.transfer", map[string]any{"targetPlayerId": targetPlayerID, "itemId": "badge", "quantity": 1})
+	transfer("wallet.transfer", map[string]any{"targetPlayerId": targetPlayerID, "currency": "coins", "amount": json.Number("10")})
+	transfer("inventory.transfer", map[string]any{"targetPlayerId": targetPlayerID, "itemId": "badge", "quantity": json.Number("1")})
 	var sourceBalance, targetBalance, targetQuantity int64
 	if err := pool.QueryRow(ctx, `SELECT balance FROM economy.wallet_accounts WHERE player_id=$1 AND currency='coins'`, playerID).Scan(&sourceBalance); err != nil {
 		t.Fatal(err)
