@@ -67,6 +67,7 @@ spec:
                   value: http://control-api:8080
               securityContext:
                 runAsNonRoot: true
+                runAsUser: 65532
                 readOnlyRootFilesystem: true
                 allowPrivilegeEscalation: false
                 capabilities: { drop: [ALL] }
