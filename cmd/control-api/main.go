@@ -6,6 +6,7 @@ import (
 	"encoding/base64"
 	"encoding/json"
 	"errors"
+	"fmt"
 	"io"
 	"log/slog"
 	"net/http"
@@ -39,6 +40,12 @@ func main() {
 	economyService := economy.Service{}
 	matchmakingStore := matchmaking.Store{Pool: repository.Pool()}
 	definitionStore := definitions.Store{Pool: repository.Pool()}
+	joinPrivateKeyBytes, _ := base64.RawStdEncoding.DecodeString(os.Getenv("JOIN_CLAIM_PRIVATE_KEY"))
+	var joinPrivateKey ed25519.PrivateKey
+	if len(joinPrivateKeyBytes) == ed25519.PrivateKeySize {
+		joinPrivateKey = ed25519.PrivateKey(joinPrivateKeyBytes)
+	}
+	matchStore := matches.Store{Pool: repository.Pool(), JoinPrivateKey: joinPrivateKey, Issuer: "control-plane", Audience: "game-server"}
 	sessionSigningKey := os.Getenv("NAKAMA_SESSION_SIGNING_KEY")
 	if sessionSigningKey == "" {
 		slog.Error("NAKAMA_SESSION_SIGNING_KEY is required")
@@ -94,6 +101,38 @@ func main() {
 			return
 		}
 		writeJSON(w, map[string]any{"playerId": claims.UserID, "wallets": wallets})
+	})
+	mux.HandleFunc("GET /v1/matches/{matchId}", func(w http.ResponseWriter, r *http.Request) {
+		claims, ok := requireScope(w, r, authenticate, "player:read")
+		if !ok {
+			return
+		}
+		record, err := matchStore.Get(r.Context(), r.PathValue("matchId"), claims.UserID)
+		if errors.Is(err, pgx.ErrNoRows) {
+			http.Error(w, "match not found", http.StatusNotFound)
+			return
+		}
+		if err != nil {
+			http.Error(w, "match unavailable", http.StatusServiceUnavailable)
+			return
+		}
+		writeJSON(w, record)
+	})
+	mux.HandleFunc("POST /v1/matches/{matchId}/join-claims", func(w http.ResponseWriter, r *http.Request) {
+		claims, ok := requireScope(w, r, authenticate, "player:read")
+		if !ok {
+			return
+		}
+		token, err := matchStore.IssueJoinClaim(r.Context(), r.PathValue("matchId"), claims.UserID, time.Now())
+		if errors.Is(err, pgx.ErrNoRows) {
+			http.Error(w, "match or roster member not found", http.StatusNotFound)
+			return
+		}
+		if err != nil {
+			http.Error(w, "join claims unavailable", http.StatusServiceUnavailable)
+			return
+		}
+		writeJSON(w, map[string]any{"matchId": r.PathValue("matchId"), "token": token})
 	})
 	mux.HandleFunc("GET /v1/commands/{requestId}", func(w http.ResponseWriter, r *http.Request) {
 		if _, err := authenticate(r); err != nil {
@@ -267,6 +306,34 @@ func main() {
 		}
 		writeJSON(w, map[string]any{"accepted": true, "duplicate": duplicate, "payloadDigest": digest})
 	})
+	mux.HandleFunc("POST /v1/server/matches/{matchId}/ready", func(w http.ResponseWriter, r *http.Request) {
+		if err := verifyServerRequest(r, repository, serverPublicKey, r.PathValue("matchId")); err != nil {
+			writeServerError(w, err)
+			return
+		}
+		if err := matchStore.MarkReady(r.Context(), r.PathValue("matchId")); errors.Is(err, pgx.ErrNoRows) {
+			http.Error(w, "match is not allocating", http.StatusConflict)
+			return
+		} else if err != nil {
+			http.Error(w, "match ready update failed", http.StatusServiceUnavailable)
+			return
+		}
+		w.WriteHeader(http.StatusNoContent)
+	})
+	mux.HandleFunc("POST /v1/server/matches/{matchId}/heartbeat", func(w http.ResponseWriter, r *http.Request) {
+		if err := verifyServerRequest(r, repository, serverPublicKey, r.PathValue("matchId")); err != nil {
+			writeServerError(w, err)
+			return
+		}
+		if err := matchStore.Heartbeat(r.Context(), r.PathValue("matchId")); errors.Is(err, pgx.ErrNoRows) {
+			http.Error(w, "match is not active", http.StatusConflict)
+			return
+		} else if err != nil {
+			http.Error(w, "heartbeat failed", http.StatusServiceUnavailable)
+			return
+		}
+		w.WriteHeader(http.StatusNoContent)
+	})
 	mux.HandleFunc("POST /v1/admin/definitions/validate", func(w http.ResponseWriter, r *http.Request) {
 		if _, ok := requireScope(w, r, authenticate, "definition:validate"); !ok {
 			return
@@ -374,4 +441,30 @@ func readDefinitionSource(r *http.Request) ([]byte, error) {
 		return nil, errors.New("definition body too large")
 	}
 	return data, nil
+}
+
+func verifyServerRequest(r *http.Request, repository *commandstore.Repository, key []byte, matchID string) error {
+	if len(key) != ed25519.PublicKeySize {
+		return errors.New("server claim verification is not configured")
+	}
+	var build, allocation, state string
+	if err := repository.Pool().QueryRow(r.Context(), `SELECT server_build,COALESCE(allocation_id,''),state FROM match.matches WHERE match_id=$1`, matchID).Scan(&build, &allocation, &state); err != nil {
+		return err
+	}
+	if _, err := authenticateServer(r, ed25519.PublicKey(key), matchID, allocation, build); err != nil {
+		return err
+	}
+	return nil
+}
+
+func writeServerError(w http.ResponseWriter, err error) {
+	if strings.Contains(err.Error(), "not configured") {
+		http.Error(w, err.Error(), http.StatusServiceUnavailable)
+		return
+	}
+	if errors.Is(err, pgx.ErrNoRows) {
+		http.Error(w, "match not found", http.StatusNotFound)
+		return
+	}
+	http.Error(w, fmt.Sprintf("invalid server claim: %v", err), http.StatusUnauthorized)
 }
