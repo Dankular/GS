@@ -83,7 +83,7 @@ func TestServiceRewardClaimIsAtomicAndOncePerPlayer(t *testing.T) {
 	}
 	var ledgerEntries int
 	var ledgerSum int64
-	if err := pool.QueryRow(ctx, `SELECT count(*),COALESCE(sum(le.amount),0) FROM economy.ledger_entries le JOIN economy.ledger_transactions lt ON lt.request_id=le.request_id WHERE lt.reason='reward.claim' AND le.player_id IN ($1,'__system__')`, playerID).Scan(&ledgerEntries, &ledgerSum); err != nil {
+	if err := pool.QueryRow(ctx, `SELECT count(*),COALESCE(sum(le.amount),0) FROM economy.ledger_entries le JOIN economy.ledger_transactions lt ON lt.request_id=le.request_id WHERE lt.reason='reward.claim' AND lt.request_id LIKE $1 AND le.player_id IN ($2,'__system__')`, "reward-request-1-"+suffix+":reward:%", playerID).Scan(&ledgerEntries, &ledgerSum); err != nil {
 		t.Fatal(err)
 	}
 	if ledgerEntries != 2 || ledgerSum != 0 {
