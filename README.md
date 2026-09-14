@@ -28,6 +28,8 @@ tombstones, and retention boundaries.
 CI also runs dependency vulnerability, secret, filesystem misconfiguration,
 and SBOM checks; production image signing and admission remain deployment-
 environment responsibilities described in [`docs/supply-chain.md`](docs/supply-chain.md).
+The exact pinned validation image IDs are recorded in
+[`docs/compatibility-baseline.md`](docs/compatibility-baseline.md).
 
 ## Development
 

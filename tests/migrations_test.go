@@ -63,6 +63,19 @@ func TestDeploymentsApplyAllForwardMigrationsInOrder(t *testing.T) {
 	}
 }
 
+func TestMigrationCycleVerifierIsFailFastAndExplicit(t *testing.T) {
+	script, err := os.ReadFile(filepath.Join("..", "deploy", "compose", "verify-migrations.sh"))
+	if err != nil {
+		t.Fatal(err)
+	}
+	text := string(script)
+	for _, required := range []string{"set -eu", "compose run --rm migrations", "/migrations/001_control.down.sql", "migration up/down/up verification passed"} {
+		if !strings.Contains(text, required) {
+			t.Errorf("migration cycle verifier missing %q", required)
+		}
+	}
+}
+
 func TestComposeSeedUsesDefinitionMountedInSeedImage(t *testing.T) {
 	data, err := os.ReadFile(filepath.Join("..", "deploy", "compose", "compose.yaml"))
 	if err != nil {

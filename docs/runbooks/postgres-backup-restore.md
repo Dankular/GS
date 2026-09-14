@@ -59,3 +59,15 @@ sudo systemctl status gameservice-postgres-backup.timer
 when the approved off-site bucket is available. The timer is intentionally not
 installed automatically: enabling it without a real recipient would be an
 unsafe false-success configuration.
+
+## Migration verification
+
+For development/test migration compatibility, run the complete ordered
+up/down/up cycle before changing a migration:
+
+```sh
+make migrate-cycle
+```
+
+This intentionally drops the control-plane schemas through the checked-in
+development rollback and must never be run against production data.

@@ -1,6 +1,6 @@
 SHELL := sh
 
-.PHONY: bootstrap generate lint test test-integration test-e2e test-load test-chaos dev-core dev-full down migrate-up migrate-down-one seed definition-validate load-smoke backup verify-restore
+.PHONY: bootstrap generate lint test test-integration test-e2e test-load test-chaos dev-core dev-full down migrate-up migrate-down-one migrate-cycle seed definition-validate load-smoke backup verify-restore
 
 bootstrap:
 	@go version
@@ -42,6 +42,9 @@ migrate-up:
 
 migrate-down-one:
 	docker compose --env-file $${ENV_FILE:-.env} -f deploy/compose/compose.yaml run --rm migrations sh -c 'psql "$$DATABASE_URL" -f /migrations/001_control.down.sql'
+
+migrate-cycle:
+	./deploy/compose/verify-migrations.sh
 
 seed:
 	docker compose --env-file $${ENV_FILE:-.env} -f deploy/compose/compose.yaml --profile seed run --rm seed
