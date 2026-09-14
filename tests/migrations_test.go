@@ -105,6 +105,15 @@ func TestProductionHelmIncludesAgonesFleetWhenEnabled(t *testing.T) {
 			t.Errorf("Agones Fleet template missing %q", required)
 		}
 	}
+	policies, err := os.ReadFile(filepath.Join("..", "deploy", "helm", "platform", "templates", "gameserver-policies.yaml"))
+	if err != nil {
+		t.Fatal(err)
+	}
+	for _, required := range []string{"gameservice-gameserver-default-deny", "gameservice-gameserver-ingress", "gameservice-gameserver-egress", "protocol: UDP", "port: 53"} {
+		if !strings.Contains(string(policies), required) {
+			t.Errorf("gameserver network policy missing %q", required)
+		}
+	}
 }
 
 func TestComposeSeparatesNakamaDatabaseRole(t *testing.T) {
