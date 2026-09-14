@@ -25,7 +25,9 @@ GAMESERVICE_BACKUP_AGE_IDENTITY=/run/secrets/gameservice-backup-agekey \
 ```
 
 The verifier creates and removes a uniquely named temporary database. It does
-not overwrite the live `gameservice` database. Schedule this procedure after a
+not overwrite the live `gameservice` database. In addition to checking the
+restored schema, it compares wallet projections with immutable ledger sums and
+fails if reconciliation drift is nonzero. Schedule this procedure after a
 retention/RPO/RTO decision and record the output, elapsed time, and checksum in
 the operations log. The scripts default to `GAMESERVICE_BACKUP_DATABASE_USER=gameservice_admin`
 so the dump includes Nakama-owned public tables; this deployment-only credential

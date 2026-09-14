@@ -29,4 +29,7 @@ fi
 tables="$(docker compose --env-file .env -f deploy/compose/compose.yaml exec -T postgres \
   psql -U "$database_user" -d "$db" -Atc "SELECT count(*) FROM information_schema.tables WHERE table_schema IN ('platform','economy','match','ops');")"
 test "${tables//[[:space:]]/}" -gt 0
-echo "restore verified: $tables application tables"
+drift="$(docker compose --env-file .env -f deploy/compose/compose.yaml exec -T postgres \
+  psql -U "$database_user" -d "$db" -Atc "WITH ledger AS (SELECT player_id,currency,SUM(amount)::bigint AS balance FROM economy.ledger_entries WHERE player_id <> '__system__' GROUP BY player_id,currency) SELECT count(*) FROM economy.wallet_accounts w FULL OUTER JOIN ledger l ON l.player_id=w.player_id AND l.currency=w.currency WHERE COALESCE(w.balance,0) <> COALESCE(l.balance,0);")"
+test "${drift//[[:space:]]/}" -eq 0
+echo "restore verified: $tables application tables; reconciliation drift: 0"
