@@ -34,7 +34,7 @@ func TestDeploymentsApplyAllForwardMigrationsInOrder(t *testing.T) {
 	}
 	for name, data := range map[string][]byte{"Compose": compose, "Helm": helm} {
 		text := string(data)
-		if !strings.Contains(text, "for migration in /migrations/*.sql") || !strings.Contains(text, "ON_ERROR_STOP=1") {
+		if !strings.Contains(text, "for migration in /migrations/*.sql") || !strings.Contains(text, "*.down.sql") || !strings.Contains(text, "ON_ERROR_STOP=1") {
 			t.Errorf("%s migration runner does not apply ordered, fail-fast migrations", name)
 		}
 	}
