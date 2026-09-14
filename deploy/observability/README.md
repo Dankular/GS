@@ -8,4 +8,7 @@ The repository's baseline Prometheus rules are in
 `deploy/observability/prometheus-rules.yaml`; each alert links to a runbook in
 `docs/runbooks/`. They must be loaded into the approved production
 Prometheus/Alertmanager installation before launch. The development collector
-does not provide durable metrics, alert delivery, or an SLO dashboard.
+does not provide durable metrics or alert delivery. The importable baseline
+dashboard is `deploy/observability/gameservice-dashboard.json`; it is an
+artifact for the approved production Grafana installation, not a claim that
+Grafana is deployed by the Compose stack.
