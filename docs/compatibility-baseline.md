@@ -14,6 +14,8 @@ HA qualification. Image IDs were read from the running containers with
 | External Secrets Operator | Helm chart/app 2.10.0 | `ghcr.io/external-secrets/external-secrets@sha256:814117b0fd6d121b03e8ba3b6db1cecbe7449a354fc0fc9c4faf73a37aa221b1` |
 | ingress-nginx | Helm chart 4.15.1 / controller 1.15.1 | `registry.k8s.io/ingress-nginx/controller@sha256:594ceea76b01c592858f803f9ff4d2cb40542cae2060410b2c95f75907d659e1` |
 | CloudNativePG | Helm chart 0.29.0 / operator 1.30.0 | `ghcr.io/cloudnative-pg/cloudnative-pg@sha256:a2701eb97cdd2a34b1fdb2cb51987f544b706e40bec72ae7146cd8580efefebb` |
+| cert-manager | Helm chart 1.21.2 | controller `quay.io/jetstack/cert-manager-controller@sha256:70f532fd9cfde0b09d55687200942399d89838bc2d5d5b45152eb799a15912b8`; cainjector `sha256:c85268c64f2e0e76684bf5fe8906caff34b82523561c6affe0fae3546bd87562`; webhook `sha256:a60e2dac46dbb8a7f3df95c54ce941012f54c2fe022f0ee55aaa1ab40ed957ae` |
+| Barman Cloud Plugin | manifest 0.15.0 | `ghcr.io/cloudnative-pg/plugin-barman-cloud@sha256:563c680fe7fda3466ca2b1f55a1397ed2ddc9e760360107dd7724f1959c1a536` |
 | Kind node | Kubernetes v1.36.1 | `kindest/node@sha256:3489c7674813ba5d8b1a9977baea8a6e553784dab7b84759d1014dbd78f7ebd5` |
 
 Compose also pins the OpenTelemetry Collector, coturn, Prometheus,

@@ -7,6 +7,8 @@ The configured VPS Kind validation cluster currently has these pinned add-ons:
 | Agones | Helm chart `1.60.0` | Dedicated-server lifecycle and allocation |
 | External Secrets Operator | Helm chart `2.10.0` / app `v2.10.0` | Synchronize provider-managed secrets into Kubernetes |
 | ingress-nginx | Helm chart `4.15.1` / controller `v1.15.1` | Ingress routing and ModSecurity/OWASP CRS validation |
+| cert-manager | Helm chart `v1.21.2` | Certificates required by the Barman Cloud Plugin |
+| Barman Cloud Plugin | manifest `v0.15.0` | CloudNativePG object-store WAL archiving and PITR |
 
 The VPS cluster is a single-node validation environment. It proves chart/API
 compatibility, not failure-domain high availability.
@@ -80,3 +82,23 @@ managed PostgreSQL remains the recommended production boundary, and the
 application's `database-url` Secret must still be supplied by the approved
 secret manager. Validate storage classes, topology spread, fencing, and
 off-site WAL/archive backups before treating a deployment as HA or PITR-ready.
+
+## Barman Cloud Plugin
+
+The VPS validation cluster has cert-manager `v1.21.2` and the pinned Barman
+Cloud Plugin `v0.15.0` installed. Use the versioned release URL; do not use
+the moving `main` manifest:
+
+```sh
+helm repo add jetstack https://charts.jetstack.io --force-update
+helm upgrade --install cert-manager jetstack/cert-manager \
+  --namespace cert-manager --create-namespace --version v1.21.2 \
+  --set crds.enabled=true --wait
+kubectl apply -f https://github.com/cloudnative-pg/plugin-barman-cloud/releases/download/v0.15.0/manifest.yaml
+kubectl -n cnpg-system rollout status deployment/barman-cloud --timeout=180s
+```
+
+The installed plugin image was observed as
+`ghcr.io/cloudnative-pg/plugin-barman-cloud@sha256:563c680fe7fda3466ca2b1f55a1397ed2ddc9e760360107dd7724f1959c1a536`.
+Production releases must verify the downloaded manifest and image digest
+against the approved supply-chain record before installation.
