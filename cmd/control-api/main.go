@@ -219,7 +219,7 @@ func main() {
 			return
 		}
 		defer tx.Rollback(r.Context())
-		if _, err = tx.Exec(r.Context(), `INSERT INTO platform.account_privacy_requests(request_id,player_id,operation,status,result) VALUES($1,$2,'delete','completed','{"deleted":true}'::jsonb) ON CONFLICT (request_id) DO NOTHING`, requestID, hashID); err != nil {
+		if _, err = tx.Exec(r.Context(), `INSERT INTO platform.account_privacy_requests(request_id,player_id,operation,status,result) VALUES($1,$2,'delete','completed',jsonb_build_object('requestId',$1,'deleted',true,'tombstone','deleted:' || $3)) ON CONFLICT (request_id) DO NOTHING`, requestID, hashID, hashID); err != nil {
 			http.Error(w, "account deletion unavailable", 503)
 			return
 		}
