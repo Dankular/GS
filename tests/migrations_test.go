@@ -157,6 +157,18 @@ func TestProductionHelmIncludesAgonesFleetWhenEnabled(t *testing.T) {
 	if !strings.Contains(string(values), "externalSecrets:\r\n  enabled: false") && !strings.Contains(string(values), "externalSecrets:\n  enabled: false") {
 		t.Error("external secret integration is not opt-in by default")
 	}
+	postgresCluster, err := os.ReadFile(filepath.Join("..", "deploy", "helm", "platform", "templates", "postgres-cluster.yaml"))
+	if err != nil {
+		t.Fatal(err)
+	}
+	for _, required := range []string{"postgresql.cnpg.io/v1", "kind: Cluster", "instances:", "imageName:", "primaryUpdateStrategy: unsupervised", "storage:", "bootstrap:", "imageDigest must be an immutable sha256 digest"} {
+		if !strings.Contains(string(postgresCluster), required) {
+			t.Errorf("CloudNativePG cluster template missing %q", required)
+		}
+	}
+	if !strings.Contains(string(values), "postgresCluster:\n  # Optional CloudNativePG-managed PostgreSQL cluster") && !strings.Contains(string(values), "postgresCluster:\r\n  # Optional CloudNativePG-managed PostgreSQL cluster") {
+		t.Error("CloudNativePG cluster is not declared in chart values")
+	}
 	production, err := os.ReadFile(filepath.Join("..", "deploy", "helm", "platform", "values.production.example.yaml"))
 	if err != nil {
 		t.Fatal(err)

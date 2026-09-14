@@ -5,6 +5,15 @@ Agones allocator/matchmaking, and reconciliation workers, a migration hook, HA p
 and default-deny network policy into `platform-app`. PostgreSQL and Nakama are external
 dependencies; provide their URLs and credentials through the referenced Secret.
 
+The optional `postgresCluster` values enable a CloudNativePG `Cluster` in the
+application namespace. It is disabled by default and requires an immutable
+PostgreSQL image digest. Enabling it does not synthesize the application's
+`database-url` Secret: provide that Secret through the configured secret
+manager after validating the generated CloudNativePG service and credentials.
+Use at least three instances and failure-domain-aware storage in a real
+multi-node cluster; the single-node Kind/VPS environment is only suitable for
+rendering and operator smoke tests, not an HA claim.
+
 Every application image digest is required at render time. Example:
 
 ```sh

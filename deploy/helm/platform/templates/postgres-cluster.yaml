@@ -1,0 +1,23 @@
+{{- if .Values.postgresCluster.enabled }}
+{{- if not (regexMatch "^sha256:[0-9a-f]{64}$" .Values.postgresCluster.imageDigest) }}
+{{- fail "postgresCluster.imageDigest must be an immutable sha256 digest when postgresCluster.enabled=true" }}
+{{- end }}
+apiVersion: postgresql.cnpg.io/v1
+kind: Cluster
+metadata:
+  name: {{ .Values.postgresCluster.name }}
+  namespace: {{ .Values.namespace.app }}
+  labels:
+    app.kubernetes.io/name: {{ .Values.postgresCluster.name }}
+    app.kubernetes.io/part-of: gameservice
+spec:
+  instances: {{ .Values.postgresCluster.instances }}
+  imageName: {{ printf "%s@%s" .Values.postgresCluster.imageName .Values.postgresCluster.imageDigest | quote }}
+  primaryUpdateStrategy: unsupervised
+  storage:
+    size: {{ .Values.postgresCluster.storageSize }}
+  bootstrap:
+    initdb:
+      database: {{ .Values.postgresCluster.database | quote }}
+      owner: {{ .Values.postgresCluster.owner | quote }}
+{{- end }}

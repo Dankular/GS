@@ -60,3 +60,23 @@ resources in `platform-app` and `platform-gameservers-<region>`, followed by
 the migration hook and application workloads. A release with
 `externalSecrets.enabled=true` must not be considered ready until the synced
 target Secrets have `Ready=True` conditions.
+
+## CloudNativePG (optional PostgreSQL operator)
+
+The VPS has the CloudNativePG Helm repository configured. The pinned operator
+baseline for the functional Kind environment is chart `0.29.0` / operator
+`1.30.0`:
+
+```sh
+helm upgrade --install cnpg cnpg/cloudnative-pg \
+  --version 0.29.0 --namespace cnpg-system --create-namespace
+kubectl -n cnpg-system rollout status deployment/cnpg-cloudnative-pg
+```
+
+The platform chart's `postgresCluster.enabled` option emits a CloudNativePG
+`postgresql.cnpg.io/v1` `Cluster`, with three instances by default and an
+immutable PostgreSQL image digest requirement. It is intentionally opt-in:
+managed PostgreSQL remains the recommended production boundary, and the
+application's `database-url` Secret must still be supplied by the approved
+secret manager. Validate storage classes, topology spread, fencing, and
+off-site WAL/archive backups before treating a deployment as HA or PITR-ready.

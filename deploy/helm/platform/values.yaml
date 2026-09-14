@@ -27,6 +27,17 @@ database:
   secretName: gameservice-secrets
   urlKey: database-url
   egressCIDRs: []
+postgresCluster:
+  # Optional CloudNativePG-managed PostgreSQL cluster. Keep disabled when the
+  # release uses a managed/external PostgreSQL service.
+  enabled: false
+  name: gameservice-postgres
+  instances: 3
+  imageName: ghcr.io/cloudnative-pg/postgresql:16.4
+  imageDigest: ""
+  storageSize: 20Gi
+  database: gameservice
+  owner: gameservice
 externalSecrets:
   enabled: false
   secretStoreRef:
