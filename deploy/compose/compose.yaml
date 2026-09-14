@@ -20,6 +20,18 @@ services:
       DATABASE_URL: postgres://gameservice:${POSTGRES_PASSWORD}@postgres:5432/gameservice?sslmode=disable
     ports: ["8080:8080"]
     depends_on: { postgres: { condition: service_healthy } }
+  turn:
+    image: coturn/coturn:4.6.3
+    command: >-
+      -n --log-file=stdout --realm=${TURN_REALM:?set TURN_REALM}
+      --use-auth-secret --static-auth-secret=${TURN_SECRET:?set TURN_SECRET}
+      --listening-port=3478 --tls-listening-port=5349
+      --min-port=49152 --max-port=65535 --no-cli
+    ports:
+      - "3478:3478/udp"
+      - "3478:3478/tcp"
+      - "5349:5349/tcp"
+      - "49152-65535:49152-65535/udp"
   migrations:
     image: postgres@sha256:21f6013073bc6b92830a2129570e2f5ec42a6c734b5a985a41e83aa58f54c3c1
     profiles: [tools]

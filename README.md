@@ -29,3 +29,9 @@ The API listens on `:8080` by default. Health endpoints are available at
 Pinned candidate images are recorded in `deploy/compose/compose.yaml` and must
 be resolved to immutable digests by the compatibility smoke test before a
 production baseline is declared.
+
+The compose stack includes coturn for GNS.NET relay fallback. Set `TURN_REALM`
+and a long random `TURN_SECRET` only in the deployment environment; never commit
+them. Expose UDP/TCP 3478, TLS 5349, and the configured relay range in the VPS
+firewall. GNS.NET signaling should mint short-lived TURN credentials from this
+secret and return them through its authenticated signaling endpoint.
