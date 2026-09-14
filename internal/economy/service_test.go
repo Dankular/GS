@@ -31,6 +31,12 @@ func TestBalancedLedgerEntriesOffsetPlayerDelta(t *testing.T) {
 	}
 }
 
+func TestTransferTargetRejectsSelfTransfer(t *testing.T) {
+	if _, err := transferTarget(map[string]any{"targetPlayerId": "player"}, "player"); err == nil {
+		t.Fatal("expected self-transfer rejection")
+	}
+}
+
 func TestCatalogLookupAndBusinessErrorCodes(t *testing.T) {
 	definition := compiler.Definition{Spec: compiler.Spec{Catalog: compiler.Catalog{Currencies: []compiler.Currency{{ID: "coins", MinBalance: 0, MaxBalance: 100}}, Items: []compiler.Item{{ID: "badge", StackLimit: 1}}}}}
 	if currency, ok := findCurrency(definition, "coins"); !ok || currency.MaxBalance != 100 {

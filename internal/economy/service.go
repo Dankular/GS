@@ -41,12 +41,16 @@ func (Service) Handle(ctx context.Context, tx pgx.Tx, e commands.Envelope) (resu
 		return walletChange(ctx, tx, player, args, e, true)
 	case "wallet.debit":
 		return walletChange(ctx, tx, player, args, e, false)
+	case "wallet.transfer":
+		return walletTransfer(ctx, tx, player, args, e)
 	case "inventory.list":
 		return inventoryList(ctx, tx, player, e)
 	case "inventory.grant":
 		return inventoryChange(ctx, tx, player, args, e, true)
 	case "inventory.consume":
 		return inventoryChange(ctx, tx, player, args, e, false)
+	case "inventory.transfer":
+		return inventoryTransfer(ctx, tx, player, args, e)
 	case "entitlement.list":
 		return entitlementList(ctx, tx, player, e)
 	case "entitlement.grant":
@@ -159,6 +163,27 @@ func appendLedgerEntries(ctx context.Context, tx pgx.Tx, requestID, player, curr
 	return nil
 }
 
+func appendTransferLedgerEntries(ctx context.Context, tx pgx.Tx, requestID, from, to, currency string, amount int64) error {
+	entries := []ledgerEntry{{Account: from, Amount: -amount}, {Account: to, Amount: amount}}
+	for _, entry := range entries {
+		if _, err := tx.Exec(ctx, `INSERT INTO economy.ledger_entries(request_id,player_id,currency,amount) VALUES($1,$2,$3,$4)`, requestID, entry.Account, currency, entry.Amount); err != nil {
+			return err
+		}
+	}
+	return nil
+}
+
+func transferTarget(args map[string]any, player string) (string, error) {
+	target, err := stringArg(args, "targetPlayerId", "")
+	if err != nil {
+		return "", err
+	}
+	if target == player {
+		return "", fmt.Errorf("%w: targetPlayerId must differ from playerId", ErrInvalidArgument)
+	}
+	return target, nil
+}
+
 func walletGet(ctx context.Context, tx pgx.Tx, player string, e commands.Envelope) (commands.Result, error) {
 	currency, err := stringArg(e.Spec.Arguments, "currency", "")
 	if err != nil {
@@ -236,6 +261,69 @@ func walletChange(ctx context.Context, tx pgx.Tx, player string, args map[string
 	return base(e, map[string]any{"playerId": player, "currency": currency, "amount": amount, "balance": balance}, event), nil
 }
 
+func walletTransfer(ctx context.Context, tx pgx.Tx, player string, args map[string]any, e commands.Envelope) (commands.Result, error) {
+	target, err := transferTarget(args, player)
+	if err != nil {
+		return commands.Result{}, err
+	}
+	currency, err := stringArg(args, "currency", "")
+	if err != nil {
+		return commands.Result{}, err
+	}
+	amount, err := intArg(args, "amount")
+	if err != nil {
+		return commands.Result{}, err
+	}
+	definition, err := loadDefinition(ctx, tx, e)
+	if err != nil {
+		return commands.Result{}, err
+	}
+	currencySpec, ok := findCurrency(definition, currency)
+	if !ok {
+		return commands.Result{}, fmt.Errorf("unknown currency: %s", currency)
+	}
+	rows, err := tx.Query(ctx, `SELECT player_id,balance FROM economy.wallet_accounts WHERE currency=$1 AND player_id=ANY($2) ORDER BY player_id FOR UPDATE`, currency, []string{player, target})
+	if err != nil {
+		return commands.Result{}, err
+	}
+	balances := map[string]int64{}
+	for rows.Next() {
+		var id string
+		var balance int64
+		if err := rows.Scan(&id, &balance); err != nil {
+			rows.Close()
+			return commands.Result{}, err
+		}
+		balances[id] = balance
+	}
+	if err := rows.Err(); err != nil {
+		rows.Close()
+		return commands.Result{}, err
+	}
+	rows.Close()
+	fromBalance, ok := balances[player]
+	if !ok || fromBalance < amount {
+		return commands.Result{}, fmt.Errorf("INSUFFICIENT_FUNDS")
+	}
+	toBalance := balances[target] + amount
+	if toBalance < currencySpec.MinBalance || toBalance > currencySpec.MaxBalance {
+		return commands.Result{}, fmt.Errorf("wallet balance violates currency bounds")
+	}
+	if _, err := tx.Exec(ctx, `UPDATE economy.wallet_accounts SET balance=balance-$3 WHERE player_id=$1 AND currency=$2`, player, currency, amount); err != nil {
+		return commands.Result{}, err
+	}
+	if _, err := tx.Exec(ctx, `INSERT INTO economy.wallet_accounts(player_id,currency,balance) VALUES($1,$2,$3) ON CONFLICT(player_id,currency) DO UPDATE SET balance=economy.wallet_accounts.balance+$3`, target, currency, amount); err != nil {
+		return commands.Result{}, err
+	}
+	if _, err := tx.Exec(ctx, `INSERT INTO economy.ledger_transactions(request_id,reason) VALUES($1,$2)`, e.Metadata.RequestID, e.Spec.Operation); err != nil {
+		return commands.Result{}, err
+	}
+	if err := appendTransferLedgerEntries(ctx, tx, e.Metadata.RequestID, player, target, currency, amount); err != nil {
+		return commands.Result{}, err
+	}
+	return base(e, map[string]any{"fromPlayerId": player, "targetPlayerId": target, "currency": currency, "amount": amount, "fromBalance": fromBalance - amount, "targetBalance": toBalance}, "wallet.transferred.v1"), nil
+}
+
 func inventoryList(ctx context.Context, tx pgx.Tx, player string, e commands.Envelope) (commands.Result, error) {
 	rows, err := tx.Query(ctx, `SELECT item_id,quantity,version FROM economy.inventory_stacks WHERE player_id=$1 AND quantity>0 ORDER BY item_id`, player)
 	if err != nil {
@@ -294,6 +382,63 @@ func inventoryChange(ctx context.Context, tx pgx.Tx, player string, args map[str
 		event = "inventory.granted.v1"
 	}
 	return base(e, map[string]any{"playerId": player, "itemId": item, "quantity": q, "newQuantity": quantity, "version": version}, event), nil
+}
+
+func inventoryTransfer(ctx context.Context, tx pgx.Tx, player string, args map[string]any, e commands.Envelope) (commands.Result, error) {
+	target, err := transferTarget(args, player)
+	if err != nil {
+		return commands.Result{}, err
+	}
+	item, err := stringArg(args, "itemId", "")
+	if err != nil {
+		return commands.Result{}, err
+	}
+	quantity, err := intArg(args, "quantity")
+	if err != nil {
+		return commands.Result{}, err
+	}
+	definition, err := loadDefinition(ctx, tx, e)
+	if err != nil {
+		return commands.Result{}, err
+	}
+	itemSpec, ok := findItem(definition, item)
+	if !ok {
+		return commands.Result{}, fmt.Errorf("unknown item: %s", item)
+	}
+	rows, err := tx.Query(ctx, `SELECT player_id,quantity FROM economy.inventory_stacks WHERE item_id=$1 AND player_id=ANY($2) ORDER BY player_id FOR UPDATE`, item, []string{player, target})
+	if err != nil {
+		return commands.Result{}, err
+	}
+	quantities := map[string]int64{}
+	for rows.Next() {
+		var id string
+		var value int64
+		if err := rows.Scan(&id, &value); err != nil {
+			rows.Close()
+			return commands.Result{}, err
+		}
+		quantities[id] = value
+	}
+	if err := rows.Err(); err != nil {
+		rows.Close()
+		return commands.Result{}, err
+	}
+	rows.Close()
+	fromQuantity, ok := quantities[player]
+	if !ok || fromQuantity < quantity {
+		return commands.Result{}, fmt.Errorf("INSUFFICIENT_ITEMS")
+	}
+	targetQuantity := quantities[target] + quantity
+	if targetQuantity > itemSpec.StackLimit {
+		return commands.Result{}, fmt.Errorf("item stack limit exceeded")
+	}
+	if _, err := tx.Exec(ctx, `UPDATE economy.inventory_stacks SET quantity=quantity-$3,version=version+1 WHERE player_id=$1 AND item_id=$2`, player, item, quantity); err != nil {
+		return commands.Result{}, err
+	}
+	if _, err := tx.Exec(ctx, `INSERT INTO economy.inventory_stacks(player_id,item_id,quantity,version) VALUES($1,$2,$3,1) ON CONFLICT(player_id,item_id) DO UPDATE SET quantity=economy.inventory_stacks.quantity+$3,version=economy.inventory_stacks.version+1`, target, item, quantity); err != nil {
+		return commands.Result{}, err
+	}
+	return base(e, map[string]any{"fromPlayerId": player, "targetPlayerId": target, "itemId": item, "quantity": quantity, "fromQuantity": fromQuantity - quantity, "targetQuantity": targetQuantity}, "inventory.transferred.v1"), nil
 }
 
 func entitlementList(ctx context.Context, tx pgx.Tx, player string, e commands.Envelope) (commands.Result, error) {
