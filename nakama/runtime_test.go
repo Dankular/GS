@@ -12,7 +12,7 @@ func TestRuntimeBridgeIsES5AndRegistersRPCs(t *testing.T) {
 		t.Fatal(err)
 	}
 	source := string(data)
-	for _, required := range []string{"function InitModule", "registerRpc(\"gameservice.health\"", "registerRpc(\"gameservice.profile\"", "registerRpc(\"gameservice.social\"", "registerRpc(\"gameservice.tournament_record\"", "nk.accountGetId", "nk.accountUpdateId", "nk.friendsList", "nk.friendsAdd", "nk.groupCreate", "nk.userGroupsList", "nk.notificationsList", "nk.channelMessageSend", "nk.tournamentsGetId", "nk.tournamentCreate", "nk.tournamentRecordsList", "nk.tournamentRecordWrite", "gameserviceEventKey", "control-api:8080/health/live"} {
+	for _, required := range []string{"function InitModule", "registerRpc(\"gameservice.health\"", "registerRpc(\"gameservice.profile\"", "registerRpc(\"gameservice.social\"", "registerRpc(\"gameservice.tournament_record\"", "registerRpc(\"gameservice.privacy\"", "nk.accountGetId", "nk.accountUpdateId", "nk.accountExportId", "nk.accountDeleteId", "nk.friendsList", "nk.friendsAdd", "nk.groupCreate", "nk.userGroupsList", "nk.notificationsList", "nk.channelMessageSend", "nk.tournamentsGetId", "nk.tournamentCreate", "nk.tournamentRecordsList", "nk.tournamentRecordWrite", "gameserviceEventKey", "control-api:8080/health/live"} {
 		if !strings.Contains(source, required) {
 			t.Fatalf("runtime bridge missing %q", required)
 		}

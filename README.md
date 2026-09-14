@@ -19,6 +19,12 @@ Kind/Agones validation deployment, auditable player restrictions, and independen
 economic reconciliation are implemented. Production Kubernetes rollout and full
 production hardening remain outstanding.
 
+Authenticated players can request account export or deletion with
+`POST /v1/players/me/privacy/export` and
+`POST /v1/players/me/privacy/delete`; both require an `Idempotency-Key`.
+See [`docs/privacy-retention.md`](docs/privacy-retention.md) for ownership,
+tombstones, and retention boundaries.
+
 ## Development
 
 Requirements for local checks: Go 1.26.5+. Runtime Docker deployment is performed

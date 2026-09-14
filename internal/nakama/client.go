@@ -31,6 +31,47 @@ type TournamentConfig struct {
 	MaxScoreAttempts int64
 }
 
+// RuntimeRPC invokes a server-only Nakama JavaScript runtime RPC. The caller
+// must provide a runtime HTTP key; this boundary never uses client sessions.
+func (c Client) RuntimeRPC(ctx context.Context, rpcID string, payload any, result any) error {
+	if strings.TrimSpace(c.BaseURL) == "" || strings.TrimSpace(c.RuntimeHTTPKey) == "" || strings.TrimSpace(rpcID) == "" {
+		return errors.New("nakama runtime client is not configured")
+	}
+	body, err := json.Marshal(payload)
+	if err != nil {
+		return fmt.Errorf("encode Nakama runtime payload: %w", err)
+	}
+	endpoint, err := url.JoinPath(strings.TrimRight(c.BaseURL, "/"), "v2", "rpc", rpcID)
+	if err != nil {
+		return fmt.Errorf("build Nakama runtime URL: %w", err)
+	}
+	req, err := http.NewRequestWithContext(ctx, http.MethodPost, endpoint+"?http_key="+url.QueryEscape(c.RuntimeHTTPKey)+"&unwrap", bytes.NewReader(body))
+	if err != nil {
+		return err
+	}
+	req.Header.Set("Content-Type", "application/json")
+	httpClient := c.HTTP
+	if httpClient == nil {
+		httpClient = http.DefaultClient
+	}
+	resp, err := httpClient.Do(req)
+	if err != nil {
+		return fmt.Errorf("call Nakama runtime RPC: %w", err)
+	}
+	defer resp.Body.Close()
+	if resp.StatusCode < 200 || resp.StatusCode >= 300 {
+		data, _ := io.ReadAll(io.LimitReader(resp.Body, 2048))
+		return fmt.Errorf("Nakama runtime RPC returned HTTP %d: %s", resp.StatusCode, strings.TrimSpace(string(data)))
+	}
+	if result == nil {
+		return nil
+	}
+	if err := json.NewDecoder(resp.Body).Decode(result); err != nil {
+		return fmt.Errorf("decode Nakama runtime RPC response: %w", err)
+	}
+	return nil
+}
+
 func (c Client) WriteLeaderboardRecord(ctx context.Context, leaderboardID string, record LeaderboardRecord) error {
 	if strings.TrimSpace(c.BaseURL) == "" || c.ServerKey == "" || leaderboardID == "" || record.UserID == "" {
 		return errors.New("nakama leaderboard client is not configured")

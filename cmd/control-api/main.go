@@ -3,6 +3,7 @@ package main
 import (
 	"context"
 	"crypto/ed25519"
+	"crypto/sha256"
 	"encoding/base64"
 	"encoding/json"
 	"errors"
@@ -95,6 +96,7 @@ func main() {
 	if nakamaURL == "" {
 		nakamaURL = "http://nakama:7350"
 	}
+	nakamaRuntime := nakama.Client{BaseURL: nakamaURL, RuntimeHTTPKey: os.Getenv("NAKAMA_RUNTIME_HTTP_KEY")}
 	metricRegistry := telemetry.New()
 	authenticate := func(r *http.Request) (auth.SessionClaims, error) {
 		return auth.VerifyNakamaSession(strings.TrimPrefix(r.Header.Get("Authorization"), "Bearer "), sessionSigningKey, issuer, audience, time.Now())
@@ -146,6 +148,109 @@ func main() {
 			return
 		}
 		writeJSON(w, map[string]any{"playerId": claims.UserID, "wallets": wallets})
+	})
+	mux.HandleFunc("POST /v1/players/me/privacy/export", func(w http.ResponseWriter, r *http.Request) {
+		claims, ok := requireScope(w, r, authenticate, "player:read")
+		if !ok {
+			return
+		}
+		requestID, ok := privacyRequestID(w, r)
+		if !ok {
+			return
+		}
+		var replay json.RawMessage
+		if err := repository.Pool().QueryRow(r.Context(), `SELECT result FROM platform.account_privacy_requests WHERE request_id=$1 AND player_id=$2 AND operation='export' AND status='completed'`, requestID, claims.UserID).Scan(&replay); err == nil {
+			w.Header().Set("X-Idempotency-Replay", "true")
+			w.Header().Set("Content-Type", "application/json")
+			_, _ = w.Write(replay)
+			return
+		}
+		var account map[string]any
+		if err := nakamaRuntime.RuntimeRPC(r.Context(), "gameservice.privacy", map[string]any{"operation": "export", "userId": claims.UserID}, &account); err != nil {
+			http.Error(w, "account export unavailable", http.StatusUnprocessableEntity)
+			return
+		}
+		snapshot, err := economy.Snapshot(r.Context(), repository.Pool(), claims.UserID)
+		if err != nil {
+			http.Error(w, "account export unavailable", http.StatusServiceUnavailable)
+			return
+		}
+		result := map[string]any{"requestId": requestID, "playerId": claims.UserID, "nakama": account["account"], "gameservice": snapshot}
+		if _, err := repository.Pool().Exec(r.Context(), `INSERT INTO platform.account_privacy_requests(request_id,player_id,operation,status,result) VALUES($1,$2,'export','completed',$3) ON CONFLICT (request_id) DO NOTHING`, requestID, claims.UserID, result); err != nil {
+			http.Error(w, "account export could not be recorded", http.StatusServiceUnavailable)
+			return
+		}
+		writeJSON(w, result)
+	})
+	mux.HandleFunc("POST /v1/players/me/privacy/delete", func(w http.ResponseWriter, r *http.Request) {
+		claims, ok := requireScope(w, r, authenticate, "player:write")
+		if !ok {
+			return
+		}
+		requestID, ok := privacyRequestID(w, r)
+		if !ok {
+			return
+		}
+		hashID := privacyHash(claims.UserID)
+		var replay json.RawMessage
+		if err := repository.Pool().QueryRow(r.Context(), `SELECT result FROM platform.account_privacy_requests WHERE request_id=$1 AND player_id=$2 AND operation='delete' AND status='completed'`, requestID, hashID).Scan(&replay); err == nil {
+			w.Header().Set("X-Idempotency-Replay", "true")
+			w.Header().Set("Content-Type", "application/json")
+			_, _ = w.Write(replay)
+			return
+		}
+		var existing bool
+		if err := repository.Pool().QueryRow(r.Context(), `SELECT EXISTS(SELECT 1 FROM platform.deleted_account_tombstones WHERE player_id_hash=$1)`, hashID).Scan(&existing); err != nil {
+			http.Error(w, "account deletion unavailable", 503)
+			return
+		}
+		if existing {
+			writeJSON(w, map[string]any{"requestId": requestID, "deleted": true, "replayed": true})
+			return
+		}
+		var deleted map[string]any
+		if err := nakamaRuntime.RuntimeRPC(r.Context(), "gameservice.privacy", map[string]any{"operation": "delete", "userId": claims.UserID}, &deleted); err != nil {
+			http.Error(w, "account deletion unavailable", http.StatusUnprocessableEntity)
+			return
+		}
+		tx, err := repository.Pool().Begin(r.Context())
+		if err != nil {
+			http.Error(w, "account deletion unavailable", 503)
+			return
+		}
+		defer tx.Rollback(r.Context())
+		if _, err = tx.Exec(r.Context(), `INSERT INTO platform.account_privacy_requests(request_id,player_id,operation,status,result) VALUES($1,$2,'delete','completed','{"deleted":true}'::jsonb) ON CONFLICT (request_id) DO NOTHING`, requestID, hashID); err != nil {
+			http.Error(w, "account deletion unavailable", 503)
+			return
+		}
+		for _, query := range []string{`UPDATE economy.ledger_entries SET player_id=$1 WHERE player_id=$2`, `DELETE FROM economy.wallet_accounts WHERE player_id=$1`, `DELETE FROM economy.inventory_stacks WHERE player_id=$1`, `DELETE FROM economy.entitlements WHERE player_id=$1`, `DELETE FROM progression.player_progress WHERE player_id=$1`, `DELETE FROM progression.objective_completions WHERE player_id=$1`, `DELETE FROM economy.reward_claims WHERE player_id=$1`, `DELETE FROM platform.player_restrictions WHERE player_id=$1`, `DELETE FROM match.join_claims WHERE player_id=$1`, `DELETE FROM match.ticket_members WHERE player_id=$1`, `UPDATE platform.command_requests SET actor_id=$1 WHERE actor_id=$2`, `UPDATE ops.audit_log SET actor_id=$1 WHERE actor_id=$2`} {
+			if strings.HasPrefix(query, "UPDATE") {
+				_, err = tx.Exec(r.Context(), query, "deleted:"+hashID, claims.UserID)
+			} else {
+				_, err = tx.Exec(r.Context(), query, claims.UserID)
+			}
+			if err != nil {
+				http.Error(w, "account deletion unavailable", 503)
+				return
+			}
+		}
+		if _, err = tx.Exec(r.Context(), `UPDATE match.results SET payload=jsonb_set(payload,'{players}',COALESCE((SELECT jsonb_agg(elem - 'playerId') FROM jsonb_array_elements(CASE WHEN jsonb_typeof(payload->'players')='array' THEN payload->'players' ELSE '[]'::jsonb END) elem),'[]'::jsonb),true) WHERE payload ? 'players' AND EXISTS (SELECT 1 FROM jsonb_array_elements(payload->'players') elem WHERE elem->>'playerId'=$1)`, claims.UserID); err != nil {
+			http.Error(w, "account deletion unavailable", 503)
+			return
+		}
+		if _, err = tx.Exec(r.Context(), `INSERT INTO platform.deleted_account_tombstones(player_id_hash,request_id) VALUES($1,$2) ON CONFLICT DO NOTHING`, hashID, requestID); err != nil {
+			http.Error(w, "account deletion unavailable", 503)
+			return
+		}
+		if _, err = tx.Exec(r.Context(), `INSERT INTO ops.audit_log(actor_type,actor_id,action,resource_type,resource_id,correlation_id,details) VALUES('system',$1,'account.delete','player',$1,$2,'{"tombstoned":true}'::jsonb)`, "deleted:"+hashID, requestID); err != nil {
+			http.Error(w, "account deletion unavailable", 503)
+			return
+		}
+		if err = tx.Commit(r.Context()); err != nil {
+			http.Error(w, "account deletion unavailable", 503)
+			return
+		}
+		writeJSON(w, map[string]any{"requestId": requestID, "deleted": true, "tombstone": "deleted:" + hashID})
 	})
 	mux.HandleFunc("GET /v1/matches/{matchId}", func(w http.ResponseWriter, r *http.Request) {
 		claims, ok := requireScope(w, r, authenticate, "player:read")
@@ -562,6 +667,20 @@ func main() {
 func writeJSON(w http.ResponseWriter, value any) {
 	w.Header().Set("Content-Type", "application/json")
 	_ = json.NewEncoder(w).Encode(value)
+}
+
+func privacyRequestID(w http.ResponseWriter, r *http.Request) (string, bool) {
+	id := strings.TrimSpace(r.Header.Get("Idempotency-Key"))
+	if id == "" || len(id) > 128 {
+		http.Error(w, "Idempotency-Key is required and must be at most 128 characters", http.StatusBadRequest)
+		return "", false
+	}
+	return id, true
+}
+
+func privacyHash(playerID string) string {
+	sum := sha256.Sum256([]byte("gameservice-account-tombstone:" + playerID))
+	return fmt.Sprintf("%x", sum[:])
 }
 
 func resultStateAccepts(state string) bool {

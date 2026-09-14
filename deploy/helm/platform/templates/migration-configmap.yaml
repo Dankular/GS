@@ -6,3 +6,5 @@ data:
 {{ .Files.Get "files/001_control.sql" | indent 4 }}
   002_match_ticket_link.sql: |
 {{ .Files.Get "files/002_match_ticket_link.sql" | indent 4 }}
+  003_privacy.sql: |
+{{ .Files.Get "files/003_privacy.sql" | indent 4 }}

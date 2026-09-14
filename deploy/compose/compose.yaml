@@ -32,6 +32,7 @@ services:
       SERVER_CLAIM_PUBLIC_KEYS: ${SERVER_CLAIM_PUBLIC_KEYS:-}
       SERVER_CLAIM_PUBLIC_KEY: ${SERVER_CLAIM_PUBLIC_KEY:-}
       JOIN_CLAIM_PRIVATE_KEY: ${JOIN_CLAIM_PRIVATE_KEY:-}
+      NAKAMA_RUNTIME_HTTP_KEY: ${NAKAMA_RUNTIME_HTTP_KEY:?set NAKAMA_RUNTIME_HTTP_KEY}
     ports: ["8080:8080"]
     depends_on:
       postgres: { condition: service_healthy }

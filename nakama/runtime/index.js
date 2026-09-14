@@ -251,10 +251,35 @@ function gameserviceTournamentRecord(ctx, logger, nk, payload) {
   return JSON.stringify({ tournamentId: tournamentId, ownerId: ownerId, duplicate: false, record: record || {} });
 }
 
+function gameservicePrivacy(ctx, logger, nk, payload) {
+  if (ctx.userId) {
+    throw { message: "privacy RPC is server-to-server only", code: 7 };
+  }
+  var request = {};
+  try { request = payload ? JSON.parse(payload) : {}; } catch (error) { throw { message: "privacy payload must be valid JSON", code: 3 }; }
+  if (typeof request.userId !== "string" || !/^[0-9a-fA-F-]{36}$/.test(request.userId)) {
+    throw { message: "userId must be a UUID", code: 3 };
+  }
+  if (request.operation === "export") {
+    var exported = nk.accountExportId(request.userId);
+    return JSON.stringify({ userId: request.userId, account: JSON.parse(exported) });
+  }
+  if (request.operation === "delete") {
+    try { nk.accountDeleteId(request.userId, true); } catch (error) {
+      // A retry after Nakama committed the deletion can still finalize the
+      // GameService transaction when the account is already absent.
+      try { nk.accountGetId(request.userId); throw error; } catch (missing) { }
+    }
+    return JSON.stringify({ userId: request.userId, deleted: true });
+  }
+  throw { message: "operation must be export or delete", code: 3 };
+}
+
 function InitModule(ctx, logger, nk, initializer) {
   initializer.registerRpc("gameservice.health", gameserviceHealth);
   initializer.registerRpc("gameservice.profile", gameserviceProfile);
   initializer.registerRpc("gameservice.social", gameserviceSocial);
   initializer.registerRpc("gameservice.tournament_record", gameserviceTournamentRecord);
+  initializer.registerRpc("gameservice.privacy", gameservicePrivacy);
   logger.info("GameService Nakama bridge loaded.");
 }

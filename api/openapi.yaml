@@ -44,6 +44,10 @@ paths:
     get: { operationId: getPlayerInventory, responses: { '200': { description: Player inventory } } }
   /v1/players/me/wallets:
     get: { operationId: getPlayerWallets, responses: { '200': { description: Player wallets } } }
+  /v1/players/me/privacy/export:
+    post: { operationId: exportPlayerAccount, parameters: [{ name: Idempotency-Key, in: header, required: true, schema: { type: string, minLength: 1, maxLength: 128 } }], responses: { '200': { description: Account export } } }
+  /v1/players/me/privacy/delete:
+    post: { operationId: deletePlayerAccount, parameters: [{ name: Idempotency-Key, in: header, required: true, schema: { type: string, minLength: 1, maxLength: 128 } }], responses: { '200': { description: Account deletion tombstone } } }
   /v1/matchmaking/tickets:
     post:
       operationId: createMatchmakingTicket
