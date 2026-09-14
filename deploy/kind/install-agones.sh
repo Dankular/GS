@@ -25,6 +25,7 @@ fi
   --set agones.ping.http.serviceType=NodePort \
   --set agones.ping.udp.serviceType=NodePort \
   --wait
+NODE_IP="$(docker inspect -f '{{(index .NetworkSettings.Networks "kind").IPAddress}}' gameservice-control-plane)"
 CONTROL_API_CONTAINER="${CONTROL_API_CONTAINER:-compose-control-api-1}"
 docker network connect kind "$CONTROL_API_CONTAINER" 2>/dev/null || true
 CONTROL_API_IP="$(docker inspect -f '{{(index .NetworkSettings.Networks "kind").IPAddress}}' "$CONTROL_API_CONTAINER")"
