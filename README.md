@@ -334,6 +334,18 @@ Set `SERVER_CLAIM_PUBLIC_KEYS` for the Control API. The Control API also
 requires `JOIN_CLAIM_PRIVATE_KEY` to issue player join claims; never put either
 private key in the Fleet manifest.
 
+For the VPS Compose deployment, provision the file once as root with mode 0600
+and owner UID/GID 65532, then set these non-secret path variables in the
+deployment-only `.env`:
+
+```text
+SERVER_CLAIM_PRIVATE_KEY_FILE=/run/server-claims/private-key
+SERVER_CLAIM_PRIVATE_KEY_FILE_HOST=/opt/gameservice/.secrets/server-claim-private-key
+```
+
+The Compose mount is read-only. Keep the file outside the repository and do not
+place its contents in `.env`, command-line arguments, or logs.
+
 ### Authentication boundary
 
 Mutation and command-result endpoints require a Nakama session JWT in the
