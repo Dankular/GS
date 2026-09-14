@@ -30,6 +30,27 @@ func TestWriteLeaderboardRecordUsesServerAPI(t *testing.T) {
 		t.Fatal(err)
 	}
 }
+
+func TestHealthUsesNakamaHealthcheck(t *testing.T) {
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		if r.Method != http.MethodGet || r.URL.Path != "/healthcheck" {
+			t.Fatalf("unexpected request: %s %s", r.Method, r.URL.Path)
+		}
+		w.WriteHeader(http.StatusOK)
+	}))
+	defer server.Close()
+	if err := (Client{BaseURL: server.URL, HTTP: server.Client()}).Health(context.Background()); err != nil {
+		t.Fatal(err)
+	}
+}
+
+func TestHealthRejectsNakamaFailure(t *testing.T) {
+	server := httptest.NewServer(http.NotFoundHandler())
+	defer server.Close()
+	if err := (Client{BaseURL: server.URL, HTTP: server.Client()}).Health(context.Background()); err == nil {
+		t.Fatal("expected Nakama health failure")
+	}
+}
 func TestWriteLeaderboardRecordRejectsFailure(t *testing.T) {
 	s := httptest.NewServer(http.NotFoundHandler())
 	defer s.Close()

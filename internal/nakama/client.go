@@ -16,6 +16,35 @@ type Client struct {
 	BaseURL, ServerKey, RuntimeHTTPKey string
 	HTTP                               *http.Client
 }
+
+// Health checks Nakama's supported unauthenticated health endpoint.
+func (c Client) Health(ctx context.Context) error {
+	if strings.TrimSpace(c.BaseURL) == "" {
+		return errors.New("nakama health client is not configured")
+	}
+	endpoint, err := url.JoinPath(strings.TrimRight(c.BaseURL, "/"), "healthcheck")
+	if err != nil {
+		return fmt.Errorf("build Nakama health URL: %w", err)
+	}
+	request, err := http.NewRequestWithContext(ctx, http.MethodGet, endpoint, nil)
+	if err != nil {
+		return err
+	}
+	httpClient := c.HTTP
+	if httpClient == nil {
+		httpClient = http.DefaultClient
+	}
+	response, err := httpClient.Do(request)
+	if err != nil {
+		return fmt.Errorf("check Nakama health: %w", err)
+	}
+	defer response.Body.Close()
+	if response.StatusCode < 200 || response.StatusCode >= 300 {
+		return fmt.Errorf("Nakama health returned HTTP %d", response.StatusCode)
+	}
+	return nil
+}
+
 type LeaderboardRecord struct {
 	UserID          string
 	Score, Subscore int64

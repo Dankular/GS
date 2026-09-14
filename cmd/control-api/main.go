@@ -114,6 +114,10 @@ func main() {
 			http.Error(w, "not ready", http.StatusServiceUnavailable)
 			return
 		}
+		if err := nakamaRuntime.Health(r.Context()); err != nil {
+			http.Error(w, "not ready", http.StatusServiceUnavailable)
+			return
+		}
 		w.WriteHeader(http.StatusOK)
 	})
 	mux.HandleFunc("GET /metrics", func(w http.ResponseWriter, _ *http.Request) {
