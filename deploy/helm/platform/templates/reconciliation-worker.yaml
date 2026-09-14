@@ -16,6 +16,11 @@ spec:
       terminationGracePeriodSeconds: {{ .Values.pod.terminationGracePeriodSeconds }}
       securityContext:
 {{ toYaml .Values.pod.securityContext | nindent 8 }}
+      topologySpreadConstraints:
+        - maxSkew: {{ .Values.pod.topologySpread.maxSkew }}
+          topologyKey: {{ .Values.pod.topologySpread.topologyKey }}
+          whenUnsatisfiable: {{ .Values.pod.topologySpread.whenUnsatisfiable }}
+          labelSelector: { matchLabels: { app: gameservice-reconciliation-worker } }
       containers:
         - name: reconciliation-worker
           image: {{ include "gameservice.image" (dict "Values" .Values "name" "reconciliationWorker") | quote }}

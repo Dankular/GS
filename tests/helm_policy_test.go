@@ -40,8 +40,14 @@ func TestHelmProductionWorkersHaveBoundedAllocationAndRedundantReconciliation(t 
 	if err != nil {
 		t.Fatal(err)
 	}
-	if !strings.Contains(string(worker), "replicas: {{ .Values.replicaCount }}") {
-		t.Fatal("reconciliation worker must follow the production replica count")
+	for _, required := range []string{
+		"replicas: {{ .Values.replicaCount }}",
+		"topologySpreadConstraints:",
+		"labelSelector: { matchLabels: { app: gameservice-reconciliation-worker } }",
+	} {
+		if !strings.Contains(string(worker), required) {
+			t.Fatalf("reconciliation worker manifest missing %q", required)
+		}
 	}
 }
 
