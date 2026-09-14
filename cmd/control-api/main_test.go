@@ -3,9 +3,11 @@ package main
 import (
 	"crypto/ed25519"
 	"encoding/base64"
+	"net/http"
 	"os"
 	"path/filepath"
 	"testing"
+	"time"
 )
 
 func TestLoadEd25519PrivateKeyFromFile(t *testing.T) {
@@ -34,5 +36,30 @@ func TestLoadEd25519PrivateKeyFallbackAndValidation(t *testing.T) {
 	}
 	if _, err := loadEd25519PrivateKey("", "bad"); err == nil {
 		t.Fatal("invalid key was accepted")
+	}
+}
+
+func TestServeHTTPGracefullyShutsDownOnSignal(t *testing.T) {
+	server := &http.Server{}
+	signals := make(chan os.Signal, 1)
+	started := make(chan struct{})
+	blocked := make(chan struct{})
+	defer close(blocked)
+	listen := func() error {
+		close(started)
+		<-blocked
+		return nil
+	}
+	done := make(chan error, 1)
+	go func() { done <- serveHTTP(server, signals, time.Second, listen) }()
+	<-started
+	signals <- os.Interrupt
+	select {
+	case err := <-done:
+		if err != nil {
+			t.Fatalf("graceful shutdown failed: %v", err)
+		}
+	case <-time.After(2 * time.Second):
+		t.Fatal("graceful shutdown did not complete")
 	}
 }

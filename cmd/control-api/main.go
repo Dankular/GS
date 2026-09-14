@@ -12,8 +12,10 @@ import (
 	"log/slog"
 	"net/http"
 	"os"
+	"os/signal"
 	"strconv"
 	"strings"
+	"syscall"
 	"time"
 
 	admincommands "github.com/Dankular/GameService/internal/admin"
@@ -762,9 +764,29 @@ func main() {
 		writeJSON(w, map[string]any{"records": records})
 	})
 	slog.Info("control API listening", "addr", addr)
-	if err := http.ListenAndServe(addr, otelhttp.NewHandler(metricRegistry.Middleware(rateConfig.Middleware(rateLimiter, mux)), "gameservice.control-api")); err != nil {
+	server := &http.Server{Addr: addr, Handler: otelhttp.NewHandler(metricRegistry.Middleware(rateConfig.Middleware(rateLimiter, mux)), "gameservice.control-api")}
+	signals := make(chan os.Signal, 1)
+	signal.Notify(signals, os.Interrupt, syscall.SIGTERM)
+	defer signal.Stop(signals)
+	if err := serveHTTP(server, signals, 30*time.Second, server.ListenAndServe); err != nil {
 		slog.Error("server stopped", "error", err)
 		os.Exit(1)
+	}
+}
+
+func serveHTTP(server *http.Server, signals <-chan os.Signal, timeout time.Duration, listen func() error) error {
+	errors := make(chan error, 1)
+	go func() { errors <- listen() }()
+	select {
+	case err := <-errors:
+		if err == http.ErrServerClosed {
+			return nil
+		}
+		return err
+	case <-signals:
+		ctx, cancel := context.WithTimeout(context.Background(), timeout)
+		defer cancel()
+		return server.Shutdown(ctx)
 	}
 }
 
