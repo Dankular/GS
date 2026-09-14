@@ -85,3 +85,16 @@ func TestSupplyChainPolicyIsOptInAndKeyless(t *testing.T) {
 		}
 	}
 }
+
+func TestComposeSeparatesNakamaDatabaseRole(t *testing.T) {
+	data, err := os.ReadFile(filepath.Join("..", "deploy", "compose", "compose.yaml"))
+	if err != nil {
+		t.Fatal(err)
+	}
+	text := string(data)
+	for _, required := range []string{"nakama-role-bootstrap:", "CREATE ROLE nakama", "REVOKE ALL ON SCHEMA platform, economy, progression, match, ops FROM nakama", "database.address nakama:${NAKAMA_DATABASE_PASSWORD}@postgres:5432/gameservice", "NAKAMA_DATABASE_PASSWORD: ${NAKAMA_DATABASE_PASSWORD:?set NAKAMA_DATABASE_PASSWORD}"} {
+		if !strings.Contains(text, required) {
+			t.Errorf("Compose database boundary missing %q", required)
+		}
+	}
+}
