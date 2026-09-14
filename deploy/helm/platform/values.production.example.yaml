@@ -1,0 +1,16 @@
+# Production shape only. Supply real values through the release system or
+# external secret manager; do not commit credentials or placeholder digests.
+replicaCount: 2
+ingress:
+  enabled: true
+  className: nginx
+  host: api.gameservice.example.com
+  tlsSecretName: gameservice-control-api-tls
+  annotations:
+    nginx.ingress.kubernetes.io/limit-rps: "100"
+    nginx.ingress.kubernetes.io/proxy-body-size: "1m"
+database:
+  secretName: gameservice-production-secrets
+  urlKey: database-url
+nakama:
+  url: https://nakama.platform.example.com

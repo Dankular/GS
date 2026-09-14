@@ -26,6 +26,11 @@ credentials. All application containers run non-root with a RuntimeDefault
 seccomp profile, dropped capabilities, read-only root filesystems, and a
 temporary filesystem only where needed.
 
+Set `ingress.enabled=true` and supply TLS through the release system to expose
+the Control API through an approved ingress controller. The checked-in
+`values.production.example.yaml` is a topology example only; it deliberately
+contains no credentials or image digests.
+
 The referenced Secret must also contain `nakama-runtime-http-key` when a
 definition enables tournament delivery. The leaderboard worker uses that key
 only for the narrow server-to-server `gameservice.tournament_record` runtime

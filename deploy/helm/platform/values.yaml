@@ -14,6 +14,12 @@ namespace:
   observability: platform-observability
 service:
   port: 8080
+ingress:
+  enabled: false
+  className: nginx
+  host: gameservice.example.invalid
+  tlsSecretName: gameservice-control-api-tls
+  annotations: {}
 resources:
   requests: { cpu: 100m, memory: 128Mi }
   limits: { cpu: 1, memory: 512Mi }
