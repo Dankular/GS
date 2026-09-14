@@ -29,13 +29,17 @@ func TestPrometheusRulesHaveRunbooks(t *testing.T) {
 	if err := yaml.Unmarshal(data, &document); err != nil {
 		t.Fatalf("parse Prometheus rules: %v", err)
 	}
-	if len(document.Groups) != 1 || len(document.Groups[0].Rules) < 3 {
-		t.Fatalf("expected baseline availability, error-rate, and traffic alerts: %#v", document)
+	if len(document.Groups) != 1 || len(document.Groups[0].Rules) < 4 {
+		t.Fatalf("expected availability, error-rate, traffic, and latency alerts: %#v", document)
 	}
 	for _, rule := range document.Groups[0].Rules {
 		if strings.TrimSpace(rule.Alert) == "" || strings.TrimSpace(rule.Annotations["runbook"]) == "" {
 			t.Fatalf("alert %q is missing a runbook", rule.Alert)
 		}
+	}
+	rulesText := string(data)
+	if !strings.Contains(rulesText, "histogram_quantile") || !strings.Contains(rulesText, "gameservice_http_request_duration_seconds_bucket") {
+		t.Fatal("latency SLO alert is missing the bounded request histogram")
 	}
 }
 

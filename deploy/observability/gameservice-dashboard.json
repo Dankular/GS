@@ -38,6 +38,15 @@
       "datasource": { "type": "prometheus", "uid": "gameservice-prometheus" },
       "targets": [{ "expr": "max(gameservice_process_uptime_seconds)", "legendFormat": "seconds" }],
       "gridPos": { "h": 8, "w": 24, "x": 0, "y": 8 }
+    },
+    {
+      "id": 5,
+      "type": "timeseries",
+      "title": "HTTP p95 latency",
+      "datasource": { "type": "prometheus", "uid": "gameservice-prometheus" },
+      "targets": [{ "expr": "histogram_quantile(0.95, sum(rate(gameservice_http_request_duration_seconds_bucket[5m])) by (le))", "legendFormat": "p95 seconds" }],
+      "fieldConfig": { "defaults": { "unit": "s", "thresholds": { "steps": [{ "color": "green", "value": null }, { "color": "red", "value": 0.25 }] } } },
+      "gridPos": { "h": 8, "w": 24, "x": 0, "y": 16 }
     }
   ]
 }
