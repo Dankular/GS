@@ -335,6 +335,10 @@ func main() {
 			http.Error(w, "actor does not match authenticated user", http.StatusForbidden)
 			return
 		}
+		if e.Actor.Type != commandActorType(e.Spec.Operation) {
+			http.Error(w, "actor type does not match authenticated operation", http.StatusForbidden)
+			return
+		}
 		if scope := commandScope(e.Spec.Operation); scope != "" && !sessionAllowsScope(claims, scope) {
 			http.Error(w, "insufficient scope", http.StatusForbidden)
 			return
@@ -879,6 +883,14 @@ func commandScope(operation string) string {
 	default:
 		return ""
 	}
+}
+
+func commandActorType(operation string) string {
+	scope := commandScope(operation)
+	if strings.HasPrefix(scope, "admin:") || strings.HasPrefix(scope, "definition:") {
+		return "admin"
+	}
+	return "player"
 }
 
 func readDefinitionSource(r *http.Request) ([]byte, error) {

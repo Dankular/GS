@@ -25,6 +25,19 @@ func TestCommandScopeMatrix(t *testing.T) {
 	}
 }
 
+func TestCommandActorTypeIsDerivedFromOperationScope(t *testing.T) {
+	for _, operation := range []string{"wallet.credit", "inventory.grant", "matchmaking.enqueue"} {
+		if got := commandActorType(operation); got != "player" {
+			t.Fatalf("%s actor type = %q, want player", operation, got)
+		}
+	}
+	for _, operation := range []string{"admin.execute_command", "admin.audit_search", "definition.publish", "definition.activate"} {
+		if got := commandActorType(operation); got != "admin" {
+			t.Fatalf("%s actor type = %q, want admin", operation, got)
+		}
+	}
+}
+
 func TestSessionAllowsBaselinePlayerAccessWithoutNakamaScope(t *testing.T) {
 	claims := auth.SessionClaims{}
 	if !sessionAllowsScope(claims, "player:read") || !sessionAllowsScope(claims, "player:write") {
