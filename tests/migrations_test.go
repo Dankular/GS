@@ -8,7 +8,7 @@ import (
 )
 
 func TestComposeAndHelmMigrationsStayInSync(t *testing.T) {
-	for _, name := range []string{"001_control.sql", "002_match_ticket_link.sql", "003_privacy.sql", "004_audit_chain.sql", "005_definition_approvals.sql"} {
+	for _, name := range []string{"001_control.sql", "002_match_ticket_link.sql", "003_privacy.sql", "004_audit_chain.sql", "005_definition_approvals.sql", "006_outbox_observability.sql"} {
 		compose, err := os.ReadFile(filepath.Join("..", "migrations", "control", name))
 		if err != nil {
 			t.Fatal(err)
@@ -55,8 +55,10 @@ func TestDeploymentsApplyAllForwardMigrationsInOrder(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	if !strings.Contains(string(configMap), "005_definition_approvals.sql") || !strings.Contains(string(configMap), "files/005_definition_approvals.sql") {
-		t.Fatal("Helm migration ConfigMap does not include the definition approvals migration")
+	for _, required := range []string{"005_definition_approvals.sql", "files/005_definition_approvals.sql", "006_outbox_observability.sql", "files/006_outbox_observability.sql"} {
+		if !strings.Contains(string(configMap), required) {
+			t.Fatalf("Helm migration ConfigMap does not include %q", required)
+		}
 	}
 	if !strings.Contains(string(compose), "migrations:\n") || !strings.Contains(string(compose), "postgres: { condition: service_healthy }") {
 		t.Fatal("Compose migrations do not wait for healthy PostgreSQL")
