@@ -63,7 +63,7 @@ const (
 	TicketStatusQueued    TicketStatus = "queued"
 )
 
-// Actor defines model for Actor.
+// Actor The actor ID must match the authenticated identity; actor type is derived from the operation scope at the HTTP boundary.
 type Actor struct {
 	Id   string `json:"id"`
 	Type string `json:"type"`
@@ -71,6 +71,7 @@ type Actor struct {
 
 // Command defines model for Command.
 type Command struct {
+	// Actor The actor ID must match the authenticated identity; actor type is derived from the operation scope at the HTTP boundary.
 	Actor      Actor             `json:"actor"`
 	ApiVersion CommandApiVersion `json:"apiVersion"`
 	Kind       CommandKind       `json:"kind"`
@@ -167,7 +168,7 @@ type Ticket struct {
 // TicketStatus defines model for Ticket.Status.
 type TicketStatus string
 
-// TicketRequest defines model for TicketRequest.
+// TicketRequest Public player sessions submit one-player tickets. Multi-player party tickets require a trusted Nakama adapter and are not accepted directly from a player session.
 type TicketRequest struct {
 	Build              string                  `json:"build"`
 	Capacity           int                     `json:"capacity"`
