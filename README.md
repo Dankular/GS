@@ -49,6 +49,26 @@ worker sends match/allocation/build/roster metadata through Agones allocation,
 and the simulator consumes it through the Agones SDK. Join authorization still
 requires a Control API-signed claim.
 
+The real Agones E2E harness is `tests/e2e/match_test.go`. It is deliberately
+environment-gated so a normal unit run cannot pretend that Kubernetes exists.
+After deploying the Kind smoke stack, run it with two test identities and a
+port-forward to the allocated simulator control port:
+
+```text
+GAMESERVICE_E2E_API_URL=http://127.0.0.1:8080 \
+GAMESERVICE_E2E_SESSION_SIGNING_KEY=... \
+GAMESERVICE_E2E_PLAYER_A=e2e-a \
+GAMESERVICE_E2E_PLAYER_B=e2e-b \
+GAMESERVICE_E2E_SERVER_URL=http://127.0.0.1:17001 \
+go test -tags=e2e ./tests/e2e -run TestSyntheticMatchLifecycle -count=1
+```
+
+The test creates two real tickets, waits for their shared match and Ready
+server, obtains player join claims, joins both players, submits a result, and
+verifies the durable Completed state and matched ticket association. Set
+`GAMESERVICE_E2E_SERVER_TOKEN` as well to verify duplicate result acknowledgement
+through the server-result endpoint; do not print or commit that token.
+
 Nakama also loads the JavaScript bridge in `nakama/runtime/index.js`. Its
 `gameservice.health` RPC performs a bounded health check against the Control
 API, while `gameservice.profile` reads and patches only the authenticated
