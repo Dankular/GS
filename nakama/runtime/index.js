@@ -267,8 +267,11 @@ function gameservicePrivacy(ctx, logger, nk, payload) {
   if (request.operation === "delete") {
     try { nk.accountDeleteId(request.userId, true); } catch (error) {
       // A retry after Nakama committed the deletion can still finalize the
-      // GameService transaction when the account is already absent.
-      try { nk.accountGetId(request.userId); throw error; } catch (missing) { }
+      // GameService transaction when the account is already absent. Preserve
+      // every other error.
+      var alreadyAbsent = false;
+      try { nk.accountGetId(request.userId); } catch (missing) { alreadyAbsent = true; }
+      if (!alreadyAbsent) throw error;
     }
     return JSON.stringify({ userId: request.userId, deleted: true });
   }
