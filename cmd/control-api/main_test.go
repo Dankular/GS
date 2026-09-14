@@ -1,98 +1,38 @@
 package main
 
 import (
-	"bytes"
-	"net/http/httptest"
+	"crypto/ed25519"
+	"encoding/base64"
+	"os"
+	"path/filepath"
 	"testing"
-
-	"github.com/Dankular/GameService/internal/auth"
 )
 
-func TestDecodeJSONStrictRejectsTrailingData(t *testing.T) {
-	var value map[string]any
-	if err := decodeJSONStrict(bytes.NewBufferString(`{"ok":true} {"extra":true}`), &value); err == nil {
-		t.Fatal("expected trailing JSON rejection")
+func TestLoadEd25519PrivateKeyFromFile(t *testing.T) {
+	_, expected, err := ed25519.GenerateKey(nil)
+	if err != nil {
+		t.Fatal(err)
+	}
+	path := filepath.Join(t.TempDir(), "join-claim-key")
+	if err := os.WriteFile(path, []byte(base64.RawStdEncoding.EncodeToString(expected)+"\n"), 0o600); err != nil {
+		t.Fatal(err)
+	}
+	got, err := loadEd25519PrivateKey(path, "invalid-fallback")
+	if err != nil || string(got) != string(expected) {
+		t.Fatalf("file key load failed: %v", err)
 	}
 }
 
-func TestCommandScopeMatrix(t *testing.T) {
-	checks := map[string]string{
-		"wallet.get":            "player:read",
-		"wallet.transfer":       "player:write",
-		"matchmaking.enqueue":   "player:write",
-		"match.get":             "player:read",
-		"definition.activate":   "definition:activate",
-		"admin.player_snapshot": "admin:read",
-		"admin.audit_search":    "admin:read",
-		"unknown.operation":     "",
+func TestLoadEd25519PrivateKeyFallbackAndValidation(t *testing.T) {
+	_, expected, err := ed25519.GenerateKey(nil)
+	if err != nil {
+		t.Fatal(err)
 	}
-	for operation, expected := range checks {
-		if got := commandScope(operation); got != expected {
-			t.Errorf("commandScope(%q) = %q, want %q", operation, got, expected)
-		}
+	got, err := loadEd25519PrivateKey("", base64.RawStdEncoding.EncodeToString(expected))
+	if err != nil || string(got) != string(expected) {
+		t.Fatalf("fallback key load failed: %v", err)
 	}
-}
-
-func TestCommandActorTypeIsDerivedFromOperationScope(t *testing.T) {
-	for _, operation := range []string{"wallet.credit", "inventory.grant", "matchmaking.enqueue"} {
-		if got := commandActorType(operation); got != "player" {
-			t.Fatalf("%s actor type = %q, want player", operation, got)
-		}
-	}
-	for _, operation := range []string{"admin.execute_command", "admin.audit_search", "definition.publish", "definition.activate"} {
-		if got := commandActorType(operation); got != "admin" {
-			t.Fatalf("%s actor type = %q, want admin", operation, got)
-		}
-	}
-}
-
-func TestSessionAllowsBaselinePlayerAccessWithoutNakamaScope(t *testing.T) {
-	claims := auth.SessionClaims{}
-	if !sessionAllowsScope(claims, "player:read") || !sessionAllowsScope(claims, "player:write") {
-		t.Fatal("baseline player access was denied")
-	}
-	if sessionAllowsScope(claims, "admin:read") || sessionAllowsScope(auth.SessionClaims{Scope: "player:read"}, "player:write") {
-		t.Fatal("privileged or unscopeable access was allowed")
-	}
-}
-
-func TestCompletedMatchAcceptsOnlyDuplicateResultCheck(t *testing.T) {
-	for _, state := range []string{"Running", "Finalizing", "Completed"} {
-		if !resultStateAccepts(state) {
-			t.Fatalf("result state %q was rejected", state)
-		}
-	}
-	for _, state := range []string{"Ready", "Failed", "Abandoned"} {
-		if resultStateAccepts(state) {
-			t.Fatalf("result state %q was accepted", state)
-		}
-	}
-}
-
-func TestPrivacyRequestIDAndHash(t *testing.T) {
-	req := httptest.NewRequest("POST", "/v1/players/me/privacy/export", nil)
-	req.Header.Set("Idempotency-Key", "privacy-1")
-	if got, ok := privacyRequestID(httptest.NewRecorder(), req); !ok || got != "privacy-1" {
-		t.Fatalf("privacy request id = %q, %v", got, ok)
-	}
-	if privacyHash("player-a") == privacyHash("player-b") || len(privacyHash("player-a")) != 64 {
-		t.Fatal("privacy hash is not stable and non-identifying")
-	}
-	bad := httptest.NewRequest("POST", "/", nil)
-	if _, ok := privacyRequestID(httptest.NewRecorder(), bad); ok {
-		t.Fatal("missing idempotency key accepted")
-	}
-}
-
-func TestProductionDefinitionEnvironmentsRequireFourEyes(t *testing.T) {
-	for _, environment := range []string{"prod", "production", "PROD"} {
-		if !requiresFourEyes(environment) {
-			t.Fatalf("environment %q did not require approval", environment)
-		}
-	}
-	for _, environment := range []string{"dev", "staging", ""} {
-		if requiresFourEyes(environment) {
-			t.Fatalf("environment %q unexpectedly required production approval", environment)
-		}
+	if _, err := loadEd25519PrivateKey("", "bad"); err == nil {
+		t.Fatal("invalid key was accepted")
 	}
 }

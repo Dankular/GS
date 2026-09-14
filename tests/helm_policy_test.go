@@ -64,3 +64,35 @@ func TestComposeMatchmakingWorkerDoesNotInjectClaimPrivateKey(t *testing.T) {
 		}
 	}
 }
+
+func TestComposeControlAPIUsesJoinClaimKeyFile(t *testing.T) {
+	data, err := os.ReadFile("../deploy/compose/compose.yaml")
+	if err != nil {
+		t.Fatal(err)
+	}
+	source := string(data)
+	if strings.Contains(source, "JOIN_CLAIM_PRIVATE_KEY: ${JOIN_CLAIM_PRIVATE_KEY") {
+		t.Fatal("compose still injects the join claim private key as an environment value")
+	}
+	for _, required := range []string{"JOIN_CLAIM_PRIVATE_KEY_FILE", "JOIN_CLAIM_PRIVATE_KEY_FILE_HOST", "/run/join-claims/private-key:ro"} {
+		if !strings.Contains(source, required) {
+			t.Fatalf("compose join-key wiring missing %q", required)
+		}
+	}
+}
+
+func TestHelmControlAPILoadsJoinClaimKeyFromSecretFile(t *testing.T) {
+	data, err := os.ReadFile("../deploy/helm/platform/templates/control-api.yaml")
+	if err != nil {
+		t.Fatal(err)
+	}
+	source := string(data)
+	for _, required := range []string{"JOIN_CLAIM_PRIVATE_KEY_FILE", "mountPath: /run/server-claims", "secretName: {{ .Values.serverClaims.privateKeySecretName }}"} {
+		if !strings.Contains(source, required) {
+			t.Fatalf("control API secret-file wiring missing %q", required)
+		}
+	}
+	if strings.Contains(source, "name: JOIN_CLAIM_PRIVATE_KEY\n") {
+		t.Fatal("Helm still injects the join claim private key as an environment value")
+	}
+}

@@ -341,10 +341,12 @@ deployment-only `.env`:
 ```text
 SERVER_CLAIM_PRIVATE_KEY_FILE=/run/server-claims/private-key
 SERVER_CLAIM_PRIVATE_KEY_FILE_HOST=/opt/gameservice/.secrets/server-claim-private-key
+JOIN_CLAIM_PRIVATE_KEY_FILE=/run/join-claims/private-key
+JOIN_CLAIM_PRIVATE_KEY_FILE_HOST=/opt/gameservice/.secrets/join-claim-private-key
 ```
 
 The Compose mount is read-only. Keep the file outside the repository and do not
-place its contents in `.env`, command-line arguments, or logs.
+place either key's contents in `.env`, command-line arguments, or logs.
 
 ### Authentication boundary
 

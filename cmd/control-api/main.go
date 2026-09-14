@@ -57,10 +57,10 @@ func main() {
 	definitionStore := definitions.Store{Pool: repository.Pool()}
 	definitionCommandService := definitions.CommandService{Store: definitionStore}
 	adminCommandService := admincommands.CommandService{}
-	joinPrivateKeyBytes, _ := base64.RawStdEncoding.DecodeString(os.Getenv("JOIN_CLAIM_PRIVATE_KEY"))
-	var joinPrivateKey ed25519.PrivateKey
-	if len(joinPrivateKeyBytes) == ed25519.PrivateKeySize {
-		joinPrivateKey = ed25519.PrivateKey(joinPrivateKeyBytes)
+	joinPrivateKey, keyErr := loadEd25519PrivateKey(os.Getenv("JOIN_CLAIM_PRIVATE_KEY_FILE"), os.Getenv("JOIN_CLAIM_PRIVATE_KEY"))
+	if keyErr != nil {
+		slog.Error("join claim private key could not be loaded", "error", keyErr)
+		os.Exit(1)
 	}
 	matchStore := matches.Store{Pool: repository.Pool(), JoinPrivateKey: joinPrivateKey, Issuer: "control-plane", Audience: "game-server"}
 	matchCommandService := matches.CommandService{Store: matchStore}
@@ -752,6 +752,25 @@ func main() {
 		slog.Error("server stopped", "error", err)
 		os.Exit(1)
 	}
+}
+
+func loadEd25519PrivateKey(path, encoded string) (ed25519.PrivateKey, error) {
+	if path != "" {
+		data, err := os.ReadFile(path)
+		if err != nil {
+			return nil, err
+		}
+		encoded = string(data)
+	}
+	encoded = strings.TrimSpace(encoded)
+	if encoded == "" {
+		return nil, nil
+	}
+	key, err := base64.RawStdEncoding.DecodeString(encoded)
+	if err != nil || len(key) != ed25519.PrivateKeySize {
+		return nil, errors.New("join claim private key must be base64 Ed25519 private key")
+	}
+	return ed25519.PrivateKey(key), nil
 }
 
 func writeJSON(w http.ResponseWriter, value any) {
