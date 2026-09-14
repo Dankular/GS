@@ -229,23 +229,52 @@ changes, tests, and deployment commands only.
 
 ```mermaid
 flowchart TB
-    Client[Game client] --> Edge[Gateway / TLS / rate limits]
-    Admin[Admin or agent] --> Edge
-    Edge --> Nakama[Nakama identity and social APIs]
-    Edge --> API[GameService Control API]
-    API --> DB[(PostgreSQL)]
-    API --> Outbox[Transactional outbox]
-    Outbox --> Worker[Outbox worker]
-    API --> Compiler[Definition compiler]
-    API --> Allocator[Agones Allocator]
-    Allocator --> Fleet[Agones fleets]
-    Fleet --> Server[Dedicated authoritative server]
-    Server --> Nakama
-    Server --> API
-    Relay["coturn relay"] -.-> Client
+    subgraph GNS["GNS.NET - network and session layer"]
+        Client["Game client"] --> GNSGateway["GNS.NET gateway"]
+        GNSGateway --> Signaling["Signaling and session coordination"]
+        Signaling --> TURN["coturn relay fallback"]
+    end
+
+    subgraph GS["GS - GameService authoritative backend"]
+        Edge["GS edge - TLS, WAF, and rate limits"]
+        API["GameService Control API"]
+        Nakama["Nakama identity and social APIs"]
+        DB[("GameService PostgreSQL")]
+        Outbox["Transactional outbox"]
+        Worker["Outbox and domain workers"]
+        Compiler["Definition compiler"]
+        Allocator["Agones Allocator"]
+        Fleet["Agones fleets"]
+        Server["Dedicated authoritative server"]
+
+        Edge --> API
+        Edge --> Nakama
+        API --> DB
+        API --> Outbox
+        Outbox --> Worker
+        API --> Compiler
+        API --> Allocator
+        Allocator --> Fleet
+        Fleet --> Server
+        Server --> API
+        Server --> Nakama
+    end
+
+    Admin["Admin or trusted agent"] --> Edge
+    GNSGateway -->|"authenticated player and session requests"| Edge
+    Signaling -->|"match and connection metadata"| API
+    Client -.->|"preferred direct path"| Server
+    TURN -.->|"GNS.NET relay fallback"| Client
 ```
 
-The coturn relay is the GNS.NET fallback path for client connectivity.
+GNS.NET owns the client-facing network and session flow: it coordinates
+signaling and uses coturn when a direct client-to-server connection is not
+available. GS is the complementary authoritative game backend: it validates
+commands, owns durable game state and rewards, coordinates Agones allocations,
+and accepts authoritative server results. The preferred runtime path is
+`client -> GNS.NET -> GS` for control and session operations, with the client
+connecting directly to the allocated server when possible and falling back to
+coturn when required.
 
 ### Trust and ownership
 
