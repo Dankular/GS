@@ -1,0 +1,47 @@
+apiVersion: agones.dev/v1
+kind: Fleet
+metadata:
+  name: arena-deathmatch
+  namespace: platform-gameservers-eu-west
+spec:
+  replicas: 2
+  template:
+    metadata:
+      labels:
+        platform.game/id: arena
+        platform.game/mode: deathmatch
+        platform.game/build: "REPLACE_WITH_APPROVED_IMAGE_DIGEST"
+        platform.game/region: eu-west
+        platform.game/protocol: "3"
+    spec:
+      ports:
+        - name: game
+          containerPort: 7000
+      template:
+        spec:
+          containers:
+            - name: game-server
+              image: ghcr.io/dankular/gameservice-server@sha256:REPLACE_WITH_APPROVED_IMAGE_DIGEST
+              imagePullPolicy: IfNotPresent
+              securityContext:
+                runAsNonRoot: true
+                readOnlyRootFilesystem: true
+                allowPrivilegeEscalation: false
+                capabilities: { drop: [ALL] }
+              resources:
+                requests: { cpu: 100m, memory: 128Mi }
+                limits: { cpu: 1, memory: 512Mi }
+              readinessProbe:
+                httpGet: { path: /health/ready, port: 7000 }
+                periodSeconds: 5
+---
+apiVersion: autoscaling.agones.dev/v1
+kind: FleetAutoscaler
+metadata:
+  name: arena-deathmatch
+  namespace: platform-gameservers-eu-west
+spec:
+  fleetName: arena-deathmatch
+  policy:
+    buffer:
+      bufferSize: 2
