@@ -24,10 +24,18 @@ import (
 	"github.com/Dankular/GameService/internal/matches"
 	"github.com/Dankular/GameService/internal/matchmaking"
 	telemetry "github.com/Dankular/GameService/internal/metrics"
+	tracing "github.com/Dankular/GameService/internal/telemetry"
 	"github.com/jackc/pgx/v5"
+	"go.opentelemetry.io/contrib/instrumentation/net/http/otelhttp"
 )
 
 func main() {
+	shutdownTelemetry, err := tracing.Setup(context.Background(), "gameservice.control-api", os.Getenv("OTEL_EXPORTER_OTLP_ENDPOINT"))
+	if err != nil {
+		slog.Error("telemetry initialization failed", "error", err)
+		os.Exit(1)
+	}
+	defer func() { _ = shutdownTelemetry(context.Background()) }()
 	addr := os.Getenv("CONTROL_API_ADDR")
 	if addr == "" {
 		addr = ":8080"
@@ -445,7 +453,7 @@ func main() {
 		writeJSON(w, map[string]any{"records": records})
 	})
 	slog.Info("control API listening", "addr", addr)
-	if err := http.ListenAndServe(addr, metricRegistry.Middleware(mux)); err != nil {
+	if err := http.ListenAndServe(addr, otelhttp.NewHandler(metricRegistry.Middleware(mux), "gameservice.control-api")); err != nil {
 		slog.Error("server stopped", "error", err)
 		os.Exit(1)
 	}
