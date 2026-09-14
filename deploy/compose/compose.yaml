@@ -35,7 +35,7 @@ services:
       postgres: { condition: service_healthy }
       migrations: { condition: service_completed_successfully }
   turn:
-    image: coturn/coturn:4.6.3
+    image: coturn/coturn@sha256:71c3c990283385567f11794ee692e3a47b66fd9b0bb39e42afbe776e331dd888
     command: >-
       -n --log-file=stdout --realm=${TURN_REALM:?set TURN_REALM}
       --use-auth-secret --static-auth-secret=${TURN_SECRET:?set TURN_SECRET}
