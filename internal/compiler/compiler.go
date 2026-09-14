@@ -76,6 +76,7 @@ type MatchMode struct {
 type ResultPolicy struct {
 	Schema      string `yaml:"schema" json:"schema"`
 	MaxDuration string `yaml:"maxDuration" json:"maxDuration"`
+	RewardID    string `yaml:"rewardId,omitempty" json:"rewardId,omitempty"`
 }
 
 type RatingPolicy struct {

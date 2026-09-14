@@ -47,6 +47,7 @@ func main() {
 	}
 	defer repository.Close()
 	economyService := economy.Service{}
+	resultFinalizer := matches.ResultFinalizer{Economy: economyService}
 	matchmakingStore := matchmaking.Store{Pool: repository.Pool()}
 	matchmakingCommandService := matchmaking.CommandService{Store: matchmakingStore}
 	definitionStore := definitions.Store{Pool: repository.Pool()}
@@ -330,7 +331,7 @@ func main() {
 			return
 		}
 		defer tx.Rollback(r.Context())
-		duplicate, digest, err := matches.SubmitResult(r.Context(), tx, matches.ResultSubmission{MatchID: matchID, Sequence: request.Sequence, Payload: request.Payload, PayloadDigest: request.PayloadDigest, CorrelationID: r.Header.Get("X-Correlation-ID")})
+		duplicate, digest, err := resultFinalizer.Submit(r.Context(), tx, matches.ResultSubmission{MatchID: matchID, Sequence: request.Sequence, Payload: request.Payload, PayloadDigest: request.PayloadDigest, CorrelationID: r.Header.Get("X-Correlation-ID")})
 		if errors.Is(err, matches.ErrResultDigestMismatch) {
 			http.Error(w, "result digest conflict", http.StatusConflict)
 			return
