@@ -2,6 +2,7 @@ package matches
 
 import (
 	"crypto/ed25519"
+	"encoding/json"
 	"testing"
 	"time"
 )
@@ -74,10 +75,13 @@ func TestJoinClaimRejectsMissingRequiredIdentityFields(t *testing.T) {
 		t.Fatal(err)
 	}
 	claim := JoinClaim{Issuer: "control-plane", Audience: "game-server", Subject: "player", MatchID: "match-1", AllocationID: "allocation-1", ServerBuild: "sha256:build", IssuedAt: 10, NotBefore: 10, ExpiresAt: 20}
-	token, err := SignClaim(claim, privateKey)
+	payload, err := json.Marshal(claim)
 	if err != nil {
 		t.Fatal(err)
 	}
+	header := b64.EncodeToString([]byte(`{"alg":"EdDSA","typ":"JWT"}`))
+	encoded := header + "." + b64.EncodeToString(payload)
+	token := encoded + "." + b64.EncodeToString(ed25519.Sign(privateKey, []byte(encoded)))
 	if _, err := VerifyClaim(token, publicKey, time.Unix(10, 0), "game-server", "match-1", "sha256:build"); err == nil {
 		t.Fatal("expected missing JTI rejection")
 	}
