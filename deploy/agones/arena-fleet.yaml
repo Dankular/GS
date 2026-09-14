@@ -17,6 +17,10 @@ spec:
       ports:
         - name: game
           containerPort: 7000
+          protocol: UDP
+        - name: http
+          containerPort: 7001
+          protocol: TCP
       template:
         spec:
           containers:
@@ -32,7 +36,7 @@ spec:
                 requests: { cpu: 100m, memory: 128Mi }
                 limits: { cpu: 1, memory: 512Mi }
               readinessProbe:
-                httpGet: { path: /health/ready, port: 7000 }
+                httpGet: { path: /health/ready, port: 7001 }
                 periodSeconds: 5
 ---
 apiVersion: autoscaling.agones.dev/v1
