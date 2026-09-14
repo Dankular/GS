@@ -178,6 +178,11 @@ GAMESERVICE_INTEGRATION_OWNER_ID=... \
 go test -tags=integration ./tests/integration -run TestNakamaAuthoritativeTournamentWriteIsIdempotent -count=1 -v
 ```
 
+The opt-in moderation integration test additionally accepts
+`GAMESERVICE_INTEGRATION_NAKAMA_SESSION` and
+`GAMESERVICE_INTEGRATION_MODERATION_TOKEN`; the Nakama runtime must be started
+with that token in `GAMESERVICE_MODERATION_BLOCKLIST`.
+
 ## Topology
 
 The target runtime boundary is the configured VPS. Docker Compose runs the
