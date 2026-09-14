@@ -6,13 +6,13 @@ import (
 	"testing"
 )
 
-func TestRuntimeBridgeIsES5AndRegistersHealthRPC(t *testing.T) {
+func TestRuntimeBridgeIsES5AndRegistersRPCs(t *testing.T) {
 	data, err := os.ReadFile("runtime/index.js")
 	if err != nil {
 		t.Fatal(err)
 	}
 	source := string(data)
-	for _, required := range []string{"function InitModule", "registerRpc(\"gameservice.health\"", "nk.httpRequest", "control-api:8080/health/live"} {
+	for _, required := range []string{"function InitModule", "registerRpc(\"gameservice.health\"", "registerRpc(\"gameservice.profile\"", "nk.accountGetId", "nk.accountUpdateId", "control-api:8080/health/live"} {
 		if !strings.Contains(source, required) {
 			t.Fatalf("runtime bridge missing %q", required)
 		}
