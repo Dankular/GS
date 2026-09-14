@@ -74,6 +74,9 @@ func VerifyClaim(token string, key ed25519.PublicKey, now time.Time, expectedAud
 		return JoinClaim{}, err
 	}
 	sec := now.Unix()
+	if c.Issuer == "" || c.Subject == "" || c.AllocationID == "" || c.JTI == "" {
+		return JoinClaim{}, errors.New("claim required field missing")
+	}
 	if c.Audience != expectedAudience || c.MatchID != expectedMatch || c.ServerBuild != expectedBuild {
 		return JoinClaim{}, errors.New("claim context mismatch")
 	}

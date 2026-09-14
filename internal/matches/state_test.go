@@ -68,6 +68,21 @@ func TestJoinClaimRejectsTampering(t *testing.T) {
 	}
 }
 
+func TestJoinClaimRejectsMissingRequiredIdentityFields(t *testing.T) {
+	publicKey, privateKey, err := NewKeyPair()
+	if err != nil {
+		t.Fatal(err)
+	}
+	claim := JoinClaim{Issuer: "control-plane", Audience: "game-server", Subject: "player", MatchID: "match-1", AllocationID: "allocation-1", ServerBuild: "sha256:build", IssuedAt: 10, NotBefore: 10, ExpiresAt: 20}
+	token, err := SignClaim(claim, privateKey)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if _, err := VerifyClaim(token, publicKey, time.Unix(10, 0), "game-server", "match-1", "sha256:build"); err == nil {
+		t.Fatal("expected missing JTI rejection")
+	}
+}
+
 func TestServerClaimBindsAllocation(t *testing.T) {
 	publicKey, privateKey, err := NewKeyPair()
 	if err != nil {
