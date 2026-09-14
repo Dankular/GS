@@ -20,6 +20,7 @@ resources:
 database:
   secretName: gameservice-secrets
   urlKey: database-url
+  egressCIDRs: []
 nakama:
   secretName: gameservice-secrets
   signingKeyKey: nakama-session-signing-key
@@ -27,6 +28,7 @@ nakama:
   serverKeySecretKey: nakama-server-key
 otel:
   endpoint: otel-collector.platform-observability.svc.cluster.local:4318
+  namespace: platform-observability
 allocator:
   endpoint: allocator.agones-system.svc.cluster.local:443
   serverName: allocator.agones-system.svc.cluster.local

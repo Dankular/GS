@@ -36,10 +36,50 @@ spec:
   podSelector: { matchLabels: { app: gameservice-control-api } }
   policyTypes: [Egress]
   egress:
-    - to: [{ namespaceSelector: { matchLabels: { kubernetes.io/metadata.name: platform-app } } }]
+    - to: [{ namespaceSelector: { matchLabels: { kubernetes.io/metadata.name: {{ .Values.namespace.app }} } } }]
+      ports: [{ protocol: TCP, port: 7350 }]
     - to: [{ namespaceSelector: { matchLabels: { kubernetes.io/metadata.name: agones-system } } }]
-    - to: [{ namespaceSelector: { matchLabels: { kubernetes.io/metadata.name: platform-observability } } }]
+      ports: [{ protocol: TCP, port: 443 }]
+    - to: [{ namespaceSelector: { matchLabels: { kubernetes.io/metadata.name: {{ .Values.otel.namespace }} } } }]
       ports: [{ protocol: TCP, port: 4318 }]
+    - to: [{ namespaceSelector: { matchLabels: { kubernetes.io/metadata.name: kube-system } } }]
+      ports:
+        - { protocol: UDP, port: 53 }
+        - { protocol: TCP, port: 53 }
+{{- if .Values.database.egressCIDRs }}
+    - to:
+{{- range .Values.database.egressCIDRs }}
+        - ipBlock: { cidr: {{ . | quote }} }
+{{- end }}
+      ports: [{ protocol: TCP, port: 5432 }]
+{{- end }}
+---
+apiVersion: networking.k8s.io/v1
+kind: NetworkPolicy
+metadata: { name: gameservice-workers-egress, namespace: {{ .Values.namespace.app }} }
+spec:
+  podSelector:
+    matchExpressions:
+      - key: app
+        operator: In
+        values: [gameservice-outbox-worker, gameservice-leaderboard-worker, gameservice-matchmaking-worker, gameservice-reconciliation-worker]
+  policyTypes: [Egress]
+  egress:
+    - to: [{ namespaceSelector: { matchLabels: { kubernetes.io/metadata.name: {{ .Values.namespace.app }} } } }]
+      ports: [{ protocol: TCP, port: 7350 }]
+    - to: [{ namespaceSelector: { matchLabels: { kubernetes.io/metadata.name: agones-system } } }]
+      ports: [{ protocol: TCP, port: 443 }]
+    - to: [{ namespaceSelector: { matchLabels: { kubernetes.io/metadata.name: kube-system } } }]
+      ports:
+        - { protocol: UDP, port: 53 }
+        - { protocol: TCP, port: 53 }
+{{- if .Values.database.egressCIDRs }}
+    - to:
+{{- range .Values.database.egressCIDRs }}
+        - ipBlock: { cidr: {{ . | quote }} }
+{{- end }}
+      ports: [{ protocol: TCP, port: 5432 }]
+{{- end }}
 ---
 apiVersion: networking.k8s.io/v1
 kind: NetworkPolicy
