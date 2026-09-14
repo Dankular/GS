@@ -59,6 +59,42 @@ func main() {
 		}
 		w.WriteHeader(http.StatusOK)
 	})
+	mux.HandleFunc("GET /v1/players/me/snapshot", func(w http.ResponseWriter, r *http.Request) {
+		claims, ok := requireScope(w, r, authenticate, "player:read")
+		if !ok {
+			return
+		}
+		snapshot, err := economy.Snapshot(r.Context(), repository.Pool(), claims.UserID)
+		if err != nil {
+			http.Error(w, "snapshot unavailable", http.StatusServiceUnavailable)
+			return
+		}
+		writeJSON(w, snapshot)
+	})
+	mux.HandleFunc("GET /v1/players/me/inventory", func(w http.ResponseWriter, r *http.Request) {
+		claims, ok := requireScope(w, r, authenticate, "player:read")
+		if !ok {
+			return
+		}
+		items, err := economy.Inventory(r.Context(), repository.Pool(), claims.UserID)
+		if err != nil {
+			http.Error(w, "inventory unavailable", http.StatusServiceUnavailable)
+			return
+		}
+		writeJSON(w, map[string]any{"playerId": claims.UserID, "items": items})
+	})
+	mux.HandleFunc("GET /v1/players/me/wallets", func(w http.ResponseWriter, r *http.Request) {
+		claims, ok := requireScope(w, r, authenticate, "player:read")
+		if !ok {
+			return
+		}
+		wallets, err := economy.Wallets(r.Context(), repository.Pool(), claims.UserID)
+		if err != nil {
+			http.Error(w, "wallets unavailable", http.StatusServiceUnavailable)
+			return
+		}
+		writeJSON(w, map[string]any{"playerId": claims.UserID, "wallets": wallets})
+	})
 	mux.HandleFunc("GET /v1/commands/{requestId}", func(w http.ResponseWriter, r *http.Request) {
 		if _, err := authenticate(r); err != nil {
 			http.Error(w, "authentication required", http.StatusUnauthorized)
