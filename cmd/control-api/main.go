@@ -204,6 +204,10 @@ func main() {
 			http.Error(w, "actor does not match authenticated user", http.StatusForbidden)
 			return
 		}
+		if scope := commandScope(e.Spec.Operation); scope != "" && !claims.HasScope(scope) {
+			http.Error(w, "insufficient scope", http.StatusForbidden)
+			return
+		}
 		commandHandler := func(ctx context.Context, tx pgx.Tx, envelope commands.Envelope) (commands.Result, error) {
 			if strings.HasPrefix(envelope.Spec.Operation, "match.") {
 				return matchCommandService.Handle(ctx, tx, envelope)
@@ -501,6 +505,20 @@ func requireScope(w http.ResponseWriter, r *http.Request, authenticate func(*htt
 		return auth.SessionClaims{}, false
 	}
 	return claims, true
+}
+
+func commandScope(operation string) string {
+	if strings.HasPrefix(operation, "admin.") || strings.HasPrefix(operation, "definition.") {
+		return "admin:write"
+	}
+	switch operation {
+	case "profile.get", "inventory.list", "wallet.get", "entitlement.list", "progression.get", "reward.preview", "match.get", "matchmaking.status":
+		return "player:read"
+	case "profile.patch_public_fields", "inventory.grant", "inventory.consume", "inventory.transfer", "wallet.credit", "wallet.debit", "wallet.transfer", "entitlement.grant", "entitlement.revoke", "progression.add_xp", "progression.complete_objective", "reward.claim", "matchmaking.enqueue", "matchmaking.cancel", "match.issue_join_claim", "match.abandon":
+		return "player:write"
+	default:
+		return ""
+	}
 }
 
 func readDefinitionSource(r *http.Request) ([]byte, error) {
