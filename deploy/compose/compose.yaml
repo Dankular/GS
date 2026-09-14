@@ -18,9 +18,9 @@ services:
     profiles: [observability]
     image: prom/alertmanager@sha256:27c475db5fb156cab31d5c18a4251ac7ed567746a2483ff264516437a39b15ba
     entrypoint: ["/bin/sh", "-ec"]
-    command: ["sed \"s#__ALERTMANAGER_WEBHOOK_URL__#$${ALERTMANAGER_WEBHOOK_URL}#g\" /etc/alertmanager/alertmanager.yaml > /tmp/alertmanager.yaml; exec /bin/alertmanager --config.file=/tmp/alertmanager.yaml --storage.path=/alertmanager"]
+    command: ["test -n \"$${ALERTMANAGER_WEBHOOK_URL}\" || { echo 'ALERTMANAGER_WEBHOOK_URL is required' >&2; exit 1; }; sed \"s#__ALERTMANAGER_WEBHOOK_URL__#$${ALERTMANAGER_WEBHOOK_URL}#g\" /etc/alertmanager/alertmanager.yaml > /tmp/alertmanager.yaml; exec /bin/alertmanager --config.file=/tmp/alertmanager.yaml --storage.path=/alertmanager"]
     environment:
-      ALERTMANAGER_WEBHOOK_URL: ${ALERTMANAGER_WEBHOOK_URL:?set ALERTMANAGER_WEBHOOK_URL}
+      ALERTMANAGER_WEBHOOK_URL: ${ALERTMANAGER_WEBHOOK_URL:-}
     volumes:
       - alertmanager-data:/alertmanager
       - ../../deploy/observability/alertmanager.yaml:/etc/alertmanager/alertmanager.yaml:ro
@@ -28,8 +28,10 @@ services:
   grafana:
     profiles: [observability]
     image: grafana/grafana@sha256:a1701c2180249361737a99a01bc770db39381640e4d631825d38ff4535efa47d
+    entrypoint: ["/bin/sh", "-ec"]
+    command: ["test -n \"$${GF_SECURITY_ADMIN_PASSWORD}\" || { echo 'GRAFANA_ADMIN_PASSWORD is required' >&2; exit 1; }; exec /run.sh"]
     environment:
-      GF_SECURITY_ADMIN_PASSWORD: ${GRAFANA_ADMIN_PASSWORD:?set GRAFANA_ADMIN_PASSWORD}
+      GF_SECURITY_ADMIN_PASSWORD: ${GRAFANA_ADMIN_PASSWORD:-}
       GF_USERS_ALLOW_SIGN_UP: "false"
     volumes:
       - grafana-data:/var/lib/grafana
