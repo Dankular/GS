@@ -40,3 +40,69 @@ and a long random `TURN_SECRET` only in the deployment environment; never commit
 them. Expose UDP/TCP 3478, TLS 5349, and the configured relay range in the VPS
 firewall. GNS.NET signaling should mint short-lived TURN credentials from this
 secret and return them through its authenticated signaling endpoint.
+
+## Topology
+
+The target runtime boundary is the configured VPS. Docker Compose runs the
+currently implemented core services there; the workstation is used for source
+changes, tests, and deployment commands only.
+
+```mermaid
+flowchart TB
+    Client[Game client] --> Edge[Gateway / TLS / rate limits]
+    Admin[Admin or agent] --> Edge
+    Edge --> Nakama[Nakama identity and social APIs]
+    Edge --> API[GameService Control API]
+    API --> DB[(PostgreSQL)]
+    API --> Outbox[Transactional outbox]
+    Outbox --> Worker[Outbox worker]
+    API --> Compiler[Definition compiler]
+    API --> Allocator[Agones Allocator]
+    Allocator --> Fleet[Agones fleets]
+    Fleet --> Server[Dedicated authoritative server]
+    Server --> Nakama
+    Server --> API
+    Relay[coturn relay] -. GNS.NET fallback .-> Client
+```
+
+### Trust and ownership
+
+Game clients and generated proposals are untrusted: they may authenticate,
+read permitted state, and request validated commands. The edge handles TLS,
+routing, WAF, and coarse rate limits but does not perform domain writes.
+Nakama owns identity, sessions, social features, parties, chat, and
+Nakama-owned storage. GameService owns definitions, economy, inventory,
+matchmaking coordination, match state, result application, audit, and the
+outbox. Agones owns dedicated-server allocation and lifecycle; it does not own
+players, rewards, tickets, or authoritative results. Dedicated servers report
+facts and results, while GameService applies durable rewards exactly once.
+
+### VPS Docker deployment
+
+The VPS Compose stack currently contains PostgreSQL, Nakama, the GameService
+Control API, migrations, and coturn. Images are selected by immutable digest
+where available. The VPS-only `.env` file contains secrets and is never
+committed. Deploy with:
+
+```text
+cd /opt/gameservice
+docker compose --env-file .env -f deploy/compose/compose.yaml --profile tools run --rm migrations
+docker compose --env-file .env -f deploy/compose/compose.yaml up -d --build
+docker compose --env-file .env -f deploy/compose/compose.yaml ps
+```
+
+This is the Docker deployment target for the current VPS. It is not a
+production HA topology: Agones/Kubernetes, multiple API replicas, external
+managed PostgreSQL HA/PITR, ingress/WAF, NetworkPolicies, and the remaining
+workers are still required before production readiness.
+
+### Planned Kubernetes topology
+
+Production follows the contract's trust zones and namespaces: `platform-edge`,
+`platform-app`, `platform-gameservers-<region>`, `agones-system`, and
+`platform-observability`. The edge routes authenticated traffic to at least
+two Control API replicas and Nakama's documented cluster topology. Separate
+migration jobs run before rollout; allocator and worker replicas use leases and
+idempotency; Agones maintains a ready-server buffer; observability collects
+metrics, logs, traces, and audit events. PostgreSQL is managed or operated as
+HA with encrypted off-site backups and a defined RPO/RTO.
