@@ -8,11 +8,11 @@ coordination substrate, and Agones owns dedicated-server lifecycle.
 ## Current status
 
 The repository contains a durable command/outbox foundation, transactional
-wallet and inventory mutations, a deterministic definition compiler, and the
-first match lifecycle primitives. The control API stores command results in
-PostgreSQL and replays duplicate request IDs without appending another outbox
-event. Nakama identity integration, Agones allocation, matchmaking, and the
-remaining domain operations are still incomplete.
+economy operations, a deterministic definition compiler, persistent match
+lifecycle state, and an Agones allocator boundary. The control API stores
+command results in PostgreSQL and replays duplicate request IDs without
+appending another outbox event. Nakama runtime extensions, Kubernetes
+deployment, and full production hardening remain outstanding.
 
 ## Development
 
@@ -85,7 +85,7 @@ facts and results, while GameService applies durable rewards exactly once.
 ### VPS Docker deployment
 
 The VPS Compose stack currently contains PostgreSQL, Nakama, the GameService
-Control API, migrations, and coturn. Images are selected by immutable digest
+Control API, migrations, the outbox worker, and coturn. Images are selected by immutable digest
 where available. The VPS-only `.env` file contains secrets and is never
 committed. Deploy with:
 
