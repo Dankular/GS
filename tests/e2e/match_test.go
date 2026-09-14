@@ -24,19 +24,19 @@ import (
 )
 
 type testConfig struct {
-	APIURL                string
-	SigningKey            string
-	PlayerA               string
-	PlayerB               string
-	GameID                string
-	Environment           string
-	ModeID                string
-	Build                 string
-	Region                string
-	ServerURL             string
-	ServerToken           string
-	ServerTokenFile       string
-	ServerClaimPrivateKey string
+	APIURL                    string
+	SigningKey                string
+	PlayerA                   string
+	PlayerB                   string
+	GameID                    string
+	Environment               string
+	ModeID                    string
+	Build                     string
+	Region                    string
+	ServerURL                 string
+	ServerToken               string
+	ServerTokenFile           string
+	ServerClaimPrivateKeyFile string
 }
 
 type ticket struct {
@@ -123,10 +123,14 @@ func TestSyntheticMatchLifecycle(t *testing.T) {
 			t.Fatal("server token file was empty")
 		}
 	}
-	if serverToken == "" && cfg.ServerClaimPrivateKey != "" {
-		key, err := base64.RawStdEncoding.DecodeString(cfg.ServerClaimPrivateKey)
+	if serverToken == "" && cfg.ServerClaimPrivateKeyFile != "" {
+		encodedKey, err := os.ReadFile(cfg.ServerClaimPrivateKeyFile)
+		if err != nil {
+			t.Fatalf("server claim private key file could not be read: %v", err)
+		}
+		key, err := base64.RawStdEncoding.DecodeString(strings.TrimSpace(string(encodedKey)))
 		if err != nil || len(key) != ed25519.PrivateKeySize {
-			t.Fatal("GAMESERVICE_E2E_SERVER_CLAIM_PRIVATE_KEY is not a valid Ed25519 private key")
+			t.Fatal("GAMESERVICE_E2E_SERVER_CLAIM_PRIVATE_KEY_FILE does not contain a valid Ed25519 private key")
 		}
 		now := time.Now().UTC()
 		serverToken, err = matches.SignClaim(matches.JoinClaim{
@@ -156,7 +160,7 @@ func loadConfig() (testConfig, bool) {
 		PlayerA: os.Getenv("GAMESERVICE_E2E_PLAYER_A"), PlayerB: os.Getenv("GAMESERVICE_E2E_PLAYER_B"),
 		GameID: envOr("GAMESERVICE_E2E_GAME_ID", "arena"), Environment: envOr("GAMESERVICE_E2E_ENVIRONMENT", "dev"),
 		ModeID: envOr("GAMESERVICE_E2E_MODE_ID", "deathmatch"), Build: envOr("GAMESERVICE_E2E_BUILD", "sha256:0000000000000000000000000000000000000000000000000000000000000000"),
-		Region: envOr("GAMESERVICE_E2E_REGION", "eu-west"), ServerURL: os.Getenv("GAMESERVICE_E2E_SERVER_URL"), ServerToken: os.Getenv("GAMESERVICE_E2E_SERVER_TOKEN"), ServerTokenFile: os.Getenv("GAMESERVICE_E2E_SERVER_TOKEN_FILE"), ServerClaimPrivateKey: os.Getenv("GAMESERVICE_E2E_SERVER_CLAIM_PRIVATE_KEY"),
+		Region: envOr("GAMESERVICE_E2E_REGION", "eu-west"), ServerURL: os.Getenv("GAMESERVICE_E2E_SERVER_URL"), ServerToken: os.Getenv("GAMESERVICE_E2E_SERVER_TOKEN"), ServerTokenFile: os.Getenv("GAMESERVICE_E2E_SERVER_TOKEN_FILE"), ServerClaimPrivateKeyFile: os.Getenv("GAMESERVICE_E2E_SERVER_CLAIM_PRIVATE_KEY_FILE"),
 	}
 	return c, c.APIURL != "" && c.SigningKey != "" && c.PlayerA != "" && c.PlayerB != "" && c.PlayerA != c.PlayerB
 }

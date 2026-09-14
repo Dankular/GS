@@ -118,9 +118,11 @@ verifies the durable Completed state and matched ticket association. Set
 through the server-result endpoint; do not print or commit that token. For a
 dynamic Agones allocation, set `GAMESERVICE_E2E_SERVER_TOKEN_FILE` to a local
 file that the deployment wrapper fills with the match-scoped token after
-allocation. Alternatively, `GAMESERVICE_E2E_SERVER_CLAIM_PRIVATE_KEY` lets
-the harness derive the same short-lived server claim from the recorded match
-allocation; use this only in a protected test environment.
+allocation. Alternatively, `GAMESERVICE_E2E_SERVER_CLAIM_PRIVATE_KEY_FILE`
+points to a protected file containing the base64 key, letting the harness
+derive the same short-lived server claim from the recorded match allocation;
+use this only in a protected test environment and never pass the key as an
+environment variable or command-line argument.
 
 Nakama also loads the JavaScript bridge in `nakama/runtime/index.js`. Its
 `gameservice.health` RPC performs a bounded health check against the Control
