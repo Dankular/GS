@@ -92,7 +92,7 @@ func TestComposeSeparatesNakamaDatabaseRole(t *testing.T) {
 		t.Fatal(err)
 	}
 	text := string(data)
-	for _, required := range []string{"nakama-role-bootstrap:", "CREATE ROLE nakama", "ALTER TABLE public.%I OWNER TO nakama", "ALTER SEQUENCE public.%I OWNER TO nakama", "ALTER ROLE gameservice NOSUPERUSER NOCREATEDB CREATEROLE", "\\gexec", "REVOKE ALL ON SCHEMA platform, economy, progression, match, ops FROM nakama", "database.address nakama:${NAKAMA_DATABASE_PASSWORD}@postgres:5432/gameservice", "NAKAMA_DATABASE_PASSWORD: ${NAKAMA_DATABASE_PASSWORD:?set NAKAMA_DATABASE_PASSWORD}"} {
+	for _, required := range []string{"database-admin-bootstrap:", "CREATE ROLE gameservice_admin SUPERUSER", "nakama-role-bootstrap:", "CREATE ROLE nakama", "ALTER TABLE public.%I OWNER TO nakama", "ALTER SEQUENCE public.%I OWNER TO nakama", "ALTER ROLE gameservice NOSUPERUSER NOCREATEDB CREATEROLE", "\\gexec", "REVOKE ALL ON SCHEMA platform, economy, progression, match, ops FROM nakama", "database.address nakama:${NAKAMA_DATABASE_PASSWORD}@postgres:5432/gameservice", "GAMESERVICE_ADMIN_PASSWORD: ${GAMESERVICE_ADMIN_PASSWORD:?set GAMESERVICE_ADMIN_PASSWORD}", "NAKAMA_DATABASE_PASSWORD: ${NAKAMA_DATABASE_PASSWORD:?set NAKAMA_DATABASE_PASSWORD}"} {
 		if !strings.Contains(text, required) {
 			t.Errorf("Compose database boundary missing %q", required)
 		}
