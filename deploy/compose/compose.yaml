@@ -50,7 +50,7 @@ services:
         ALTER DEFAULT PRIVILEGES IN SCHEMA public GRANT ALL ON SEQUENCES TO nakama;
         REVOKE ALL ON SCHEMA platform, economy, progression, match, ops FROM nakama;
         REVOKE ALL ON SCHEMA platform, economy, progression, match, ops FROM PUBLIC;
-        SELECT 'ALTER ROLE gameservice NOSUPERUSER NOCREATEDB CREATEROLE'
+        SELECT 'ALTER ROLE gameservice NOSUPERUSER NOCREATEDB NOCREATEROLE'
         WHERE (SELECT rolsuper FROM pg_roles WHERE rolname = 'gameservice') \gexec
         SQL
     environment:
