@@ -145,6 +145,18 @@ func TestProductionHelmIncludesAgonesFleetWhenEnabled(t *testing.T) {
 			t.Errorf("ServiceMonitor template missing %q", required)
 		}
 	}
+	externalSecret, err := os.ReadFile(filepath.Join("..", "deploy", "helm", "platform", "templates", "external-secret.yaml"))
+	if err != nil {
+		t.Fatal(err)
+	}
+	for _, required := range []string{"external-secrets.io/v1", "ExternalSecret", "secretStoreRef:", "dataFrom:", "extract:"} {
+		if !strings.Contains(string(externalSecret), required) {
+			t.Errorf("ExternalSecret template missing %q", required)
+		}
+	}
+	if !strings.Contains(string(values), "externalSecrets:\r\n  enabled: false") && !strings.Contains(string(values), "externalSecrets:\n  enabled: false") {
+		t.Error("external secret integration is not opt-in by default")
+	}
 }
 
 func TestComposeSeparatesNakamaDatabaseRole(t *testing.T) {

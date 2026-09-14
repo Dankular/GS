@@ -12,6 +12,14 @@ ingress:
 database:
   secretName: gameservice-production-secrets
   urlKey: database-url
+externalSecrets:
+  enabled: true
+  secretStoreRef:
+    name: gameservice-production
+    kind: ClusterSecretStore
+  remoteKey: gameservice/production
+  refreshInterval: 1h
+  targetSecretName: gameservice-production-secrets
 nakama:
   url: https://nakama.platform.example.com
 metrics:
@@ -21,6 +29,7 @@ metrics:
       release: kube-prometheus-stack
 gameServer:
   enabled: true
+  serverClaimsSecretName: gameservice-production-secrets
   image:
     repository: ghcr.io/dankular/gameservice-server
     digest: sha256:REPLACE_WITH_APPROVED_SERVER_DIGEST

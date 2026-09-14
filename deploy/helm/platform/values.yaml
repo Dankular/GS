@@ -27,6 +27,14 @@ database:
   secretName: gameservice-secrets
   urlKey: database-url
   egressCIDRs: []
+externalSecrets:
+  enabled: false
+  secretStoreRef:
+    name: gameservice-secrets
+    kind: ClusterSecretStore
+  remoteKey: gameservice/production
+  refreshInterval: 1h
+  targetSecretName: gameservice-secrets
 nakama:
   secretName: gameservice-secrets
   signingKeyKey: nakama-session-signing-key

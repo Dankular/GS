@@ -35,3 +35,10 @@ The referenced Secret must also contain `nakama-runtime-http-key` when a
 definition enables tournament delivery. The leaderboard worker uses that key
 only for the narrow server-to-server `gameservice.tournament_record` runtime
 RPC; it never exposes the key to clients.
+
+For secret-manager deployments, install External Secrets Operator and provide
+an approved `ClusterSecretStore`, then enable `externalSecrets` in the release
+values. The chart creates `ExternalSecret` resources in both the application
+and gameserver namespaces from the configured remote key; no provider
+credentials are stored in this repository. The default remains disabled so a
+release cannot silently depend on an uninstalled operator.
