@@ -50,12 +50,15 @@ func TestWorkerCreatesAllocatedMatchFromQueuedTickets(t *testing.T) {
 	if !matched {
 		t.Fatal("expected a matched batch")
 	}
-	var status string
-	if err := pool.QueryRow(ctx, `SELECT status FROM match.tickets WHERE ticket_id=$1`, ticketIDs[0]).Scan(&status); err != nil {
+	var status, ticketMatchID string
+	if err := pool.QueryRow(ctx, `SELECT status,COALESCE(match_id,'') FROM match.tickets WHERE ticket_id=$1`, ticketIDs[0]).Scan(&status, &ticketMatchID); err != nil {
 		t.Fatal(err)
 	}
 	if status != "matched" {
 		t.Fatalf("expected matched ticket, got %s", status)
+	}
+	if ticketMatchID == "" {
+		t.Fatal("expected matched ticket to expose its match ID")
 	}
 	var state, address string
 	if err := pool.QueryRow(ctx, `SELECT state,server_address FROM match.matches WHERE game_id=$1 AND server_build='build-1' ORDER BY created_at DESC LIMIT 1`, gameID).Scan(&state, &address); err != nil {

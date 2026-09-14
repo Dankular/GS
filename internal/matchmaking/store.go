@@ -30,6 +30,7 @@ type TicketRequest struct {
 
 type TicketRecord struct {
 	TicketID           string         `json:"ticketId"`
+	MatchID            string         `json:"matchId,omitempty"`
 	GameID             string         `json:"gameId"`
 	Environment        string         `json:"environment"`
 	ModeID             string         `json:"modeId"`
@@ -122,7 +123,7 @@ func (s Store) CreateTx(ctx context.Context, tx pgx.Tx, request TicketRequest, a
 func (s Store) GetTx(ctx context.Context, tx pgx.Tx, ticketID, actorID string) (TicketRecord, error) {
 	var r TicketRecord
 	var properties []byte
-	if err := tx.QueryRow(ctx, `SELECT t.ticket_id,t.game_id,t.environment,t.mode_id,t.definition_revision,t.status,t.build,t.region,t.capacity,t.properties,t.created_at,t.expires_at FROM match.tickets t JOIN match.ticket_members m ON m.ticket_id=t.ticket_id WHERE t.ticket_id=$1 AND m.player_id=$2`, ticketID, actorID).Scan(&r.TicketID, &r.GameID, &r.Environment, &r.ModeID, &r.DefinitionRevision, &r.Status, &r.Build, &r.Region, &r.Capacity, &properties, &r.CreatedAt, &r.ExpiresAt); err != nil {
+	if err := tx.QueryRow(ctx, `SELECT t.ticket_id,COALESCE(t.match_id,''),t.game_id,t.environment,t.mode_id,t.definition_revision,t.status,t.build,t.region,t.capacity,t.properties,t.created_at,t.expires_at FROM match.tickets t JOIN match.ticket_members m ON m.ticket_id=t.ticket_id WHERE t.ticket_id=$1 AND m.player_id=$2`, ticketID, actorID).Scan(&r.TicketID, &r.MatchID, &r.GameID, &r.Environment, &r.ModeID, &r.DefinitionRevision, &r.Status, &r.Build, &r.Region, &r.Capacity, &properties, &r.CreatedAt, &r.ExpiresAt); err != nil {
 		return TicketRecord{}, err
 	}
 	if err := json.Unmarshal(properties, &r.Properties); err != nil {
@@ -211,7 +212,7 @@ func (s Store) Get(ctx context.Context, ticketID, actorID string) (TicketRecord,
 	}
 	var r TicketRecord
 	var properties []byte
-	err := s.Pool.QueryRow(ctx, `SELECT t.ticket_id,t.game_id,t.environment,t.mode_id,t.definition_revision,t.status,t.build,t.region,t.capacity,t.properties,t.created_at,t.expires_at FROM match.tickets t JOIN match.ticket_members m ON m.ticket_id=t.ticket_id WHERE t.ticket_id=$1 AND m.player_id=$2`, ticketID, actorID).Scan(&r.TicketID, &r.GameID, &r.Environment, &r.ModeID, &r.DefinitionRevision, &r.Status, &r.Build, &r.Region, &r.Capacity, &properties, &r.CreatedAt, &r.ExpiresAt)
+	err := s.Pool.QueryRow(ctx, `SELECT t.ticket_id,COALESCE(t.match_id,''),t.game_id,t.environment,t.mode_id,t.definition_revision,t.status,t.build,t.region,t.capacity,t.properties,t.created_at,t.expires_at FROM match.tickets t JOIN match.ticket_members m ON m.ticket_id=t.ticket_id WHERE t.ticket_id=$1 AND m.player_id=$2`, ticketID, actorID).Scan(&r.TicketID, &r.MatchID, &r.GameID, &r.Environment, &r.ModeID, &r.DefinitionRevision, &r.Status, &r.Build, &r.Region, &r.Capacity, &properties, &r.CreatedAt, &r.ExpiresAt)
 	if err != nil {
 		return TicketRecord{}, err
 	}

@@ -113,7 +113,7 @@ func (w Worker) RunOnce(ctx context.Context) (bool, error) {
 		_ = w.setTicketStatus(ctx, ids, "queued")
 		return false, fmt.Errorf("transition match to allocating: %w", err)
 	}
-	result, err := w.Pool.Exec(ctx, `UPDATE match.tickets SET status='matched' WHERE ticket_id=ANY($1) AND status='matching'`, ids)
+	result, err := w.Pool.Exec(ctx, `UPDATE match.tickets SET status='matched',match_id=$2 WHERE ticket_id=ANY($1) AND status='matching'`, ids, matchID)
 	if err != nil {
 		return false, err
 	}
