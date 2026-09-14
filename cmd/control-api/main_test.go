@@ -9,7 +9,7 @@ func TestCommandScopeMatrix(t *testing.T) {
 		"matchmaking.enqueue":   "player:write",
 		"match.get":             "player:read",
 		"definition.activate":   "definition:activate",
-		"admin.player_snapshot": "admin:write",
+		"admin.player_snapshot": "admin:read",
 		"admin.audit_search":    "admin:read",
 		"unknown.operation":     "",
 	}

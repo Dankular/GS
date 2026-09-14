@@ -15,6 +15,7 @@ import (
 	"strings"
 	"time"
 
+	admincommands "github.com/Dankular/GameService/internal/admin"
 	"github.com/Dankular/GameService/internal/auth"
 	"github.com/Dankular/GameService/internal/commands"
 	"github.com/Dankular/GameService/internal/commandstore"
@@ -52,6 +53,7 @@ func main() {
 	matchmakingCommandService := matchmaking.CommandService{Store: matchmakingStore}
 	definitionStore := definitions.Store{Pool: repository.Pool()}
 	definitionCommandService := definitions.CommandService{Store: definitionStore}
+	adminCommandService := admincommands.CommandService{}
 	joinPrivateKeyBytes, _ := base64.RawStdEncoding.DecodeString(os.Getenv("JOIN_CLAIM_PRIVATE_KEY"))
 	var joinPrivateKey ed25519.PrivateKey
 	if len(joinPrivateKeyBytes) == ed25519.PrivateKeySize {
@@ -219,6 +221,9 @@ func main() {
 			}
 			if strings.HasPrefix(envelope.Spec.Operation, "definition.") {
 				return definitionCommandService.Handle(ctx, tx, envelope)
+			}
+			if strings.HasPrefix(envelope.Spec.Operation, "admin.") {
+				return adminCommandService.Handle(ctx, tx, envelope)
 			}
 			return economyService.Handle(ctx, tx, envelope)
 		}
@@ -522,7 +527,9 @@ func commandScope(operation string) string {
 		return "definition:activate"
 	case "admin.audit_search":
 		return "admin:read"
-	case "admin.player_snapshot", "admin.execute_command":
+	case "admin.player_snapshot":
+		return "admin:read"
+	case "admin.execute_command":
 		return "admin:write"
 	}
 	switch operation {
