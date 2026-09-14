@@ -27,6 +27,6 @@ else
     pg_restore -U "$database_user" -d "$db" --no-owner < "$dump"
 fi
 tables="$(docker compose --env-file .env -f deploy/compose/compose.yaml exec -T postgres \
-  psql -U gameservice -d "$db" -Atc "SELECT count(*) FROM information_schema.tables WHERE table_schema IN ('platform','economy','match','ops');")"
+  psql -U "$database_user" -d "$db" -Atc "SELECT count(*) FROM information_schema.tables WHERE table_schema IN ('platform','economy','match','ops');")"
 test "${tables//[[:space:]]/}" -gt 0
 echo "restore verified: $tables application tables"
