@@ -76,11 +76,11 @@ paths:
   /v1/admin/audit:
     get: { operationId: searchAudit, security: [{ AdminSession: [] }], responses: { '200': { description: Audit records } } }
   /metrics:
-    get: { operationId: metrics, responses: { '200': { description: Prometheus metrics } } }
+    get: { operationId: metrics, security: [], responses: { '200': { description: Prometheus metrics } } }
   /health/live:
-    get: { operationId: liveness, responses: { '200': { description: OK } } }
+    get: { operationId: liveness, security: [], responses: { '200': { description: OK } } }
   /health/ready:
-    get: { operationId: readiness, responses: { '200': { description: OK } } }
+    get: { operationId: readiness, security: [], responses: { '200': { description: OK } } }
 components:
   securitySchemes:
     NakamaSession:
