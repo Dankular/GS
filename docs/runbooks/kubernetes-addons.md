@@ -6,9 +6,30 @@ The configured VPS Kind validation cluster currently has these pinned add-ons:
 | --- | --- | --- |
 | Agones | Helm chart `1.60.0` | Dedicated-server lifecycle and allocation |
 | External Secrets Operator | Helm chart `2.10.0` / app `v2.10.0` | Synchronize provider-managed secrets into Kubernetes |
+| ingress-nginx | Helm chart `4.15.1` / controller `v1.15.1` | Ingress routing and ModSecurity/OWASP CRS validation |
 
 The VPS cluster is a single-node validation environment. It proves chart/API
 compatibility, not failure-domain high availability.
+
+## ingress-nginx and WAF
+
+The validation controller is installed with a NodePort and global ModSecurity
+plus OWASP CRS enabled:
+
+```sh
+helm upgrade --install ingress-nginx ingress-nginx/ingress-nginx \
+  --namespace ingress-nginx --create-namespace --version 4.15.1 \
+  --set controller.service.type=NodePort \
+  --set controller.config.enable-modsecurity=true \
+  --set controller.config.enable-owasp-modsecurity-crs=true --wait
+kubectl get deployment,pods,svc -n ingress-nginx
+kubectl get configmap ingress-nginx-controller -n ingress-nginx -o yaml \
+  | grep -E 'enable-modsecurity|enable-owasp-modsecurity-crs'
+```
+
+The production example enables the corresponding Ingress annotations and TLS
+redirect. A real production deployment still needs an approved TLS certificate,
+DNS, external load balancer, and WAF tuning/false-positive review.
 
 ## External Secrets Operator
 

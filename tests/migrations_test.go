@@ -157,6 +157,15 @@ func TestProductionHelmIncludesAgonesFleetWhenEnabled(t *testing.T) {
 	if !strings.Contains(string(values), "externalSecrets:\r\n  enabled: false") && !strings.Contains(string(values), "externalSecrets:\n  enabled: false") {
 		t.Error("external secret integration is not opt-in by default")
 	}
+	production, err := os.ReadFile(filepath.Join("..", "deploy", "helm", "platform", "values.production.example.yaml"))
+	if err != nil {
+		t.Fatal(err)
+	}
+	for _, required := range []string{"nginx.ingress.kubernetes.io/enable-modsecurity: \"true\"", "nginx.ingress.kubernetes.io/enable-owasp-core-rules: \"true\"", "nginx.ingress.kubernetes.io/ssl-redirect: \"true\""} {
+		if !strings.Contains(string(production), required) {
+			t.Errorf("production ingress WAF configuration missing %q", required)
+		}
+	}
 }
 
 func TestComposeSeparatesNakamaDatabaseRole(t *testing.T) {

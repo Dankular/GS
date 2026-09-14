@@ -9,6 +9,9 @@ ingress:
   annotations:
     nginx.ingress.kubernetes.io/limit-rps: "100"
     nginx.ingress.kubernetes.io/proxy-body-size: "1m"
+    nginx.ingress.kubernetes.io/enable-modsecurity: "true"
+    nginx.ingress.kubernetes.io/enable-owasp-core-rules: "true"
+    nginx.ingress.kubernetes.io/ssl-redirect: "true"
 database:
   secretName: gameservice-production-secrets
   urlKey: database-url
