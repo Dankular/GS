@@ -1,4 +1,8 @@
 services:
+  control-api:
+    networks:
+      - default
+      - kind
   matchmaking-worker:
     networks:
       - default

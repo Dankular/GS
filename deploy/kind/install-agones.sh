@@ -25,7 +25,9 @@ fi
   --set agones.ping.http.serviceType=NodePort \
   --set agones.ping.udp.serviceType=NodePort \
   --wait
-NODE_IP="$(docker inspect -f '{{(index .NetworkSettings.Networks "kind").IPAddress}}' gameservice-control-plane)"
+CONTROL_API_CONTAINER="${CONTROL_API_CONTAINER:-compose-control-api-1}"
+docker network connect kind "$CONTROL_API_CONTAINER" 2>/dev/null || true
+CONTROL_API_IP="$(docker inspect -f '{{(index .NetworkSettings.Networks "kind").IPAddress}}' "$CONTROL_API_CONTAINER")"
 # The chart's development certificate does not include the Kind node IP, while
 # the Docker Compose worker reaches the NodePort through that IP. Re-issue only
 # the dev allocator server certificate with the exact SAN used by the worker;
@@ -54,6 +56,6 @@ fi
 PUBLIC_KEY="${SERVER_CLAIM_PUBLIC_KEY:-AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA}"
 kubectl create secret generic gameservice-server-claims --namespace platform-gameservers-eu-west \
   --from-literal="public-key=$PUBLIC_KEY" --dry-run=client -o yaml | kubectl apply -f -
-sed "s|__CONTROL_API_URL__|http://${NODE_IP}:8080|g" deploy/kind/simulator-fleet.yaml | kubectl apply -f -
+sed "s|__CONTROL_API_URL__|http://${CONTROL_API_IP}:8080|g" deploy/kind/simulator-fleet.yaml | kubectl apply -f -
 kubectl rollout status deployment/agones-controller -n agones-system --timeout=180s
 kubectl wait --for=jsonpath='{.status.state}'=Ready gameserver -l agones.dev/fleet=arena-deathmatch -n platform-gameservers-eu-west --timeout=180s
