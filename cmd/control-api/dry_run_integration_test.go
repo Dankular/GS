@@ -4,8 +4,6 @@ package main
 
 import (
 	"context"
-	"crypto/sha256"
-	"fmt"
 	"os"
 	"strings"
 	"testing"
@@ -30,7 +28,6 @@ func TestDryRunImpactReportsActiveAndInFlightState(t *testing.T) {
 
 	gameID := "dry-run-impact-" + time.Now().UTC().Format("20060102150405.000000000")
 	canonical := []byte(`{"apiVersion":"game.platform/v1alpha1","kind":"GameDefinition","metadata":{"gameId":"` + gameID + `","revision":1},"spec":{"catalog":{}}}`)
-	fromDigest := sha256.Sum256(canonical)
 	_, err = pool.Exec(ctx, `INSERT INTO platform.games(game_id) VALUES($1)`, gameID)
 	if err != nil {
 		t.Fatal(err)
@@ -39,7 +36,7 @@ func TestDryRunImpactReportsActiveAndInFlightState(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	_, err = pool.Exec(ctx, `INSERT INTO platform.definition_revisions(game_id,revision,digest,source_yaml,canonical,compiled,validation_report,actor_id,status) VALUES($1,1,$2,'{}',$3,$3,$3,'integration','published')`, gameID, fmt.Sprintf("sha256:%x", fromDigest), canonical)
+	_, err = pool.Exec(ctx, `INSERT INTO platform.definition_revisions(game_id,revision,digest,source_yaml,canonical,compiled,validation_report,actor_id,status) VALUES($1,1,'sha256:from','{}',$2,$2,$2,'integration','published')`, gameID, canonical)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -76,7 +73,7 @@ spec: {catalog: {}}
 	if err != nil {
 		t.Fatal(err)
 	}
-	if impact["fromDigest"] != fmt.Sprintf("sha256:%x", fromDigest) || impact["diff"] == "no changes" {
+	if impact["fromDigest"] != "sha256:from" || impact["diff"] == "no changes" {
 		t.Fatalf("dry-run revision comparison missing: %#v", impact)
 	}
 	counts := impact["impact"].(map[string]any)

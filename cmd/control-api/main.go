@@ -763,15 +763,15 @@ func dryRunImpact(ctx context.Context, pool *pgxpool.Pool, report compiler.Repor
 	result := map[string]any{"report": report, "gameId": gameID, "toDigest": report.Digest}
 	if revision > 0 {
 		var canonical []byte
-		if err := pool.QueryRow(ctx, `SELECT canonical FROM platform.definition_revisions WHERE game_id=$1 AND revision=$2`, gameID, revision).Scan(&canonical); err != nil {
+		var digest string
+		if err := pool.QueryRow(ctx, `SELECT canonical,digest FROM platform.definition_revisions WHERE game_id=$1 AND revision=$2`, gameID, revision).Scan(&canonical, &digest); err != nil {
 			return nil, err
 		}
 		var target compiler.Definition
 		if err := json.Unmarshal(canonical, &target); err != nil {
 			return nil, err
 		}
-		digest := sha256.Sum256(canonical)
-		targetReport := compiler.Report{Definition: target, Canonical: canonical, Digest: fmt.Sprintf("sha256:%x", digest)}
+		targetReport := compiler.Report{Definition: target, Canonical: canonical, Digest: digest}
 		result["fromDigest"] = targetReport.Digest
 		result["diff"] = compiler.Diff(targetReport, report)
 	}
