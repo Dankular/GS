@@ -4,6 +4,39 @@ services:
     command: ["--config=/etc/otelcol-contrib/config.yaml"]
     volumes: [../../deploy/observability/otel-collector.yaml:/etc/otelcol-contrib/config.yaml:ro]
     ports: ["4317:4317", "4318:4318", "9464:9464"]
+  prometheus:
+    profiles: [observability]
+    image: prom/prometheus@sha256:63805ebb8d2b3920190daf1cb14a60871b16fd38bed42b857a3182bc621f4996
+    command: ["--config.file=/etc/prometheus/prometheus.yaml", "--storage.tsdb.path=/prometheus", "--web.enable-lifecycle"]
+    volumes:
+      - prometheus-data:/prometheus
+      - ../../deploy/observability/prometheus.yaml:/etc/prometheus/prometheus.yaml:ro
+      - ../../deploy/observability/prometheus-rules.yaml:/etc/prometheus/rules/prometheus-rules.yaml:ro
+    ports: ["9090:9090"]
+    depends_on: [otel-collector, control-api, alertmanager]
+  alertmanager:
+    profiles: [observability]
+    image: prom/alertmanager@sha256:27c475db5fb156cab31d5c18a4251ac7ed567746a2483ff264516437a39b15ba
+    command: ["--config.file=/etc/alertmanager/alertmanager.yaml", "--storage.path=/alertmanager", "--config.expand-env"]
+    environment:
+      ALERTMANAGER_WEBHOOK_URL: ${ALERTMANAGER_WEBHOOK_URL:?set ALERTMANAGER_WEBHOOK_URL}
+    volumes:
+      - alertmanager-data:/alertmanager
+      - ../../deploy/observability/alertmanager.yaml:/etc/alertmanager/alertmanager.yaml:ro
+    ports: ["9093:9093"]
+  grafana:
+    profiles: [observability]
+    image: grafana/grafana@sha256:a1701c2180249361737a99a01bc770db39381640e4d631825d38ff4535efa47d
+    environment:
+      GF_SECURITY_ADMIN_PASSWORD: ${GRAFANA_ADMIN_PASSWORD:?set GRAFANA_ADMIN_PASSWORD}
+      GF_USERS_ALLOW_SIGN_UP: "false"
+    volumes:
+      - grafana-data:/var/lib/grafana
+      - ../../deploy/observability/grafana-datasource.yaml:/etc/grafana/provisioning/datasources/gameservice.yaml:ro
+      - ../../deploy/observability/grafana-dashboard-provider.yaml:/etc/grafana/provisioning/dashboards/gameservice.yaml:ro
+      - ../../deploy/observability/gameservice-dashboard.json:/var/lib/grafana/dashboards/gameservice-dashboard.json:ro
+    ports: ["3000:3000"]
+    depends_on: [prometheus]
   postgres:
     image: postgres@sha256:21f6013073bc6b92830a2129570e2f5ec42a6c734b5a985a41e83aa58f54c3c1
     environment:
@@ -187,4 +220,8 @@ services:
       SERVER_RESULT_TOKEN: ${SERVER_RESULT_TOKEN:-}
       AGONES_ENABLED: ${AGONES_ENABLED:-false}
     ports: ["7000:7000"]
-volumes: { postgres-data: {} }
+volumes:
+  postgres-data: {}
+  prometheus-data: {}
+  alertmanager-data: {}
+  grafana-data: {}

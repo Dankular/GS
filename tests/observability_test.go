@@ -69,3 +69,30 @@ func TestObservabilityDashboardUsesOnlyBoundedMetrics(t *testing.T) {
 		}
 	}
 }
+
+func TestComposeObservabilityProfileIsPinnedAndSecretGated(t *testing.T) {
+	data, err := os.ReadFile("../deploy/compose/compose.yaml")
+	if err != nil {
+		data, err = os.ReadFile("deploy/compose/compose.yaml")
+	}
+	if err != nil {
+		t.Fatal(err)
+	}
+	text := string(data)
+	for _, required := range []string{
+		"prometheus:",
+		"profiles: [observability]",
+		"prom/prometheus@sha256:63805ebb8d2b3920190daf1cb14a60871b16fd38bed42b857a3182bc621f4996",
+		"prom/alertmanager@sha256:27c475db5fb156cab31d5c18a4251ac7ed567746a2483ff264516437a39b15ba",
+		"grafana/grafana@sha256:a1701c2180249361737a99a01bc770db39381640e4d631825d38ff4535efa47d",
+		"ALERTMANAGER_WEBHOOK_URL:?set ALERTMANAGER_WEBHOOK_URL",
+		"GRAFANA_ADMIN_PASSWORD:?set GRAFANA_ADMIN_PASSWORD",
+		"--config.expand-env",
+		"prometheus-data:",
+		"grafana-data:",
+	} {
+		if !strings.Contains(text, required) {
+			t.Errorf("Compose observability profile missing %q", required)
+		}
+	}
+}
