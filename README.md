@@ -29,11 +29,17 @@ go test ./...
 go run ./cmd/definition-compiler --file definitions/examples/arena.yaml
 make dev-core
 make dev-full
+make seed
 ```
 
 The API listens on `:8080` by default. Health endpoints are available at
 `/health/live` and `/health/ready`; commands are posted to `/v1/commands` and
 stored results can be read at `/v1/commands/{requestId}`.
+
+`make seed` runs the Dockerized seed job, publishes the example definition
+through the immutable definition store, and activates it for `dev`. It is
+intended for development or a disposable smoke environment; production
+definitions must use the reviewed admin publish/activate workflow.
 
 `make dev-full` creates a Kind cluster using Kubernetes `v1.36.1`, installs
 the pinned Agones `1.60.0` chart, builds/loads the local simulator image, and

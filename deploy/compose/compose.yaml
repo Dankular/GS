@@ -58,6 +58,16 @@ services:
     volumes: [../../migrations/control:/migrations:ro]
     depends_on:
       postgres: { condition: service_healthy }
+  seed:
+    profiles: [seed]
+    build: { context: ../.., dockerfile: deploy/compose/seed.Dockerfile }
+    environment:
+      DATABASE_URL: postgres://gameservice:${POSTGRES_PASSWORD}@postgres:5432/gameservice?sslmode=disable
+      SEED_ENVIRONMENT: ${SEED_ENVIRONMENT:-dev}
+      SEED_ACTOR: ${SEED_ACTOR:-seed}
+    depends_on:
+      postgres: { condition: service_healthy }
+      migrations: { condition: service_completed_successfully }
   outbox-worker:
     build: { context: ../.., dockerfile: deploy/compose/outbox-worker.Dockerfile }
     environment:

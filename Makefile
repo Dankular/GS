@@ -44,7 +44,7 @@ migrate-down-one:
 	docker compose --env-file $${ENV_FILE:-.env} -f deploy/compose/compose.yaml run --rm migrations sh -c 'psql "$$DATABASE_URL" -f /migrations/001_control.down.sql'
 
 seed:
-	go run ./cmd/definition-compiler --file definitions/examples/arena.yaml
+	docker compose --env-file $${ENV_FILE:-.env} -f deploy/compose/compose.yaml --profile seed run --rm seed
 
 definition-validate:
 	go run ./cmd/definition-compiler --file $(FILE)
