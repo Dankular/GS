@@ -38,6 +38,7 @@ spec:
             - { name: MATCH_TEAMS, value: {{ .Values.matchmaking.teams | quote }} }
             - { name: MATCH_RATING_WINDOW, value: {{ .Values.matchmaking.ratingWindow | quote }} }
             - { name: MATCH_PROTOCOL, value: {{ .Values.matchmaking.protocol | quote }} }
+            - { name: MATCH_MAX_ALLOCATION_ATTEMPTS, value: {{ .Values.matchmaking.maxAllocationAttempts | quote }} }
             - { name: MATCHMAKING_INTERVAL_SECONDS, value: {{ .Values.matchmaking.intervalSeconds | quote }} }
             - { name: SERVER_CLAIM_PRIVATE_KEY_FILE, value: /run/server-claims/{{ .Values.serverClaims.privateKeySecretKey }} }
             - { name: SERVER_CLAIM_TTL_SECONDS, value: {{ .Values.serverClaims.ttlSeconds | quote }} }

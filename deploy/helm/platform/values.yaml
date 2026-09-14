@@ -108,6 +108,7 @@ gameServer:
   buildId: ""
   region: eu-west
   protocol: "3"
+  maxAllocationAttempts: 3
   gamePort: 7000
   httpPort: 7001
   controlApiURL: http://gameservice-control-api:8080

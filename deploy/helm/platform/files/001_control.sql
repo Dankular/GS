@@ -142,6 +142,7 @@ CREATE TABLE IF NOT EXISTS match.tickets (
 ALTER TABLE match.tickets ADD COLUMN IF NOT EXISTS build text NOT NULL DEFAULT 'unknown';
 ALTER TABLE match.tickets ADD COLUMN IF NOT EXISTS region text NOT NULL DEFAULT 'unknown';
 ALTER TABLE match.tickets ADD COLUMN IF NOT EXISTS capacity integer NOT NULL DEFAULT 1;
+ALTER TABLE match.tickets ADD COLUMN IF NOT EXISTS allocation_attempts integer NOT NULL DEFAULT 0 CHECK (allocation_attempts >= 0);
 DO $$
 BEGIN
   ALTER TABLE match.tickets DROP CONSTRAINT IF EXISTS tickets_status_check;

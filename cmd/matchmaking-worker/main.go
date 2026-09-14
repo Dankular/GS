@@ -46,7 +46,7 @@ func main() {
 		os.Exit(1)
 	}
 	defer allocatorClient.Close()
-	worker := matchmaking.Worker{Pool: repo.Pool(), Allocator: allocatorClient, MatchStore: matches.Store{Pool: repo.Pool()}, Policy: matchmaking.Policy{TeamSize: envInt("MATCH_TEAM_SIZE", 1), Teams: envInt("MATCH_TEAMS", 2), RatingWindow: int64(envInt("MATCH_RATING_WINDOW", 0))}, Protocol: env("MATCH_PROTOCOL", "udp")}
+	worker := matchmaking.Worker{Pool: repo.Pool(), Allocator: allocatorClient, MatchStore: matches.Store{Pool: repo.Pool()}, Policy: matchmaking.Policy{TeamSize: envInt("MATCH_TEAM_SIZE", 1), Teams: envInt("MATCH_TEAMS", 2), RatingWindow: int64(envInt("MATCH_RATING_WINDOW", 0))}, Protocol: env("MATCH_PROTOCOL", "udp"), MaxAllocationAttempts: envInt("MATCH_MAX_ALLOCATION_ATTEMPTS", 3)}
 	if key, keyErr := loadServerClaimPrivateKey(os.Getenv("SERVER_CLAIM_PRIVATE_KEY_FILE"), os.Getenv("SERVER_CLAIM_PRIVATE_KEY")); keyErr != nil {
 		slog.Error("server claim private key could not be loaded", "error", keyErr)
 		os.Exit(1)

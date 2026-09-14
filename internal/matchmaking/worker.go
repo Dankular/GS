@@ -24,6 +24,7 @@ type Worker struct {
 	Policy                Policy
 	Protocol              string
 	BatchSize             int
+	MaxAllocationAttempts int
 	ServerClaimPrivateKey ed25519.PrivateKey
 	ServerClaimTTL        time.Duration
 }
@@ -102,7 +103,7 @@ func (w Worker) RunOnce(ctx context.Context) (bool, error) {
 	}
 	allocated, err := w.Allocator.Allocate(ctx, selector)
 	if err != nil {
-		_ = w.setTicketStatus(ctx, ids, "queued")
+		_ = w.recordAllocationFailure(ctx, ids)
 		return false, fmt.Errorf("allocate match server: %w", err)
 	}
 	if _, err := w.MatchStore.Create(ctx, matches.MatchSpec{MatchID: matchID, GameID: seed.GameID, Environment: seed.Environment, ModeID: seed.ModeID, DefinitionRevision: seed.DefinitionRevision, Build: seed.Build, AllocationID: allocated.AllocationID, ServerAddress: allocated.Address, ServerPorts: allocated.Ports}, roster); err != nil {
@@ -121,6 +122,25 @@ func (w Worker) RunOnce(ctx context.Context) (bool, error) {
 		return false, fmt.Errorf("match ticket finalization changed: expected %d, updated %d", len(ids), result.RowsAffected())
 	}
 	return true, nil
+}
+
+func (w Worker) recordAllocationFailure(ctx context.Context, ids []string) error {
+	maxAttempts := w.MaxAllocationAttempts
+	if maxAttempts < 1 {
+		maxAttempts = 3
+	}
+	_, err := w.Pool.Exec(ctx, `UPDATE match.tickets SET allocation_attempts=allocation_attempts+1,status=CASE WHEN allocation_attempts+1 >= $2 THEN 'expired' ELSE 'queued' END WHERE ticket_id=ANY($1) AND status='matching'`, ids, maxAttempts)
+	return err
+}
+
+func allocationFailureStatus(attempts, maxAttempts int) string {
+	if maxAttempts < 1 {
+		maxAttempts = 3
+	}
+	if attempts+1 >= maxAttempts {
+		return "expired"
+	}
+	return "queued"
 }
 
 func (w Worker) serverClaimToken(matchID, allocationID, build string) (string, error) {

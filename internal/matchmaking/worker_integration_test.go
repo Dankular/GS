@@ -68,3 +68,44 @@ func TestWorkerCreatesAllocatedMatchFromQueuedTickets(t *testing.T) {
 		t.Fatalf("unexpected match allocation: state=%s address=%s", state, address)
 	}
 }
+
+func TestWorkerExpiresTicketsAfterAllocationRetries(t *testing.T) {
+	databaseURL := os.Getenv("DATABASE_URL")
+	if databaseURL == "" {
+		t.Skip("DATABASE_URL is required for integration tests")
+	}
+	pool, err := pgxpool.New(context.Background(), databaseURL)
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer pool.Close()
+	ctx := context.Background()
+	now := time.Now().UTC()
+	gameID := "retry-game-" + now.Format("20060102150405.000000000")
+	players := []string{"retry-p1-" + now.Format("20060102150405.000000000"), "retry-p2-" + now.Format("20060102150405.000000000")}
+	store := Store{Pool: pool}
+	var ticketIDs []string
+	for _, playerID := range players {
+		record, err := store.Create(ctx, TicketRequest{GameID: gameID, Environment: "test", ModeID: "dm", DefinitionRevision: 1, Build: "build-1", Region: "eu-west", Capacity: 1, PlayerIDs: []string{playerID}, ExpiresAt: now.Add(5 * time.Minute)}, playerID, now)
+		if err != nil {
+			t.Fatal(err)
+		}
+		ticketIDs = append(ticketIDs, record.TicketID)
+	}
+	defer pool.Exec(ctx, `DELETE FROM match.tickets WHERE ticket_id=ANY($1)`, ticketIDs)
+
+	worker := Worker{Pool: pool, Allocator: allocation.NewFakeAllocator(nil), MatchStore: matches.Store{Pool: pool}, Policy: Policy{TeamSize: 1, Teams: 2}, Protocol: "udp", MaxAllocationAttempts: 3}
+	for attempt := 0; attempt < 3; attempt++ {
+		if matched, err := worker.RunOnce(ctx); matched || err == nil {
+			t.Fatalf("attempt %d unexpectedly succeeded: matched=%v err=%v", attempt+1, matched, err)
+		}
+	}
+	var status string
+	var attempts int
+	if err := pool.QueryRow(ctx, `SELECT status,allocation_attempts FROM match.tickets WHERE ticket_id=$1`, ticketIDs[0]).Scan(&status, &attempts); err != nil {
+		t.Fatal(err)
+	}
+	if status != "expired" || attempts != 3 {
+		t.Fatalf("unexpected terminal allocation state: status=%s attempts=%d", status, attempts)
+	}
+}
