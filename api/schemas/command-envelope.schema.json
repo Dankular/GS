@@ -1,0 +1,19 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://gameservice.dev/schemas/command-envelope.schema.json",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["apiVersion", "kind", "metadata", "actor", "spec"],
+  "properties": {
+    "apiVersion": { "const": "game.platform/v1alpha1" },
+    "kind": { "const": "Command" },
+    "metadata": { "$ref": "#/$defs/metadata" },
+    "actor": { "$ref": "#/$defs/actor" },
+    "spec": { "$ref": "#/$defs/spec" }
+  },
+  "$defs": {
+    "metadata": { "type": "object", "additionalProperties": false, "required": ["requestId", "correlationId", "gameId", "environment", "definitionRevision"], "properties": { "requestId": { "type": "string", "minLength": 1 }, "correlationId": { "type": "string", "minLength": 1 }, "gameId": { "type": "string", "minLength": 1 }, "environment": { "type": "string", "minLength": 1 }, "definitionRevision": { "type": "integer", "minimum": 1 } } },
+    "actor": { "type": "object", "additionalProperties": false, "required": ["type", "id"], "properties": { "type": { "type": "string", "minLength": 1 }, "id": { "type": "string", "minLength": 1 } } },
+    "spec": { "type": "object", "additionalProperties": false, "required": ["operation", "arguments"], "properties": { "operation": { "type": "string", "minLength": 1 }, "arguments": { "type": "object", "maxProperties": 64 } } }
+  }
+}

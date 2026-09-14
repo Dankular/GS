@@ -1,0 +1,19 @@
+apiVersion: game.platform/v1alpha1
+kind: GameDefinition
+metadata:
+  gameId: arena
+  revision: 1
+  labels: { stage: development }
+spec:
+  catalog:
+    currencies: [{ id: coins, precision: 0, minBalance: 0, maxBalance: 1000000000 }]
+    items: [{ id: iron_sword, stackLimit: 1, tags: [weapon, melee], tradeable: false }]
+  matchModes:
+    - id: deathmatch
+      minPlayers: 2
+      maxPlayers: 8
+      teamSize: 1
+      ticketTimeout: 90s
+      regions: [eu-west]
+      fleetRef: deathmatch-v1
+      serverBuild: sha256:REPLACE_WITH_IMAGE_DIGEST

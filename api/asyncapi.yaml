@@ -1,0 +1,15 @@
+asyncapi: 3.0.0
+info:
+  title: GameService Events
+  version: 0.1.0
+channels:
+  commandAccepted:
+    address: command.accepted.v1
+    messages:
+      commandAccepted:
+        payload:
+          type: object
+          required: [requestId, correlationId]
+          properties:
+            requestId: { type: string }
+            correlationId: { type: string }

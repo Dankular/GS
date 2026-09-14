@@ -1,0 +1,27 @@
+services:
+  postgres:
+    image: postgres:16.10
+    environment:
+      POSTGRES_DB: gameservice
+      POSTGRES_USER: gameservice
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:?set POSTGRES_PASSWORD}
+    volumes: [postgres-data:/var/lib/postgresql/data]
+    healthcheck: { test: [CMD-SHELL, 'pg_isready -U gameservice -d gameservice'], interval: 5s, timeout: 5s, retries: 10 }
+  nakama:
+    image: heroiclabs/nakama:3.40.0
+    depends_on: { postgres: { condition: service_healthy } }
+    command: ["--database.address", "postgres://gameservice:${POSTGRES_PASSWORD}@postgres:5432/gameservice?sslmode=disable", "--logger.level", "INFO"]
+    ports: ["7350:7350", "7351:7351"]
+  control-api:
+    build: { context: ../.., dockerfile: deploy/compose/control-api.Dockerfile }
+    environment: [CONTROL_API_ADDR=:8080]
+    ports: ["8080:8080"]
+    depends_on: { postgres: { condition: service_healthy } }
+  migrations:
+    image: postgres:16.10
+    profiles: [tools]
+    entrypoint: ["sh", "-c"]
+    command: ["psql \"$$DATABASE_URL\" -f /migrations/001_control.sql"]
+    environment: [DATABASE_URL]
+    volumes: [../../migrations/control:/migrations:ro]
+volumes: { postgres-data: {} }
