@@ -31,3 +31,25 @@ func TestFakeAllocatorRejectsInvalidSelectorAndContext(t *testing.T) {
 		t.Fatalf("expected cancellation, got %v", err)
 	}
 }
+
+func TestBuildLabelCompressesFullDigestForKubernetes(t *testing.T) {
+	build := "sha256:0123456789abcdef0123456789abcdef0123456789abcdef0123456789abcdef"
+	if got, want := BuildLabel(build), "sha256-0123456789abcdef0123456789abcdef"; got != want {
+		t.Fatalf("build label = %q, want %q", got, want)
+	}
+	if len(BuildLabel(build)) > 63 {
+		t.Fatal("build label exceeds Kubernetes label value length")
+	}
+	if got := RequiredLabels(Selector{GameID: "g", ModeID: "m", Build: build, Region: "r", Protocol: "udp"}); !contains(got, "platform.game/build-id="+BuildLabel(build)) {
+		t.Fatalf("required labels omit derived build identity: %#v", got)
+	}
+}
+
+func contains(values []string, expected string) bool {
+	for _, value := range values {
+		if value == expected {
+			return true
+		}
+	}
+	return false
+}

@@ -50,7 +50,7 @@ func (a RESTAllocator) Allocate(ctx context.Context, selectorValue Selector) (Al
 	if client == nil {
 		client = &http.Client{Timeout: 10 * time.Second}
 	}
-	body, err := json.Marshal(allocationRequest{Namespace: a.Namespace, GameServerSelectors: []selector{{MatchLabels: map[string]string{"platform.game/id": selectorValue.GameID, "platform.game/mode": selectorValue.ModeID, "platform.game/build": selectorValue.Build, "platform.game/region": selectorValue.Region, "platform.game/protocol": selectorValue.Protocol}}}, Metadata: metadata(selectorValue.Metadata)})
+	body, err := json.Marshal(allocationRequest{Namespace: a.Namespace, GameServerSelectors: []selector{{MatchLabels: map[string]string{"platform.game/id": selectorValue.GameID, "platform.game/mode": selectorValue.ModeID, "platform.game/build-id": BuildLabel(selectorValue.Build), "platform.game/region": selectorValue.Region, "platform.game/protocol": selectorValue.Protocol}}}, Metadata: metadata(selectorValue.Metadata)})
 	if err != nil {
 		return Allocation{}, err
 	}
@@ -85,7 +85,7 @@ func (a RESTAllocator) Allocate(ctx context.Context, selectorValue Selector) (Al
 	if assignedID == "" {
 		assignedID = decoded.GameServerName + "-allocation"
 	}
-	return Allocation{AllocationID: assignedID, GameServer: decoded.GameServerName, Address: decoded.Address, Ports: ports, Labels: map[string]string{"platform.game/id": selectorValue.GameID, "platform.game/mode": selectorValue.ModeID, "platform.game/build": selectorValue.Build, "platform.game/region": selectorValue.Region, "platform.game/protocol": selectorValue.Protocol}}, nil
+	return Allocation{AllocationID: assignedID, GameServer: decoded.GameServerName, Address: decoded.Address, Ports: ports, Labels: map[string]string{"platform.game/id": selectorValue.GameID, "platform.game/mode": selectorValue.ModeID, "platform.game/build-id": BuildLabel(selectorValue.Build), "platform.game/region": selectorValue.Region, "platform.game/protocol": selectorValue.Protocol}}, nil
 }
 
 func metadata(values map[string]string) *metaPatch {

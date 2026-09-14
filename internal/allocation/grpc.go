@@ -70,7 +70,7 @@ func (a *GRPCAllocator) Allocate(ctx context.Context, selector Selector) (Alloca
 	if a == nil || a.client == nil {
 		return Allocation{}, errors.New("Agones gRPC allocator is not configured")
 	}
-	labels := map[string]string{"platform.game/id": selector.GameID, "platform.game/mode": selector.ModeID, "platform.game/build": selector.Build, "platform.game/region": selector.Region, "platform.game/protocol": selector.Protocol}
+	labels := map[string]string{"platform.game/id": selector.GameID, "platform.game/mode": selector.ModeID, "platform.game/build-id": BuildLabel(selector.Build), "platform.game/region": selector.Region, "platform.game/protocol": selector.Protocol}
 	if selector.CapacityClass != "" {
 		labels["platform.game/capacity-class"] = selector.CapacityClass
 	}

@@ -17,7 +17,7 @@ func TestRESTAllocatorSendsRequiredSelectorsAndMapsResponse(t *testing.T) {
 		if err := json.NewDecoder(r.Body).Decode(&request); err != nil {
 			t.Fatal(err)
 		}
-		if request.Namespace != "platform-gameservers-eu-west" || request.GameServerSelectors[0].MatchLabels["platform.game/build"] != "sha256:build" {
+		if request.Namespace != "platform-gameservers-eu-west" || request.GameServerSelectors[0].MatchLabels["platform.game/build-id"] != BuildLabel("sha256:build") {
 			t.Fatalf("selector was not preserved: %#v", request)
 		}
 		w.Header().Set("Content-Type", "application/json")

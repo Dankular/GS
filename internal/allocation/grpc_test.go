@@ -30,7 +30,7 @@ func TestGRPCAllocatorBuildsRequiredSelectorAndMapsResponse(t *testing.T) {
 		t.Fatal(err)
 	}
 	labels := fake.request.GetGameServerSelectors()[0].GetMatchLabels()
-	if fake.request.GetNamespace() != "platform-gameservers-eu-west" || labels["platform.game/build"] != "sha256:build" {
+	if fake.request.GetNamespace() != "platform-gameservers-eu-west" || labels["platform.game/build-id"] != BuildLabel("sha256:build") {
 		t.Fatalf("unexpected request: %#v", fake.request)
 	}
 	if fake.request.GetMetadata().GetAnnotations()["gameservice.io/match-id"] != "match-1" {

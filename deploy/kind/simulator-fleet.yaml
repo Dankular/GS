@@ -36,6 +36,7 @@ spec:
         platform.game/id: arena
         platform.game/mode: deathmatch
         platform.game/build: dev
+        platform.game/build-id: sha256-00000000000000000000000000000000
         platform.game/region: eu-west
         platform.game/protocol: udp
     spec:
