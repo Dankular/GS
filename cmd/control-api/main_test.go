@@ -1,6 +1,10 @@
 package main
 
-import "testing"
+import (
+	"testing"
+
+	"github.com/Dankular/GameService/internal/auth"
+)
 
 func TestCommandScopeMatrix(t *testing.T) {
 	checks := map[string]string{
@@ -17,5 +21,15 @@ func TestCommandScopeMatrix(t *testing.T) {
 		if got := commandScope(operation); got != expected {
 			t.Errorf("commandScope(%q) = %q, want %q", operation, got, expected)
 		}
+	}
+}
+
+func TestSessionAllowsBaselinePlayerAccessWithoutNakamaScope(t *testing.T) {
+	claims := auth.SessionClaims{}
+	if !sessionAllowsScope(claims, "player:read") || !sessionAllowsScope(claims, "player:write") {
+		t.Fatal("baseline player access was denied")
+	}
+	if sessionAllowsScope(claims, "admin:read") || sessionAllowsScope(auth.SessionClaims{Scope: "player:read"}, "player:write") {
+		t.Fatal("privileged or unscopeable access was allowed")
 	}
 }

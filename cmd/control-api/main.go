@@ -229,7 +229,7 @@ func main() {
 			http.Error(w, "actor does not match authenticated user", http.StatusForbidden)
 			return
 		}
-		if scope := commandScope(e.Spec.Operation); scope != "" && !claims.HasScope(scope) {
+		if scope := commandScope(e.Spec.Operation); scope != "" && !sessionAllowsScope(claims, scope) {
 			http.Error(w, "insufficient scope", http.StatusForbidden)
 			return
 		}
@@ -557,11 +557,20 @@ func requireScope(w http.ResponseWriter, r *http.Request, authenticate func(*htt
 		http.Error(w, "authentication required", http.StatusUnauthorized)
 		return auth.SessionClaims{}, false
 	}
-	if !claims.HasScope(scope) {
+	if !sessionAllowsScope(claims, scope) {
 		http.Error(w, "insufficient scope", http.StatusForbidden)
 		return auth.SessionClaims{}, false
 	}
 	return claims, true
+}
+
+func sessionAllowsScope(claims auth.SessionClaims, scope string) bool {
+	if claims.HasScope(scope) {
+		return true
+	}
+	// Nakama's ordinary player session token has no scope claim. It is still
+	// allowed to use self-service player APIs; privileged scopes remain explicit.
+	return (scope == "player:read" || scope == "player:write") && claims.Scope == "" && len(claims.Vars) == 0
 }
 
 func commandScope(operation string) string {
