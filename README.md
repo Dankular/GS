@@ -8,7 +8,8 @@ coordination substrate, and Agones owns dedicated-server lifecycle.
 ## Current status
 
 The repository contains a durable command/outbox foundation, transactional
-economy operations, a deterministic definition compiler, persistent match
+economy operations (including atomic wallet/inventory transfers with balanced
+double-entry currency records), a deterministic definition compiler, persistent match
 lifecycle state, and an Agones allocator boundary. The control API stores
 command results in PostgreSQL and replays duplicate request IDs without
 appending another outbox event. Nakama runtime extensions, Kubernetes
