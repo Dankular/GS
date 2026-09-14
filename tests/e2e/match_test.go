@@ -108,8 +108,13 @@ func TestSyntheticMatchLifecycle(t *testing.T) {
 
 	serverToken := cfg.ServerToken
 	if serverToken == "" && cfg.ServerTokenFile != "" {
-		if data, err := os.ReadFile(cfg.ServerTokenFile); err == nil {
-			serverToken = strings.TrimSpace(string(data))
+		data, err := os.ReadFile(cfg.ServerTokenFile)
+		if err != nil {
+			t.Fatalf("server token file could not be read: %v", err)
+		}
+		serverToken = strings.TrimSpace(string(data))
+		if serverToken == "" {
+			t.Fatal("server token file was empty")
 		}
 	}
 	if serverToken != "" {
