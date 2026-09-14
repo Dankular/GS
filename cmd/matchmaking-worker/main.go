@@ -37,7 +37,7 @@ func main() {
 		slog.Error("allocator client key could not be loaded", "error", err)
 		os.Exit(1)
 	}
-	allocatorClient, err := allocation.NewGRPCAllocator(ctx, os.Getenv("AGONES_ALLOCATOR_ENDPOINT"), env("AGONES_ALLOCATOR_NAMESPACE", "default"), certPEM, keyPEM, caPEM)
+	allocatorClient, err := allocation.NewGRPCAllocatorWithServerName(ctx, os.Getenv("AGONES_ALLOCATOR_ENDPOINT"), env("AGONES_ALLOCATOR_NAMESPACE", "default"), certPEM, keyPEM, caPEM, os.Getenv("AGONES_ALLOCATOR_SERVER_NAME"))
 	if err != nil {
 		slog.Error("allocator initialization failed", "error", err)
 		os.Exit(1)

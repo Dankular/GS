@@ -29,6 +29,7 @@ otel:
   endpoint: otel-collector.platform-observability.svc.cluster.local:4318
 allocator:
   endpoint: allocator.agones-system.svc.cluster.local:443
+  serverName: allocator.agones-system.svc.cluster.local
   namespace: platform-gameservers-eu-west
   secretName: gameservice-allocator-mtls
   caKey: ca.pem

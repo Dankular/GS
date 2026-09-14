@@ -22,6 +22,14 @@ type GRPCAllocator struct {
 }
 
 func NewGRPCAllocator(ctx context.Context, endpoint, namespace string, certPEM, keyPEM, caPEM []byte) (*GRPCAllocator, error) {
+	return NewGRPCAllocatorWithServerName(ctx, endpoint, namespace, certPEM, keyPEM, caPEM, "")
+}
+
+// NewGRPCAllocatorWithServerName is identical to NewGRPCAllocator but permits
+// an explicitly configured TLS server name when a Docker host reaches an
+// allocator through a NodePort or private address. Cluster deployments should
+// leave it empty and use the endpoint's DNS name.
+func NewGRPCAllocatorWithServerName(ctx context.Context, endpoint, namespace string, certPEM, keyPEM, caPEM []byte, serverName string) (*GRPCAllocator, error) {
 	if strings.TrimSpace(endpoint) == "" || strings.TrimSpace(namespace) == "" {
 		return nil, errors.New("Agones gRPC allocator endpoint and namespace are required")
 	}
@@ -33,7 +41,7 @@ func NewGRPCAllocator(ctx context.Context, endpoint, namespace string, certPEM, 
 	if len(caPEM) == 0 || !roots.AppendCertsFromPEM(caPEM) {
 		return nil, errors.New("allocator CA certificate is required and must be PEM")
 	}
-	config := &tls.Config{MinVersion: tls.VersionTLS13, Certificates: []tls.Certificate{certificate}, RootCAs: roots}
+	config := &tls.Config{MinVersion: tls.VersionTLS13, Certificates: []tls.Certificate{certificate}, RootCAs: roots, ServerName: strings.TrimSpace(serverName)}
 	conn, err := grpc.NewClient(endpoint, grpc.WithTransportCredentials(credentials.NewTLS(config)))
 	if err != nil {
 		return nil, fmt.Errorf("connect to Agones allocator: %w", err)

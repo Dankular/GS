@@ -29,6 +29,7 @@ spec:
           env:
             - { name: DATABASE_URL, valueFrom: { secretKeyRef: { name: {{ .Values.database.secretName }}, key: {{ .Values.database.urlKey }} } } }
             - { name: AGONES_ALLOCATOR_ENDPOINT, value: {{ .Values.allocator.endpoint | quote }} }
+            - { name: AGONES_ALLOCATOR_SERVER_NAME, value: {{ .Values.allocator.serverName | quote }} }
             - { name: AGONES_ALLOCATOR_NAMESPACE, value: {{ .Values.allocator.namespace | quote }} }
             - { name: AGONES_ALLOCATOR_CA_FILE, value: /run/allocator/{{ .Values.allocator.caKey }} }
             - { name: AGONES_ALLOCATOR_CERT_FILE, value: /run/allocator/{{ .Values.allocator.certKey }} }

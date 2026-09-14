@@ -89,6 +89,7 @@ services:
     environment:
       DATABASE_URL: postgres://gameservice:${POSTGRES_PASSWORD}@postgres:5432/gameservice?sslmode=disable
       AGONES_ALLOCATOR_ENDPOINT: ${AGONES_ALLOCATOR_ENDPOINT:-}
+      AGONES_ALLOCATOR_SERVER_NAME: ${AGONES_ALLOCATOR_SERVER_NAME:-}
       AGONES_ALLOCATOR_NAMESPACE: ${AGONES_ALLOCATOR_NAMESPACE:-default}
       AGONES_ALLOCATOR_CA_FILE: /run/allocator/ca.pem
       AGONES_ALLOCATOR_CERT_FILE: /run/allocator/client.crt
