@@ -12,6 +12,7 @@ import (
 	"time"
 
 	"github.com/jackc/pgx/v5"
+	"github.com/jackc/pgx/v5/pgconn"
 	"github.com/jackc/pgx/v5/pgxpool"
 )
 
@@ -128,6 +129,37 @@ func (s Store) Get(ctx context.Context, matchID, playerID string) (MatchRecord, 
 	return record, rows.Err()
 }
 
+func getTx(ctx context.Context, tx pgx.Tx, matchID, playerID string) (MatchRecord, error) {
+	if strings.TrimSpace(matchID) == "" || strings.TrimSpace(playerID) == "" {
+		return MatchRecord{}, errors.New("match lookup data is incomplete")
+	}
+	var record MatchRecord
+	var ports []byte
+	if err := tx.QueryRow(ctx, `SELECT m.match_id,m.game_id,m.environment,m.mode_id,m.definition_revision,m.state,m.server_build,COALESCE(m.allocation_id,''),COALESCE(m.server_address,''),COALESCE(m.server_ports,'{}'::jsonb) FROM match.matches m JOIN match.roster_members r ON r.match_id=m.match_id WHERE m.match_id=$1 AND r.player_id=$2`, matchID, playerID).Scan(&record.MatchID, &record.GameID, &record.Environment, &record.ModeID, &record.DefinitionRevision, &record.State, &record.Build, &record.AllocationID, &record.ServerAddress, &ports); err != nil {
+		return MatchRecord{}, err
+	}
+	if err := json.Unmarshal(ports, &record.ServerPorts); err != nil {
+		return MatchRecord{}, err
+	}
+	rows, err := tx.Query(ctx, `SELECT player_id,slot,COALESCE(team,'') FROM match.roster_members WHERE match_id=$1 ORDER BY slot`, matchID)
+	if err != nil {
+		return MatchRecord{}, err
+	}
+	defer rows.Close()
+	for rows.Next() {
+		var member RosterMember
+		if err := rows.Scan(&member.PlayerID, &member.Slot, &member.Team); err != nil {
+			return MatchRecord{}, err
+		}
+		record.Roster = append(record.Roster, member)
+	}
+	return record, rows.Err()
+}
+
+func (s Store) GetTx(ctx context.Context, tx pgx.Tx, matchID, playerID string) (MatchRecord, error) {
+	return getTx(ctx, tx, matchID, playerID)
+}
+
 func (s Store) MarkReady(ctx context.Context, matchID string) error {
 	result, err := s.Pool.Exec(ctx, `UPDATE match.matches SET state='Ready',state_version=state_version+1,updated_at=now() WHERE match_id=$1 AND state='Allocating'`, matchID)
 	if err != nil {
@@ -163,10 +195,24 @@ func (s Store) IssueJoinClaim(ctx context.Context, matchID, playerID string, now
 	if len(s.JoinPrivateKey) != ed25519.PrivateKeySize {
 		return "", errors.New("join claim signer is not configured")
 	}
+	return issueJoinClaim(ctx, s.Pool, s, matchID, playerID, now)
+}
+
+func (s Store) IssueJoinClaimTx(ctx context.Context, tx pgx.Tx, matchID, playerID string, now time.Time) (string, error) {
+	if len(s.JoinPrivateKey) != ed25519.PrivateKeySize {
+		return "", errors.New("join claim signer is not configured")
+	}
+	return issueJoinClaim(ctx, tx, s, matchID, playerID, now)
+}
+
+func issueJoinClaim(ctx context.Context, queryer interface {
+	QueryRow(context.Context, string, ...any) pgx.Row
+	Exec(context.Context, string, ...any) (pgconn.CommandTag, error)
+}, s Store, matchID, playerID string, now time.Time) (string, error) {
 	var allocationID, build, state string
 	var slot int
 	var team string
-	if err := s.Pool.QueryRow(ctx, `SELECT m.allocation_id,m.server_build,m.state,r.slot,COALESCE(r.team,'') FROM match.matches m JOIN match.roster_members r ON r.match_id=m.match_id WHERE m.match_id=$1 AND r.player_id=$2`, matchID, playerID).Scan(&allocationID, &build, &state, &slot, &team); err != nil {
+	if err := queryer.QueryRow(ctx, `SELECT m.allocation_id,m.server_build,m.state,r.slot,COALESCE(r.team,'') FROM match.matches m JOIN match.roster_members r ON r.match_id=m.match_id WHERE m.match_id=$1 AND r.player_id=$2`, matchID, playerID).Scan(&allocationID, &build, &state, &slot, &team); err != nil {
 		return "", err
 	}
 	if state != "Ready" && state != "Running" {
@@ -186,7 +232,7 @@ func (s Store) IssueJoinClaim(ctx context.Context, matchID, playerID string, now
 	if err != nil {
 		return "", err
 	}
-	if _, err := s.Pool.Exec(ctx, `INSERT INTO match.join_claims(jti,match_id,player_id,expires_at) VALUES($1,$2,$3,$4)`, jti, matchID, playerID, now.Add(ttl)); err != nil {
+	if _, err := queryer.Exec(ctx, `INSERT INTO match.join_claims(jti,match_id,player_id,expires_at) VALUES($1,$2,$3,$4)`, jti, matchID, playerID, now.Add(ttl)); err != nil {
 		return "", err
 	}
 	return token, nil

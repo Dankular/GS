@@ -55,6 +55,7 @@ func main() {
 		joinPrivateKey = ed25519.PrivateKey(joinPrivateKeyBytes)
 	}
 	matchStore := matches.Store{Pool: repository.Pool(), JoinPrivateKey: joinPrivateKey, Issuer: "control-plane", Audience: "game-server"}
+	matchCommandService := matches.CommandService{Store: matchStore}
 	sessionSigningKey := os.Getenv("NAKAMA_SESSION_SIGNING_KEY")
 	if sessionSigningKey == "" {
 		slog.Error("NAKAMA_SESSION_SIGNING_KEY is required")
@@ -202,7 +203,13 @@ func main() {
 			http.Error(w, "actor does not match authenticated user", http.StatusForbidden)
 			return
 		}
-		result, duplicate, err := repository.SubmitWith(r.Context(), e, economyService.Handle)
+		commandHandler := func(ctx context.Context, tx pgx.Tx, envelope commands.Envelope) (commands.Result, error) {
+			if strings.HasPrefix(envelope.Spec.Operation, "match.") {
+				return matchCommandService.Handle(ctx, tx, envelope)
+			}
+			return economyService.Handle(ctx, tx, envelope)
+		}
+		result, duplicate, err := repository.SubmitWith(r.Context(), e, commandHandler)
 		if err != nil {
 			slog.Error("command submission failed", "requestId", e.Metadata.RequestID, "correlationId", e.Metadata.CorrelationID, "error", err)
 			http.Error(w, "command could not be stored", http.StatusServiceUnavailable)
