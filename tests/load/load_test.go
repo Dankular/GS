@@ -21,22 +21,23 @@ import (
 )
 
 type config struct {
-	BaseURL  string
-	Secret   string
-	Player   string
-	GameID   string
-	Env      string
-	Mode     string
-	Build    string
-	Region   string
-	Workers  int
-	Requests int
+	BaseURL    string
+	Secret     string
+	SecretFile string
+	Player     string
+	GameID     string
+	Env        string
+	Mode       string
+	Build      string
+	Region     string
+	Workers    int
+	Requests   int
 }
 
 func TestHTTPProfiles(t *testing.T) {
 	c, ok := loadConfig()
 	if !ok {
-		t.Skip("set GAMESERVICE_LOAD_API_URL, GAMESERVICE_LOAD_SESSION_SIGNING_KEY, and GAMESERVICE_LOAD_PLAYER to run the HTTP load profiles")
+		t.Skip("set GAMESERVICE_LOAD_API_URL, GAMESERVICE_LOAD_SESSION_SIGNING_KEY_FILE (or GAMESERVICE_LOAD_SESSION_SIGNING_KEY), and GAMESERVICE_LOAD_PLAYER to run the HTTP load profiles")
 	}
 	profiles := strings.Split(envOr("GAMESERVICE_LOAD_PROFILES", "auth,snapshot,inventory,matchmaking"), ",")
 	for _, profile := range profiles {
@@ -50,16 +51,23 @@ func TestHTTPProfiles(t *testing.T) {
 
 func loadConfig() (config, bool) {
 	c := config{
-		BaseURL:  strings.TrimRight(os.Getenv("GAMESERVICE_LOAD_API_URL"), "/"),
-		Secret:   os.Getenv("GAMESERVICE_LOAD_SESSION_SIGNING_KEY"),
-		Player:   os.Getenv("GAMESERVICE_LOAD_PLAYER"),
-		GameID:   envOr("GAMESERVICE_LOAD_GAME_ID", "arena"),
-		Env:      envOr("GAMESERVICE_LOAD_ENVIRONMENT", "dev"),
-		Mode:     envOr("GAMESERVICE_LOAD_MODE_ID", "deathmatch"),
-		Build:    envOr("GAMESERVICE_LOAD_BUILD", "sha256:0000000000000000000000000000000000000000000000000000000000000000"),
-		Region:   envOr("GAMESERVICE_LOAD_REGION", "eu-west"),
-		Workers:  envInt("GAMESERVICE_LOAD_WORKERS", 4),
-		Requests: envInt("GAMESERVICE_LOAD_REQUESTS", 20),
+		BaseURL:    strings.TrimRight(os.Getenv("GAMESERVICE_LOAD_API_URL"), "/"),
+		Secret:     os.Getenv("GAMESERVICE_LOAD_SESSION_SIGNING_KEY"),
+		SecretFile: os.Getenv("GAMESERVICE_LOAD_SESSION_SIGNING_KEY_FILE"),
+		Player:     os.Getenv("GAMESERVICE_LOAD_PLAYER"),
+		GameID:     envOr("GAMESERVICE_LOAD_GAME_ID", "arena"),
+		Env:        envOr("GAMESERVICE_LOAD_ENVIRONMENT", "dev"),
+		Mode:       envOr("GAMESERVICE_LOAD_MODE_ID", "deathmatch"),
+		Build:      envOr("GAMESERVICE_LOAD_BUILD", "sha256:0000000000000000000000000000000000000000000000000000000000000000"),
+		Region:     envOr("GAMESERVICE_LOAD_REGION", "eu-west"),
+		Workers:    envInt("GAMESERVICE_LOAD_WORKERS", 4),
+		Requests:   envInt("GAMESERVICE_LOAD_REQUESTS", 20),
+	}
+	if c.Secret == "" && c.SecretFile != "" {
+		data, err := os.ReadFile(c.SecretFile)
+		if err == nil {
+			c.Secret = strings.TrimSpace(string(data))
+		}
 	}
 	return c, c.BaseURL != "" && c.Secret != "" && c.Player != "" && c.Workers > 0 && c.Requests > 0
 }
