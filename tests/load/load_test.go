@@ -80,9 +80,9 @@ func runProfile(t *testing.T, c config, profile string) {
 		wg.Add(1)
 		go func() {
 			defer wg.Done()
-			for range jobs {
+			for requestNumber := range jobs {
 				started := time.Now()
-				status, body, err := execute(ctx, client, c, token, profile)
+				status, body, err := execute(ctx, client, c, token, profile, requestNumber)
 				mu.Lock()
 				latencies = append(latencies, time.Since(started))
 				if err != nil {
@@ -106,17 +106,22 @@ func runProfile(t *testing.T, c config, profile string) {
 	t.Logf("profile=%s requests=%d workers=%d p50=%s p95=%s max=%s", profile, len(latencies), c.Workers, percentile(latencies, .50), percentile(latencies, .95), latencies[len(latencies)-1])
 }
 
-func execute(ctx context.Context, client *http.Client, c config, token, profile string) (int, string, error) {
+func execute(ctx context.Context, client *http.Client, c config, token, profile string, requestNumber int) (int, string, error) {
 	switch profile {
 	case "auth", "snapshot":
 		return request(ctx, client, http.MethodGet, c.BaseURL+"/v1/players/me/snapshot", token, nil)
 	case "inventory":
 		return request(ctx, client, http.MethodGet, c.BaseURL+"/v1/players/me/inventory", token, nil)
 	case "matchmaking":
+		// Matchmaking intentionally enforces one active ticket per player. Use a
+		// distinct signed identity for each request so concurrency measures the
+		// queue path rather than that product invariant.
+		player := fmt.Sprintf("%s-%d", c.Player, requestNumber)
+		token = sessionToken(c.Secret, player)
 		expires := time.Now().UTC().Add(2 * time.Minute).Format(time.RFC3339)
 		status, body, err := request(ctx, client, http.MethodPost, c.BaseURL+"/v1/matchmaking/tickets", token, map[string]any{
 			"gameId": c.GameID, "environment": c.Env, "modeId": c.Mode, "definitionRevision": 1,
-			"build": c.Build, "region": c.Region, "capacity": 2, "playerIds": []string{c.Player},
+			"build": c.Build, "region": c.Region, "capacity": 2, "playerIds": []string{player},
 			"properties": map[string]any{}, "expiresAt": expires,
 		})
 		if err != nil || status < 200 || status >= 300 {
