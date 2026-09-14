@@ -130,6 +130,21 @@ func TestProductionHelmIncludesAgonesFleetWhenEnabled(t *testing.T) {
 			t.Errorf("gameserver network policy missing %q", required)
 		}
 	}
+	monitor, err := os.ReadFile(filepath.Join("..", "deploy", "helm", "platform", "templates", "service-monitor.yaml"))
+	if err != nil {
+		t.Fatal(err)
+	}
+	for _, required := range []string{"monitoring.coreos.com/v1", "ServiceMonitor", "path: /metrics", "namespaceSelector", "enabled: false"} {
+		if required == "enabled: false" {
+			if !strings.Contains(string(values), "enabled: false") {
+				t.Errorf("Helm metrics are not opt-in by default")
+			}
+			continue
+		}
+		if !strings.Contains(string(monitor), required) {
+			t.Errorf("ServiceMonitor template missing %q", required)
+		}
+	}
 }
 
 func TestComposeSeparatesNakamaDatabaseRole(t *testing.T) {

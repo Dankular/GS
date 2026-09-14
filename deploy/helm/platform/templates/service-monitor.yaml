@@ -1,0 +1,20 @@
+{{- if .Values.metrics.serviceMonitor.enabled }}
+apiVersion: monitoring.coreos.com/v1
+kind: ServiceMonitor
+metadata:
+  name: gameservice-control-api
+  namespace: {{ .Values.namespace.observability }}
+  labels:
+{{ toYaml .Values.metrics.serviceMonitor.labels | nindent 4 }}
+spec:
+  namespaceSelector:
+    matchNames: [{{ .Values.namespace.app | quote }}]
+  selector:
+    matchLabels:
+      app: gameservice-control-api
+  endpoints:
+    - port: http
+      path: /metrics
+      interval: {{ .Values.metrics.serviceMonitor.interval | quote }}
+      scrapeTimeout: {{ .Values.metrics.serviceMonitor.scrapeTimeout | quote }}
+{{- end }}

@@ -36,6 +36,12 @@ nakama:
 otel:
   endpoint: otel-collector.platform-observability.svc.cluster.local:4318
   namespace: platform-observability
+metrics:
+  serviceMonitor:
+    enabled: false
+    interval: 15s
+    scrapeTimeout: 10s
+    labels: {}
 allocator:
   endpoint: allocator.agones-system.svc.cluster.local:443
   serverName: allocator.agones-system.svc.cluster.local
