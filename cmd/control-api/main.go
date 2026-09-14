@@ -8,7 +8,10 @@ import (
 	"log/slog"
 	"net/http"
 	"os"
+	"strings"
+	"time"
 
+	"github.com/Dankular/GameService/internal/auth"
 	"github.com/Dankular/GameService/internal/commands"
 	"github.com/Dankular/GameService/internal/commandstore"
 	"github.com/Dankular/GameService/internal/economy"
@@ -27,6 +30,13 @@ func main() {
 	}
 	defer repository.Close()
 	economyService := economy.Service{}
+	sessionSigningKey := os.Getenv("NAKAMA_SESSION_SIGNING_KEY")
+	if sessionSigningKey == "" {
+		slog.Error("NAKAMA_SESSION_SIGNING_KEY is required")
+		os.Exit(1)
+	}
+	issuer := os.Getenv("NAKAMA_SESSION_ISSUER")
+	audience := os.Getenv("NAKAMA_SESSION_AUDIENCE")
 	mux := http.NewServeMux()
 	mux.HandleFunc("GET /health/live", func(w http.ResponseWriter, _ *http.Request) { w.WriteHeader(http.StatusOK) })
 	mux.HandleFunc("GET /health/ready", func(w http.ResponseWriter, r *http.Request) {
@@ -53,6 +63,11 @@ func main() {
 			http.Error(w, "content type must be application/json", http.StatusUnsupportedMediaType)
 			return
 		}
+		claims, err := auth.VerifyNakamaSession(strings.TrimPrefix(r.Header.Get("Authorization"), "Bearer "), sessionSigningKey, issuer, audience, time.Now())
+		if err != nil {
+			http.Error(w, "authentication required", http.StatusUnauthorized)
+			return
+		}
 		body, err := io.ReadAll(io.LimitReader(r.Body, 1<<20+1))
 		if err != nil {
 			http.Error(w, "invalid request body", 400)
@@ -65,6 +80,10 @@ func main() {
 		e, err := commands.DecodeStrict(body)
 		if err != nil {
 			http.Error(w, err.Error(), http.StatusBadRequest)
+			return
+		}
+		if e.Actor.ID != claims.UserID {
+			http.Error(w, "actor does not match authenticated user", http.StatusForbidden)
 			return
 		}
 		result, duplicate, err := repository.SubmitWith(r.Context(), e, economyService.Handle)

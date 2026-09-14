@@ -18,6 +18,9 @@ services:
     environment:
       CONTROL_API_ADDR: :8080
       DATABASE_URL: postgres://gameservice:${POSTGRES_PASSWORD}@postgres:5432/gameservice?sslmode=disable
+      NAKAMA_SESSION_SIGNING_KEY: ${NAKAMA_SESSION_SIGNING_KEY:-${NAKAMA_SESSION_ENCRYPTION_KEY}}
+      NAKAMA_SESSION_ISSUER: ${NAKAMA_SESSION_ISSUER:-}
+      NAKAMA_SESSION_AUDIENCE: ${NAKAMA_SESSION_AUDIENCE:-}
     ports: ["8080:8080"]
     depends_on: { postgres: { condition: service_healthy } }
   turn:
