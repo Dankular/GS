@@ -32,3 +32,29 @@ func TestBackupScriptsSupportMandatoryAgeEncryptionAndRestore(t *testing.T) {
 		}
 	}
 }
+
+func TestBackupScheduleRequiresConfiguredEncryptedEnvironment(t *testing.T) {
+	service, err := os.ReadFile(filepath.Join("..", "deploy", "backup", "gameservice-postgres-backup.service"))
+	if err != nil {
+		t.Fatal(err)
+	}
+	unit := string(service)
+	for _, required := range []string{
+		"EnvironmentFile=/etc/gameservice/backup.env",
+		"Environment=GAMESERVICE_DIR=/opt/gameservice",
+		"ExecStart=/opt/gameservice/deploy/backup/backup-postgres.sh",
+		"ProtectSystem=full",
+		"ReadWritePaths=/var/backups/gameservice /run/docker.sock",
+	} {
+		if !strings.Contains(unit, required) {
+			t.Errorf("backup service missing %q", required)
+		}
+	}
+	timer, err := os.ReadFile(filepath.Join("..", "deploy", "backup", "gameservice-postgres-backup.timer"))
+	if err != nil {
+		t.Fatal(err)
+	}
+	if !strings.Contains(string(timer), "OnCalendar=*-*-* 00,06,12,18:00:00 UTC") || !strings.Contains(string(timer), "Persistent=true") {
+		t.Fatal("backup timer must be persistent and run on a six-hour UTC schedule")
+	}
+}

@@ -32,3 +32,28 @@ so the dump includes Nakama-owned public tables; this deployment-only credential
 must not be given to application containers. The current Compose PostgreSQL
 service is a development/single-host deployment and does not provide PITR or HA
 by itself.
+
+## Recurring VPS schedule
+
+Install the supplied hardened units on the Docker VPS after creating the
+recipient/identity through the approved secret-management process:
+
+```sh
+sudo install -d -m 700 /etc/gameservice /var/backups/gameservice
+sudo install -m 600 /path/to/backup.env /etc/gameservice/backup.env
+sudo install -m 644 deploy/backup/gameservice-postgres-backup.service /etc/systemd/system/
+sudo install -m 644 deploy/backup/gameservice-postgres-backup.timer /etc/systemd/system/
+sudo systemctl daemon-reload
+sudo systemctl enable --now gameservice-postgres-backup.timer
+sudo systemctl start gameservice-postgres-backup.service
+sudo systemctl status gameservice-postgres-backup.timer
+```
+
+`/etc/gameservice/backup.env` must include at least
+`GAMESERVICE_BACKUP_DIR=/var/backups/gameservice`,
+`GAMESERVICE_BACKUP_AGE_RECIPIENT`, and
+`GAMESERVICE_BACKUP_REQUIRE_ENCRYPTION=1`. Add
+`GAMESERVICE_BACKUP_S3_URI` and the AWS credential/role configuration only
+when the approved off-site bucket is available. The timer is intentionally not
+installed automatically: enabling it without a real recipient would be an
+unsafe false-success configuration.
