@@ -7,7 +7,9 @@ SBOM generation in `.github/workflows/ci.yml`.
 Production images remain digest-pinned in the Helm chart. The tag-triggered
 `.github/workflows/release.yml` builds the application images, publishes
 BuildKit SBOM/provenance, signs each immutable digest with GitHub OIDC through
-Cosign, and publishes a signed CycloneDX SBOM attestation. The workflow still
+Cosign, and publishes a signed CycloneDX SBOM attestation. This includes the
+`gameservice-server` dedicated-server image built from the simulator Dockerfile.
+The workflow still
 requires the repository's GHCR permissions and a real release tag; it does not
 claim that an image was released merely because CI passed.
 

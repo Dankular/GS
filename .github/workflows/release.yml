@@ -32,6 +32,8 @@ jobs:
             dockerfile: deploy/compose/matchmaking-worker.Dockerfile
           - name: reconciliation-worker
             dockerfile: deploy/compose/reconciliation-worker.Dockerfile
+          - name: server
+            dockerfile: deploy/compose/simulator-server.Dockerfile
 
     steps:
       - uses: actions/checkout@v4
